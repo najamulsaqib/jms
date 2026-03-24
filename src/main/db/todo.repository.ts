@@ -1,5 +1,9 @@
 type Database = any;
-import { type CreateTodoInput, type Todo } from '../../shared/todo.contracts';
+import {
+  type CreateTodoInput,
+  type Todo,
+  type UpdateTodoInput,
+} from '../../shared/todo.contracts';
 
 type TodoRow = {
   id: number;
@@ -51,5 +55,46 @@ export class TodoRepository {
     }
 
     return mapTodoRow(row);
+  }
+
+  getTodoById(id: number): Todo {
+    const row = this.db
+      .prepare(
+        'SELECT id, title, completed, created_at FROM todos WHERE id = ?',
+      )
+      .get(id) as TodoRow | undefined;
+
+    if (!row) {
+      throw new Error('Todo not found.');
+    }
+
+    return mapTodoRow(row);
+  }
+
+  updateTodo(id: number, input: UpdateTodoInput): Todo {
+    const title = input.title.trim();
+    if (!title) {
+      throw new Error('Title is required.');
+    }
+
+    const updateResult = this.db
+      .prepare('UPDATE todos SET title = ?, completed = ? WHERE id = ?')
+      .run(title, input.completed ? 1 : 0, id);
+
+    if (updateResult.changes === 0) {
+      throw new Error('Todo not found.');
+    }
+
+    return this.getTodoById(id);
+  }
+
+  deleteTodo(id: number): void {
+    const deleteResult = this.db
+      .prepare('DELETE FROM todos WHERE id = ?')
+      .run(id);
+
+    if (deleteResult.changes === 0) {
+      throw new Error('Todo not found.');
+    }
   }
 }

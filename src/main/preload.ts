@@ -5,6 +5,7 @@ import {
   type CreateTodoInput,
   TODO_CHANNELS,
   type Todo,
+  type UpdateTodoInput,
 } from '../shared/todo.contracts';
 
 export type Channels = 'ipc-example';
@@ -31,8 +32,17 @@ const electronHandler = {
     list(): Promise<Todo[]> {
       return ipcRenderer.invoke(TODO_CHANNELS.list);
     },
+    getById(id: number): Promise<Todo> {
+      return ipcRenderer.invoke(TODO_CHANNELS.getById, id);
+    },
     create(payload: CreateTodoInput): Promise<Todo> {
       return ipcRenderer.invoke(TODO_CHANNELS.create, payload);
+    },
+    update(id: number, payload: UpdateTodoInput): Promise<Todo> {
+      return ipcRenderer.invoke(TODO_CHANNELS.update, id, payload);
+    },
+    remove(id: number): Promise<void> {
+      return ipcRenderer.invoke(TODO_CHANNELS.remove, id);
     },
   },
 };

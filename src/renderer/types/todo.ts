@@ -1,1 +1,5 @@
-export type { CreateTodoInput, Todo } from '../../shared/todo.contracts';
+export type {
+  CreateTodoInput,
+  Todo,
+  UpdateTodoInput,
+} from '../../shared/todo.contracts';
