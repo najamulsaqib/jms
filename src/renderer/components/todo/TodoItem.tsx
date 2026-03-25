@@ -7,7 +7,7 @@ type TodoItemProps = {
 export default function TodoItem({ todo }: TodoItemProps) {
   return (
     <li className="todo-item">
-      <p>{todo.title}</p>
+      <p>{todo.name}</p>
       <small>Created {new Date(todo.createdAt).toLocaleString()}</small>
     </li>
   );

@@ -6,18 +6,39 @@ export const TODO_CHANNELS = {
   remove: 'todo:remove',
 } as const;
 
+export type TodoStatus = 'active' | 'inactive' | 'late-filer';
+
 export interface Todo {
   id: number;
-  title: string;
-  completed: boolean;
+  referenceNumber: string;
+  name: string;
+  cnic: string;
+  email: string;
+  password: string;
+  reference: string;
+  status: TodoStatus;
+  notes: string;
   createdAt: string;
 }
 
 export interface CreateTodoInput {
-  title: string;
+  referenceNumber: string;
+  name: string;
+  cnic: string;
+  email: string;
+  password: string;
+  reference: string;
+  status: TodoStatus;
+  notes: string;
 }
 
 export interface UpdateTodoInput {
-  title: string;
-  completed: boolean;
+  referenceNumber: string;
+  name: string;
+  cnic: string;
+  email: string;
+  password: string;
+  reference: string;
+  status: TodoStatus;
+  notes: string;
 }

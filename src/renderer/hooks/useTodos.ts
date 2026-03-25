@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { todoApi } from '../services/todo.api';
-import { type Todo, type UpdateTodoInput } from '../types/todo';
+import {
+  type CreateTodoInput,
+  type Todo,
+  type UpdateTodoInput,
+} from '../types/todo';
 
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -25,17 +29,17 @@ export function useTodos() {
     }
   }, []);
 
-  const addTodo = useCallback(async (title: string) => {
+  const addTodo = useCallback(async (payload: CreateTodoInput) => {
     setSubmitting(true);
     setError(null);
 
     try {
-      const newTodo = await todoApi.create({ title });
+      const newTodo = await todoApi.create(payload);
       setTodos((current) => [newTodo, ...current]);
       return true;
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to create todo.';
+        err instanceof Error ? err.message : 'Failed to create record.';
       setError(message);
       return false;
     } finally {

@@ -7,12 +7,16 @@ type SelectOption = {
 
 type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & {
   label: string;
+  hint?: string;
+  error?: string;
   options: SelectOption[];
 };
 
 export default function SelectField({
   id,
   label,
+  hint,
+  error,
   options,
   className,
   ...props
@@ -20,9 +24,12 @@ export default function SelectField({
   return (
     <label className="field-group" htmlFor={id}>
       <span className="field-label">{label}</span>
+      {hint ? <span className="field-hint">{hint}</span> : null}
       <select
         id={id}
-        className={['ui-select', className].filter(Boolean).join(' ')}
+        className={['ui-select', error ? 'has-error' : '', className]
+          .filter(Boolean)
+          .join(' ')}
         {...props}
       >
         {options.map((option) => (
@@ -31,6 +38,7 @@ export default function SelectField({
           </option>
         ))}
       </select>
+      {error ? <span className="field-error">{error}</span> : null}
     </label>
   );
 }

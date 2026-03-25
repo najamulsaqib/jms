@@ -5,22 +5,30 @@ import DataTable, {
   type SortState,
 } from '../components/table/DataTable';
 import Button from '../components/ui/Button';
-import SelectField from '../components/ui/SelectField';
+import ConfirmDialog from '../components/ui/ConfirmDialog';
 import TextField from '../components/ui/TextField';
 import { useTodos } from '../hooks/useTodos';
 import { type Todo } from '../types/todo';
-
-type TodoStatusFilter = 'all' | 'open' | 'done';
 
 function sortRows(rows: Todo[], sortState: SortState): Todo[] {
   const sorted = [...rows];
   sorted.sort((a, b) => {
     let comparison = 0;
 
-    if (sortState.key === 'title') {
-      comparison = a.title.localeCompare(b.title);
+    if (sortState.key === 'id') {
+      comparison = a.id - b.id;
+    } else if (sortState.key === 'referenceNumber') {
+      comparison = a.referenceNumber.localeCompare(b.referenceNumber);
+    } else if (sortState.key === 'name') {
+      comparison = a.name.localeCompare(b.name);
+    } else if (sortState.key === 'cnic') {
+      comparison = a.cnic.localeCompare(b.cnic);
+    } else if (sortState.key === 'email') {
+      comparison = a.email.localeCompare(b.email);
+    } else if (sortState.key === 'reference') {
+      comparison = a.reference.localeCompare(b.reference);
     } else if (sortState.key === 'status') {
-      comparison = Number(a.completed) - Number(b.completed);
+      comparison = a.status.localeCompare(b.status);
     } else {
       comparison =
         new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
@@ -36,34 +44,52 @@ export default function TodoPage() {
   const navigate = useNavigate();
   const { todos, loading, deletingId, error, deleteTodo } = useTodos();
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<TodoStatusFilter>('all');
   const [sortState, setSortState] = useState<SortState>({
-    key: 'createdAt',
-    direction: 'desc',
+    key: 'id',
+    direction: 'asc',
   });
+  const [pendingDeleteTodo, setPendingDeleteTodo] = useState<Todo | null>(null);
+
+  const requestDelete = (todo: Todo) => {
+    setPendingDeleteTodo(todo);
+  };
+
+  const cancelDelete = () => {
+    if (deletingId !== null) {
+      return;
+    }
+
+    setPendingDeleteTodo(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteTodo) {
+      return;
+    }
+
+    const deleted = await deleteTodo(pendingDeleteTodo.id);
+    if (deleted) {
+      setPendingDeleteTodo(null);
+    }
+  };
 
   const filtered = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
     return todos.filter((todo) => {
-      const matchesStatus =
-        statusFilter === 'all' ||
-        (statusFilter === 'open' && !todo.completed) ||
-        (statusFilter === 'done' && todo.completed);
-
-      if (!matchesStatus) {
-        return false;
-      }
-
       if (!normalizedSearch) {
         return true;
       }
 
       const searchableValues = [
+        todo.referenceNumber,
         todo.id,
-        todo.title,
-        todo.completed ? 'done' : 'open',
-        todo.completed ? 'completed' : 'not completed',
+        todo.name,
+        todo.cnic,
+        todo.email,
+        todo.reference,
+        todo.status,
+        todo.notes,
         todo.createdAt,
         new Date(todo.createdAt).toLocaleString(),
       ];
@@ -72,7 +98,7 @@ export default function TodoPage() {
         String(value).toLowerCase().includes(normalizedSearch),
       );
     });
-  }, [searchQuery, statusFilter, todos]);
+  }, [searchQuery, todos]);
 
   const sortedTodos = useMemo(
     () => sortRows(filtered, sortState),
@@ -81,21 +107,41 @@ export default function TodoPage() {
 
   const columns: DataTableColumn<Todo>[] = [
     {
-      id: 'title',
-      header: 'Title',
+      id: 'referenceNumber',
+      header: 'Reference #',
       sortable: true,
-      render: (todo) => <span className="todo-title-cell">{todo.title}</span>,
+      render: (todo) => <span className="todo-title-cell">{todo.referenceNumber}</span>,
+    },
+    {
+      id: 'name',
+      header: 'Name',
+      sortable: true,
+      render: (todo) => <span className="todo-title-cell">{todo.name}</span>,
+    },
+    {
+      id: 'cnic',
+      header: 'CNIC',
+      sortable: true,
+      render: (todo) => <span>{todo.cnic}</span>,
+    },
+    {
+      id: 'email',
+      header: 'Email',
+      sortable: true,
+      render: (todo) => <span>{todo.email}</span>,
+    },
+    {
+      id: 'reference',
+      header: 'Reference',
+      sortable: true,
+      render: (todo) => <span>{todo.reference}</span>,
     },
     {
       id: 'status',
       header: 'Status',
       sortable: true,
       align: 'center',
-      render: (todo) => (
-        <span className={todo.completed ? 'status-badge done' : 'status-badge open'}>
-          {todo.completed ? 'Done' : 'Open'}
-        </span>
-      ),
+      render: (todo) => <span>{todo.status}</span>,
     },
     {
       id: 'createdAt',
@@ -127,7 +173,7 @@ export default function TodoPage() {
             size="sm"
             type="button"
             busy={deletingId === todo.id}
-            onClick={() => deleteTodo(todo.id)}
+            onClick={() => requestDelete(todo)}
           >
             Delete
           </Button>
@@ -141,10 +187,12 @@ export default function TodoPage() {
       <section className="dashboard-card">
         <header className="dashboard-header">
           <div>
-            <p className="dashboard-eyebrow">Work Queue</p>
-            <h1>Task Dashboard</h1>
+            <p className="dashboard-eyebrow">
+              Dashboard
+            </p>
+            <h1>Tax Records</h1>
             <p className="todo-subtitle">
-              Professional view with sorting and reusable table actions.
+              Manage client tax records, including reference numbers, CNICs, contact details, and filing status. Add new entries or edit existing ones to keep your records up to date.
             </p>
           </div>
           <Button
@@ -162,20 +210,7 @@ export default function TodoPage() {
             label="Search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search all fields..."
-          />
-          <SelectField
-            id="status-filter"
-            label="Filter by status"
-            value={statusFilter}
-            onChange={(event) =>
-              setStatusFilter(event.target.value as TodoStatusFilter)
-            }
-            options={[
-              { label: 'All', value: 'all' },
-              { label: 'Open', value: 'open' },
-              { label: 'Done', value: 'done' },
-            ]}
+            placeholder="Search reference #, id, name, CNIC, email, notes..."
           />
         </div>
 
@@ -192,6 +227,24 @@ export default function TodoPage() {
             emptyMessage="No entries found. Add your first record."
           />
         )}
+
+        <ConfirmDialog
+          isOpen={pendingDeleteTodo !== null}
+          title="Delete this record?"
+          message={
+            pendingDeleteTodo
+              ? `This action cannot be undone. The record for ${pendingDeleteTodo.name} will be permanently deleted.`
+              : ''
+          }
+          cancelLabel="Keep record"
+          confirmLabel="Delete permanently"
+          confirmVariant="danger"
+          busy={
+            pendingDeleteTodo !== null && deletingId === pendingDeleteTodo.id
+          }
+          onCancel={cancelDelete}
+          onConfirm={confirmDelete}
+        />
       </section>
     </main>
   );
