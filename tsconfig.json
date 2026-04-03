@@ -13,7 +13,6 @@
     "allowJs": true,
     "rootDir": "src",
     "baseUrl": "src",
-    "ignoreDeprecations": "6.0",
     "outDir": ".erb/dll",
     "paths": {
       "@components/*": ["renderer/components/*"],

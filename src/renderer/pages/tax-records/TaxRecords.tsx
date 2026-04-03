@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
-import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/20/solid';
+import { PlusIcon, MagnifyingGlassIcon, CheckCircleIcon, PauseCircleIcon, ExclamationTriangleIcon } from '@heroicons/react/20/solid';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import AppLayout from '@components/layout/AppLayout';
 import DataTable, {
@@ -8,13 +8,13 @@ import DataTable, {
   type SortState,
 } from '@components/table/DataTable';
 import Button from '@components/ui/Button';
-import Badge from '@components/ui/Badge';
 import Card from '@components/ui/Card';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import EmptyState from '@components/common/EmptyState';
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import { useTaxRecords } from '@hooks/useTaxRecords';
 import { TaxRecord } from '@shared/taxRecord.contracts';
+import { Chip } from '@components/ui/Chip';
 
 function sortRows(rows: TaxRecord[], sortState: SortState): TaxRecord[] {
   const sorted = [...rows];
@@ -46,27 +46,17 @@ function sortRows(rows: TaxRecord[], sortState: SortState): TaxRecord[] {
   return sorted;
 }
 
-function getStatusVariant(
-  status: string,
-): 'success' | 'warning' | 'danger' | 'info' | 'default' {
-  const lower = status.toLowerCase();
-  if (lower.includes('completed') || lower.includes('done')) return 'success';
-  if (lower.includes('pending') || lower.includes('in progress'))
-    return 'warning';
-  if (lower.includes('rejected') || lower.includes('failed')) return 'danger';
-  if (lower.includes('review')) return 'info';
-  return 'default';
-}
-
 export default function TaxRecordsPage() {
   const navigate = useNavigate();
-  const { taxRecords, loading, deletingId, error, deleteTaxRecord } = useTaxRecords();
+  const { taxRecords, loading, deletingId, error, deleteTaxRecord } =
+    useTaxRecords();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortState, setSortState] = useState<SortState>({
     key: 'id',
     direction: 'asc',
   });
-  const [pendingDeleteRecord, setPendingDeleteRecord] = useState<TaxRecord | null>(null);
+  const [pendingDeleteRecord, setPendingDeleteRecord] =
+    useState<TaxRecord | null>(null);
 
   const requestDelete = (record: TaxRecord) => {
     setPendingDeleteRecord(record);
@@ -151,13 +141,17 @@ export default function TaxRecordsPage() {
       id: 'email',
       header: 'Email',
       sortable: true,
-      render: (record) => <span className="text-slate-600">{record.email}</span>,
+      render: (record) => (
+        <span className="text-slate-600">{record.email}</span>
+      ),
     },
     {
       id: 'reference',
       header: 'Reference',
       sortable: true,
-      render: (record) => <span className="text-slate-600">{record.reference}</span>,
+      render: (record) => (
+        <span className="text-slate-600">{record.reference}</span>
+      ),
     },
     {
       id: 'status',
@@ -165,7 +159,17 @@ export default function TaxRecordsPage() {
       sortable: true,
       align: 'center',
       render: (record) => (
-        <Badge variant={getStatusVariant(record.status)}>{record.status}</Badge>
+        <Chip
+          variant={
+            {
+              active: 'green',
+              inactive: 'red',
+              'late-filer': 'orange',
+            }[record.status] || ('slate' as any)
+          }
+        >
+          {record.status}
+        </Chip>
       ),
     },
     {
@@ -180,19 +184,22 @@ export default function TaxRecordsPage() {
       ),
     },
     {
+      id: 'updatedAt',
+      header: 'Updated',
+      sortable: true,
+      align: 'right',
+      render: (record) => (
+        <span className="text-sm text-slate-500">
+          {new Date(record.updatedAt).toLocaleDateString()}
+        </span>
+      ),
+    },
+    {
       id: 'actions',
       header: 'Actions',
       align: 'right',
       render: (record) => (
         <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            type="button"
-            onClick={() => navigate(`/tax-records/${record.id}/edit`)}
-          >
-            Edit
-          </Button>
           <Button
             variant="danger"
             size="sm"
@@ -220,8 +227,8 @@ export default function TaxRecordsPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Tax Records</h1>
             <p className="mt-2 text-slate-600">
-              Manage client tax records, including reference numbers, CNICs, contact
-              details, and filing status.
+              Manage client tax records, including reference numbers, CNICs,
+              contact details, and filing status.
             </p>
           </div>
           <Button
@@ -232,6 +239,71 @@ export default function TaxRecordsPage() {
             <PlusIcon className="h-5 w-5 mr-2" />
             Add New Entry
           </Button>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+          <h2 className="text-xl font-bold text-slate-900 mb-6">
+            Filers Overview
+          </h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+            {/* Active Filers Card */}
+            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Active Filers</p>
+                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
+                    {taxRecords.filter(t => t.status === 'active').length}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Currently active clients
+                  </p>
+                </div>
+                <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CheckCircleIcon className="w-7 h-7 text-green-600" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 right-0 w-24 h-24 bg-green-50 rounded-tl-full -mr-8 -mb-8"></div>
+            </div>
+
+            {/* Inactive Filers Card */}
+            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-slate-400 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Inactive Filers</p>
+                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
+                    {taxRecords.filter(t => t.status === 'inactive').length}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    No longer filing
+                  </p>
+                </div>
+                <div className="flex-shrink-0 w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                  <PauseCircleIcon className="w-7 h-7 text-slate-600" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 right-0 w-24 h-24 bg-slate-50 rounded-tl-full -mr-8 -mb-8"></div>
+            </div>
+
+            {/* Late Filers Card */}
+            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">Late Filers</p>
+                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
+                    {taxRecords.filter(t => t.status === 'late-filer').length}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Require attention
+                  </p>
+                </div>
+                <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                  <ExclamationTriangleIcon className="w-7 h-7 text-red-600" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 right-0 w-24 h-24 bg-red-50 rounded-tl-full -mr-8 -mb-8"></div>
+            </div>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -261,7 +333,9 @@ export default function TaxRecordsPage() {
         {loading && (
           <Card>
             <LoadingSpinner className="py-12" size="lg" />
-            <p className="text-center text-slate-600 mt-4">Loading records...</p>
+            <p className="text-center text-slate-600 mt-4">
+              Loading records...
+            </p>
           </Card>
         )}
 
@@ -295,6 +369,7 @@ export default function TaxRecordsPage() {
               getRowId={(row) => row.id}
               sortState={sortState}
               onSortChange={setSortState}
+              onRowClick={(row) => navigate(`/tax-records/${row.id}`)}
               emptyMessage="No entries found"
             />
           </Card>
@@ -313,7 +388,8 @@ export default function TaxRecordsPage() {
           confirmLabel="Delete permanently"
           confirmVariant="danger"
           busy={
-            pendingDeleteRecord !== null && deletingId === pendingDeleteRecord.id
+            pendingDeleteRecord !== null &&
+            deletingId === pendingDeleteRecord.id
           }
           onCancel={cancelDelete}
           onConfirm={confirmDelete}

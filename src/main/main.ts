@@ -9,7 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -22,11 +22,124 @@ class AppUpdater {
   constructor() {
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
-    autoUpdater.checkForUpdatesAndNotify();
+
+    // Configure auto-updater
+    autoUpdater.autoDownload = false; // Don't auto-download, ask user first
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    // Check for updates on startup (only in production)
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates();
+    }
+
+    // When update is available
+    autoUpdater.on('update-available', (info) => {
+      log.info('Update available:', info);
+      dialog
+        .showMessageBox({
+          type: 'info',
+          title: 'Update Available',
+          message: `A new version ${info.version} is available!`,
+          detail: `Current version: ${app.getVersion()}\nNew version: ${info.version}\n\nWould you like to download it now?`,
+          buttons: ['Download', 'Later'],
+          defaultId: 0,
+          cancelId: 1,
+        })
+        .then((result) => {
+          if (result.response === 0) {
+            autoUpdater.downloadUpdate();
+            dialog.showMessageBox({
+              type: 'info',
+              title: 'Downloading Update',
+              message: 'Downloading update in the background...',
+              detail: 'You will be notified when the download is complete.',
+              buttons: ['OK'],
+            });
+          }
+          return result;
+        })
+        .catch((err) => {
+          log.error('Error showing update dialog:', err);
+        });
+    });
+
+    // When update is not available
+    autoUpdater.on('update-not-available', (info) => {
+      log.info('Update not available:', info);
+    });
+
+    // When update is downloaded
+    autoUpdater.on('update-downloaded', (info) => {
+      log.info('Update downloaded:', info);
+      dialog
+        .showMessageBox({
+          type: 'info',
+          title: 'Update Ready',
+          message: 'Update downloaded successfully!',
+          detail: `Version ${info.version} has been downloaded and is ready to install.\n\nThe application will restart to apply the update.`,
+          buttons: ['Restart Now', 'Later'],
+          defaultId: 0,
+          cancelId: 1,
+        })
+        .then((result) => {
+          if (result.response === 0) {
+            autoUpdater.quitAndInstall(false, true);
+          }
+          return result;
+        })
+        .catch((err) => {
+          log.error('Error showing update ready dialog:', err);
+        });
+    });
+
+    // Handle errors
+    autoUpdater.on('error', (error) => {
+      log.error('Update error:', error);
+      dialog.showMessageBox({
+        type: 'error',
+        title: 'Update Error',
+        message: 'Failed to check for updates',
+        detail: error.message,
+        buttons: ['OK'],
+      });
+    });
+
+    // Download progress
+    autoUpdater.on('download-progress', (progressObj) => {
+      const message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`;
+      log.info(message);
+    });
+  }
+
+  // Manual check for updates
+  checkForUpdates() {
+    if (app.isPackaged) {
+      autoUpdater.checkForUpdates();
+    } else {
+      dialog.showMessageBox({
+        type: 'info',
+        title: 'Development Mode',
+        message: 'Auto-update is only available in production builds.',
+        buttons: ['OK'],
+      });
+    }
   }
 }
 
 let mainWindow: BrowserWindow | null = null;
+let appUpdater: AppUpdater | null = null;
+
+// Export function to check for updates
+export function checkForUpdates() {
+  if (appUpdater) {
+    appUpdater.checkForUpdates();
+  }
+}
+
+// IPC handler for manual update check
+ipcMain.on('check-for-updates', () => {
+  checkForUpdates();
+});
 
 ipcMain.on('ipc-example', async (event, arg) => {
   const msgTemplate = (pingPong: string) => `IPC test: ${pingPong}`;
@@ -76,6 +189,7 @@ const createWindow = async () => {
     show: false,
     width: 1024,
     height: 728,
+    title: 'JMS Tax',
     icon: getAssetPath('icon.png'),
     webPreferences: {
       preload: app.isPackaged
@@ -112,7 +226,7 @@ const createWindow = async () => {
 
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line
-  new AppUpdater();
+  appUpdater = new AppUpdater();
 };
 
 /**

@@ -4,6 +4,7 @@ import {
   DocumentTextIcon,
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
+import logo from '../../../../assets/logo.png';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -18,9 +19,11 @@ export default function Sidebar() {
       {/* Logo/Brand */}
       <div className="flex items-center h-16 px-6 border-b border-slate-200">
         <div className="flex items-center">
-          <div className="w-8 h-8 bg-linear-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">JMS</span>
-          </div>
+          <img
+            src={logo}
+            alt="JMS Tax Consultancy"
+            className="w-16 h-16 object-contain"
+          />
           <span className="ml-3 text-lg font-semibold text-slate-900">
             JMS Tax
           </span>

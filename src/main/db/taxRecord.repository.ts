@@ -18,6 +18,7 @@ type TaxRecordRow = {
   status: TaxRecordStatus;
   notes: string;
   created_at: string;
+  updated_at: string;
 };
 
 function mapTaxRecordRow(row: TaxRecordRow): TaxRecord {
@@ -32,6 +33,7 @@ function mapTaxRecordRow(row: TaxRecordRow): TaxRecord {
     status: row.status,
     notes: row.notes,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
@@ -117,7 +119,7 @@ export class TaxRecordRepository {
   listTaxRecords(): TaxRecord[] {
     const rows = this.db
       .prepare(
-        'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at FROM todos ORDER BY id DESC',
+        'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at, updated_at FROM todos ORDER BY id DESC',
       )
       .all() as TaxRecordRow[];
 
@@ -168,7 +170,7 @@ export class TaxRecordRepository {
 
     const row = this.db
       .prepare(
-        'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at FROM todos WHERE id = ?',
+        'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at, updated_at FROM todos WHERE id = ?',
       )
       .get(insertResult.lastInsertRowid) as TaxRecordRow | undefined;
 
@@ -182,7 +184,7 @@ export class TaxRecordRepository {
   getTaxRecordById(id: number): TaxRecord {
     const row = this.db
       .prepare(
-        'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at FROM todos WHERE id = ?',
+        'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at, updated_at FROM todos WHERE id = ?',
       )
       .get(id) as TaxRecordRow | undefined;
 
@@ -202,7 +204,7 @@ export class TaxRecordRepository {
       if (this.hasLegacyTitleColumn) {
         updateResult = this.db
           .prepare(
-            'UPDATE todos SET reference_number = ?, name = ?, title = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ? WHERE id = ?',
+            'UPDATE todos SET reference_number = ?, name = ?, title = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ?, updated_at = datetime(\'now\') WHERE id = ?',
           )
           .run(
             sanitizedInput.referenceNumber,
@@ -219,7 +221,7 @@ export class TaxRecordRepository {
       } else {
         updateResult = this.db
           .prepare(
-            'UPDATE todos SET reference_number = ?, name = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ? WHERE id = ?',
+            'UPDATE todos SET reference_number = ?, name = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ?, updated_at = datetime(\'now\') WHERE id = ?',
           )
           .run(
             sanitizedInput.referenceNumber,

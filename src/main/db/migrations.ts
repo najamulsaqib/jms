@@ -12,7 +12,8 @@ export function runMigrations(db: Database): void {
       reference_name TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'active',
       notes TEXT NOT NULL DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
 
@@ -53,7 +54,12 @@ export function runMigrations(db: Database): void {
   }
   if (!columnNames.has('created_at')) {
     db.exec(
-      "ALTER TABLE todos ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'));",
+      "ALTER TABLE todos ADD COLUMN created_at TEXT NOT NULL DEFAULT '';",
+    );
+  }
+  if (!columnNames.has('updated_at')) {
+    db.exec(
+      "ALTER TABLE todos ADD COLUMN updated_at TEXT NOT NULL DEFAULT '';",
     );
   }
 
@@ -96,6 +102,10 @@ export function runMigrations(db: Database): void {
       created_at = CASE
         WHEN trim(coalesce(created_at, '')) = '' THEN datetime('now')
         ELSE created_at
+      END,
+      updated_at = CASE
+        WHEN trim(coalesce(updated_at, '')) = '' THEN datetime('now')
+        ELSE updated_at
       END;
   `);
 

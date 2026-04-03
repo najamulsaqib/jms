@@ -24,6 +24,7 @@ type DataTableProps<T> = {
   emptyMessage?: string;
   sortState?: SortState;
   onSortChange?: (nextSort: SortState) => void;
+  onRowClick?: (row: T) => void;
 };
 
 const alignClasses = {
@@ -39,6 +40,7 @@ export default function DataTable<T>({
   emptyMessage = 'No records available.',
   sortState,
   onSortChange,
+  onRowClick,
 }: DataTableProps<T>) {
   const handleSort = (columnId: string, sortable?: boolean) => {
     if (!sortable || !onSortChange) {
@@ -100,7 +102,8 @@ export default function DataTable<T>({
             rows.map((row) => (
               <tr
                 key={getRowId(row)}
-                className="hover:bg-slate-50 transition-colors"
+                className={`hover:bg-slate-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
               >
                 {columns.map((column) => {
                   const align = column.align || 'left';
@@ -108,6 +111,7 @@ export default function DataTable<T>({
                     <td
                       key={`${getRowId(row)}-${column.id}`}
                       className={`px-6 py-4 whitespace-nowrap text-sm ${alignClasses[align]} ${column.className || ''}`}
+                      onClick={column.id === 'actions' ? (e) => e.stopPropagation() : undefined}
                     >
                       {column.render(row)}
                     </td>

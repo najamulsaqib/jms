@@ -29,7 +29,7 @@ export default function Dashboard() {
               icon={DocumentTextIcon}
               href="/tax-records"
               stats={{
-                label: 'Total Records',
+                label: 'Total Clients',
                 value: taxRecords.length,
               }}
               color="blue"
@@ -59,33 +59,6 @@ export default function Dashboard() {
                   Additional tax services will be added here
                 </p>
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">
-            Quick Overview
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="bg-linear-to-br from-blue-50 to-blue-100/50 rounded-lg p-4">
-              <p className="text-sm font-medium text-blue-900">Tax Records</p>
-              <p className="mt-2 text-3xl font-bold text-blue-600">
-                {taxRecords.length}
-              </p>
-            </div>
-            <div className="bg-linear-to-br from-green-50 to-green-100/50 rounded-lg p-4">
-              <p className="text-sm font-medium text-green-900">Active Clients</p>
-              <p className="mt-2 text-3xl font-bold text-green-600">
-                {taxRecords.filter(t => t.status !== 'active').length}
-              </p>
-            </div>
-            <div className="bg-linear-to-br from-purple-50 to-purple-100/50 rounded-lg p-4">
-              <p className="text-sm font-medium text-purple-900">Completed</p>
-              <p className="mt-2 text-3xl font-bold text-purple-600">
-                {taxRecords.filter(t => t.status === 'active').length}
-              </p>
             </div>
           </div>
         </div>

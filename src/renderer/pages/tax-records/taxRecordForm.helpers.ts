@@ -207,8 +207,8 @@ export const createHandleSubmit = ({
           status: formValues.status,
           notes: formValues.notes,
         });
-        navigate(`/tax-records/${created.id}/edit`, { replace: true });
-        setSuccess('Entry created. You are now editing this record.');
+        navigate(`/tax-records/${created.id}`, { replace: true });
+        setSuccess('Entry created successfully.');
       }
     } catch (err) {
       const message =

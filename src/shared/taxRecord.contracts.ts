@@ -19,6 +19,7 @@ export interface TaxRecord {
   status: TaxRecordStatus;
   notes: string;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface CreateTaxRecordInput {

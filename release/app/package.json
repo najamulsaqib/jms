@@ -1,12 +1,12 @@
 {
-  "name": "electron-react-boilerplate",
-  "version": "4.6.0",
-  "description": "A foundation for scalable desktop apps",
+  "name": "jms-tax",
+  "version": "0.0.1",
+  "description": "JMS Tax Consultancy is a desktop application built with Electron and React, designed to help tax consultants manage their clients and tax-related tasks efficiently.",
   "license": "MIT",
   "author": {
-    "name": "Electron React Boilerplate Maintainers",
-    "email": "electronreactboilerplate@gmail.com",
-    "url": "https://github.com/electron-react-boilerplate"
+    "name": "Najam UL Saqib",
+    "email": "1najamulsaqib@gmail.com",
+    "url": "https://najamulsaqib.me"
   },
   "main": "./dist/main/main.js",
   "scripts": {

@@ -1,22 +1,23 @@
-# JMS Tax Todo (Electron + React + SQLite)
+# JMS Tax App (Electron + React + SQLite)
 
-A desktop todo app built with Electron React Boilerplate, using `better-sqlite3` to store todos locally in SQLite.
+A desktop tax record management app built with Electron React Boilerplate, using `better-sqlite3` to store client tax records locally in SQLite.
 
-## What Is Implemented
+## Features
 
-- Local SQLite database in Electron main process
-- IPC handlers for todo operations
-- Safe renderer-to-main bridge through preload
-- Basic todo flow:
-  - Create todo
-  - List todos
+- Local SQLite database managed in the Electron main process
+- Full CRUD for client tax records (create, view, edit, delete)
+- Dashboard with filer stats (active, inactive, late-filer)
+- Sortable and searchable records table
+- Status tracking: `active`, `inactive`, `late-filer`
+- Safe renderer-to-main bridge via preload/IPC
+- Confirm dialog for destructive actions
 
 ## Local Data Storage
 
 The database file is created automatically in Electron's `userData` path:
 
-- Database file name: `todos.sqlite3`
-- Table: `todos`
+- Database file name: `tax-records.sqlite3`
+- Table: `tax_records`
 
 ## Scripts
 
@@ -26,7 +27,7 @@ npm run build
 npm run test
 ```
 
-## Folder Structure (Option 1)
+## Folder Structure
 
 ```text
 src/
@@ -34,9 +35,9 @@ src/
     db/
       client.ts
       migrations.ts
-      todo.repository.ts
+      taxRecord.repository.ts
     ipc/
-      todo.handlers.ts
+      taxRecord.handlers.ts
     main.ts
     menu.ts
     preload.ts
@@ -44,34 +45,54 @@ src/
 
   renderer/
     components/
-      todo/
-        TodoForm.tsx
-        TodoItem.tsx
-        TodoList.tsx
+      common/
+        EmptyState.tsx
+        LoadingSpinner.tsx
+      layout/
+        AppLayout.tsx
+        Sidebar.tsx
+      table/
+        DataTable.tsx
+      ui/
+        Badge.tsx
+        Button.tsx
+        Card.tsx
+        Chip.tsx
+        ConfirmDialog.tsx
     pages/
-      TodoPage.tsx
+      dashboard/
+        Dashboard.tsx
+      tax-records/
+        TaxRecords.tsx
+        TaxRecordDetail.tsx
+        TaxRecordForm.tsx
+        taxRecordForm.helpers.ts
     hooks/
-      useTodos.ts
-    services/
-      todo.api.ts
-    types/
-      todo.ts
-    App.css
+      useTaxRecords.ts
     App.tsx
-    index.ejs
+    styles.css
     index.tsx
-    preload.d.ts
 
   shared/
-    todo.contracts.ts
+    taxRecord.contracts.ts
 ```
+
+## Routes
+
+| Path | Page |
+|---|---|
+| `/` | Dashboard |
+| `/tax-records` | Tax Records list |
+| `/tax-records/new` | Create new record |
+| `/tax-records/:id` | Record detail view |
+| `/tax-records/:id/edit` | Edit record |
 
 ## Data Flow
 
-1. Renderer calls `window.electron.todo.*` methods.
+1. Renderer calls `window.electron.taxRecord.*` methods.
 2. Preload forwards calls via `ipcRenderer.invoke`.
-3. Main process handles IPC in `src/main/ipc/todo.handlers.ts`.
-4. Repository in `src/main/db/todo.repository.ts` reads/writes SQLite.
+3. Main process handles IPC in `src/main/ipc/taxRecord.handlers.ts`.
+4. Repository in `src/main/db/taxRecord.repository.ts` reads/writes SQLite.
 5. Renderer updates UI from API responses.
 
 ## Notes
