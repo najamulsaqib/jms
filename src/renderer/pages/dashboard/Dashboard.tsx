@@ -7,7 +7,7 @@ export default function Dashboard() {
   const { taxRecords } = useTaxRecords();
 
   return (
-    <AppLayout breadcrumbs={[{ label: 'Dashboard', href: '/' }]}>
+    <AppLayout breadcrumbs={[{ label: 'Dashboard' }]}>
       <div className="space-y-8">
         {/* Welcome Section */}
         <div>
