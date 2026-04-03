@@ -2,11 +2,11 @@
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 import {
-  type CreateTodoInput,
-  TODO_CHANNELS,
-  type Todo,
-  type UpdateTodoInput,
-} from '../shared/todo.contracts';
+  type CreateTaxRecordInput,
+  TAX_RECORD_CHANNELS,
+  type TaxRecord,
+  type UpdateTaxRecordInput,
+} from '../shared/taxRecord.contracts';
 
 export type Channels = 'ipc-example';
 
@@ -28,21 +28,21 @@ const electronHandler = {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
   },
-  todo: {
-    list(): Promise<Todo[]> {
-      return ipcRenderer.invoke(TODO_CHANNELS.list);
+  taxRecord: {
+    list(): Promise<TaxRecord[]> {
+      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.list);
     },
-    getById(id: number): Promise<Todo> {
-      return ipcRenderer.invoke(TODO_CHANNELS.getById, id);
+    getById(id: number): Promise<TaxRecord> {
+      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.getById, id);
     },
-    create(payload: CreateTodoInput): Promise<Todo> {
-      return ipcRenderer.invoke(TODO_CHANNELS.create, payload);
+    create(payload: CreateTaxRecordInput): Promise<TaxRecord> {
+      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.create, payload);
     },
-    update(id: number, payload: UpdateTodoInput): Promise<Todo> {
-      return ipcRenderer.invoke(TODO_CHANNELS.update, id, payload);
+    update(id: number, payload: UpdateTaxRecordInput): Promise<TaxRecord> {
+      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.update, id, payload);
     },
     remove(id: number): Promise<void> {
-      return ipcRenderer.invoke(TODO_CHANNELS.remove, id);
+      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.remove, id);
     },
   },
 };

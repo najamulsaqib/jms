@@ -1,14 +1,14 @@
-export const TODO_CHANNELS = {
-  list: 'todo:list',
-  getById: 'todo:getById',
-  create: 'todo:create',
-  update: 'todo:update',
-  remove: 'todo:remove',
+export const TAX_RECORD_CHANNELS = {
+  list: 'taxRecord:list',
+  getById: 'taxRecord:getById',
+  create: 'taxRecord:create',
+  update: 'taxRecord:update',
+  remove: 'taxRecord:remove',
 } as const;
 
-export type TodoStatus = 'active' | 'inactive' | 'late-filer';
+export type TaxRecordStatus = 'active' | 'inactive' | 'late-filer';
 
-export interface Todo {
+export interface TaxRecord {
   id: number;
   referenceNumber: string;
   name: string;
@@ -16,29 +16,29 @@ export interface Todo {
   email: string;
   password: string;
   reference: string;
-  status: TodoStatus;
+  status: TaxRecordStatus;
   notes: string;
   createdAt: string;
 }
 
-export interface CreateTodoInput {
+export interface CreateTaxRecordInput {
   referenceNumber: string;
   name: string;
   cnic: string;
   email: string;
   password: string;
   reference: string;
-  status: TodoStatus;
+  status: TaxRecordStatus;
   notes: string;
 }
 
-export interface UpdateTodoInput {
+export interface UpdateTaxRecordInput {
   referenceNumber: string;
   name: string;
   cnic: string;
   email: string;
   password: string;
   reference: string;
-  status: TodoStatus;
+  status: TaxRecordStatus;
   notes: string;
 }

@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -25,6 +26,12 @@ type DataTableProps<T> = {
   onSortChange?: (nextSort: SortState) => void;
 };
 
+const alignClasses = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
+};
+
 export default function DataTable<T>({
   columns,
   rows,
@@ -46,69 +53,74 @@ export default function DataTable<T>({
   };
 
   return (
-    <div className="table-shell">
-      <table className="data-table">
-        <thead>
+    <div className="overflow-x-auto">
+      <table className="min-w-full divide-y divide-slate-200">
+        <thead className="bg-slate-50">
           <tr>
             {columns.map((column) => {
               const isSorted = sortState?.key === column.id;
+              const align = column.align || 'left';
 
               return (
                 <th
                   key={column.id}
-                  className={[
-                    column.className,
-                    column.sortable ? 'is-sortable' : '',
-                    column.align ? `is-${column.align}` : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
+                  scope="col"
+                  className={`px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider ${alignClasses[align]} ${column.className || ''}`}
                 >
-                  <button
-                    type="button"
-                    className="table-head-button"
-                    onClick={() => handleSort(column.id, column.sortable)}
-                    disabled={!column.sortable}
-                  >
-                    {column.header}
-                    {column.sortable ? (
-                      <span
-                        className={
-                          isSorted ? 'sort-indicator active' : 'sort-indicator'
-                        }
-                      >
-                        {isSorted && sortState?.direction === 'asc' ? '↑' : '↓'}
+                  {column.sortable ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSort(column.id, column.sortable)}
+                      className="group inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                    >
+                      {column.header}
+                      <span className="flex-none">
+                        {isSorted ? (
+                          sortState?.direction === 'asc' ? (
+                            <ChevronUpIcon className="h-4 w-4 text-blue-600" />
+                          ) : (
+                            <ChevronDownIcon className="h-4 w-4 text-blue-600" />
+                          )
+                        ) : (
+                          <ChevronUpIcon className="h-4 w-4 text-slate-300 group-hover:text-slate-400" />
+                        )}
                       </span>
-                    ) : null}
-                  </button>
+                    </button>
+                  ) : (
+                    column.header
+                  )}
                 </th>
               );
             })}
           </tr>
         </thead>
 
-        <tbody>
+        <tbody className="bg-white divide-y divide-slate-200">
           {rows.length ? (
             rows.map((row) => (
-              <tr key={getRowId(row)}>
-                {columns.map((column) => (
-                  <td
-                    key={`${getRowId(row)}-${column.id}`}
-                    className={[
-                      column.className,
-                      column.align ? `is-${column.align}` : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    {column.render(row)}
-                  </td>
-                ))}
+              <tr
+                key={getRowId(row)}
+                className="hover:bg-slate-50 transition-colors"
+              >
+                {columns.map((column) => {
+                  const align = column.align || 'left';
+                  return (
+                    <td
+                      key={`${getRowId(row)}-${column.id}`}
+                      className={`px-6 py-4 whitespace-nowrap text-sm ${alignClasses[align]} ${column.className || ''}`}
+                    >
+                      {column.render(row)}
+                    </td>
+                  );
+                })}
               </tr>
             ))
           ) : (
             <tr>
-              <td className="table-empty" colSpan={columns.length}>
+              <td
+                colSpan={columns.length}
+                className="px-6 py-12 text-center text-sm text-slate-500"
+              >
                 {emptyMessage}
               </td>
             </tr>
@@ -118,9 +130,3 @@ export default function DataTable<T>({
     </div>
   );
 }
-
-DataTable.defaultProps = {
-  emptyMessage: 'No records available.',
-  sortState: undefined,
-  onSortChange: undefined,
-};

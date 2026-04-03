@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import Button from './Button';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import Button from '@components/ui/Button';
 
 type ConfirmDialogProps = {
   isOpen: boolean;
@@ -19,57 +20,55 @@ export default function ConfirmDialog({
   title,
   message,
   confirmLabel,
-  cancelLabel,
-  confirmVariant,
-  busy,
+  cancelLabel = 'Cancel',
+  confirmVariant = 'primary',
+  busy = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  if (!isOpen) {
-    return null;
-  }
+  return (
+    <Dialog open={isOpen} onClose={onCancel} className="relative z-50">
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
 
-  const dialog = (
-    <div
-      className="modal-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
-    >
-      <div className="modal-content">
-        <h2 id="confirm-dialog-title">{title}</h2>
-        <p>{message}</p>
-        <div className="form-actions">
-          <Button
-            variant="secondary"
-            type="button"
-            onClick={onCancel}
-            disabled={Boolean(busy)}
-          >
-            {cancelLabel}
-          </Button>
-          <Button
-            variant={confirmVariant}
-            type="button"
-            busy={busy}
-            onClick={onConfirm}
-          >
-            {confirmLabel}
-          </Button>
-        </div>
+      {/* Full-screen container */}
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <DialogPanel className="mx-auto max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <div className="flex items-start">
+            <div className="shrink-0">
+              <ExclamationTriangleIcon
+                className="h-6 w-6 text-red-600"
+                aria-hidden="true"
+              />
+            </div>
+            <div className="ml-3 flex-1">
+              <DialogTitle className="text-lg font-semibold text-slate-900">
+                {title}
+              </DialogTitle>
+              <div className="mt-2 text-sm text-slate-600">{message}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3 justify-end">
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={onCancel}
+              disabled={Boolean(busy)}
+            >
+              {cancelLabel}
+            </Button>
+            <Button
+              variant={confirmVariant}
+              type="button"
+              busy={busy}
+              onClick={onConfirm}
+            >
+              {confirmLabel}
+            </Button>
+          </div>
+        </DialogPanel>
       </div>
-    </div>
+    </Dialog>
   );
-
-  if (typeof document === 'undefined') {
-    return dialog;
-  }
-
-  return createPortal(dialog, document.body);
 }
-
-ConfirmDialog.defaultProps = {
-  cancelLabel: 'Cancel',
-  confirmVariant: 'primary',
-  busy: false,
-};

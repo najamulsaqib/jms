@@ -1,20 +1,11 @@
-import { ChangeEvent, Dispatch, FormEvent, SetStateAction } from 'react';
+import { ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { type NavigateFunction } from 'react-router-dom';
-import { todoApi } from '../services/todo.api';
-import { type TodoStatus } from '../types/todo';
+import { taxRecordApi } from '@services/taxRecord.api';
+import { type TaxRecordStatus } from '@shared/taxRecord.contracts';
 
 export const CUSTOM_REFERENCE_VALUE = '__custom_reference__';
 
-export type FieldErrors = {
-  referenceNumber?: string;
-  name?: string;
-  cnic?: string;
-  email?: string;
-  password?: string;
-  reference?: string;
-  customReference?: string;
-  status?: string;
-};
+export type FieldErrors = Record<string, string | undefined>;
 
 export type FormValues = {
   referenceNumber: string;
@@ -24,7 +15,7 @@ export type FormValues = {
   password: string;
   selectedReference: string;
   customReference: string;
-  status: TodoStatus;
+  status: TaxRecordStatus;
   notes: string;
 };
 
@@ -34,7 +25,7 @@ export const EMPTY_FORM_VALUES: FormValues = {
   cnic: '',
   email: '',
   password: '',
-  selectedReference: '',
+  selectedReference: 'self',
   customReference: '',
   status: 'active',
   notes: '',
@@ -69,13 +60,6 @@ export const createHandleChange = ({
       name === 'cnic' ? value.replace(/\D/g, '').slice(0, 13) : value;
 
     setFormValues((current) => {
-      if (name === 'status') {
-        return {
-          ...current,
-          status: nextValue as TodoStatus,
-        };
-      }
-
       return {
         ...current,
         [name]: nextValue,
@@ -133,7 +117,7 @@ export const createHandleSubmit = ({
   setSaving,
   setInitialFormValues,
 }: HandleSubmitOptions) => {
-  return async (event: FormEvent<HTMLFormElement>) => {
+  return async (event: any) => {
     event.preventDefault();
 
     const nextFieldErrors: FieldErrors = {};
@@ -200,7 +184,7 @@ export const createHandleSubmit = ({
 
     try {
       if (isEditMode && parsedId !== null) {
-        await todoApi.update(parsedId, {
+        await taxRecordApi.update(parsedId, {
           referenceNumber: formValues.referenceNumber,
           name: formValues.name,
           cnic: formValues.cnic,
@@ -213,7 +197,7 @@ export const createHandleSubmit = ({
         setInitialFormValues(formValues);
         setSuccess('Entry updated successfully.');
       } else {
-        const created = await todoApi.create({
+        const created = await taxRecordApi.create({
           referenceNumber: formValues.referenceNumber,
           name: formValues.name,
           cnic: formValues.cnic,
@@ -223,7 +207,7 @@ export const createHandleSubmit = ({
           status: formValues.status,
           notes: formValues.notes,
         });
-        navigate(`/todos/${created.id}/edit`, { replace: true });
+        navigate(`/tax-records/${created.id}/edit`, { replace: true });
         setSuccess('Entry created. You are now editing this record.');
       }
     } catch (err) {

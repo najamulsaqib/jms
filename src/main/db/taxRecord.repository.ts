@@ -1,12 +1,13 @@
-type Database = any;
 import {
-  type CreateTodoInput,
-  type Todo,
-  type TodoStatus,
-  type UpdateTodoInput,
-} from '../../shared/todo.contracts';
+  type CreateTaxRecordInput,
+  type TaxRecord,
+  type TaxRecordStatus,
+  type UpdateTaxRecordInput,
+} from '../../shared/taxRecord.contracts';
 
-type TodoRow = {
+type Database = any;
+
+type TaxRecordRow = {
   id: number;
   reference_number: string;
   name: string;
@@ -14,12 +15,12 @@ type TodoRow = {
   email: string;
   password: string;
   reference_name: string;
-  status: TodoStatus;
+  status: TaxRecordStatus;
   notes: string;
   created_at: string;
 };
 
-function mapTodoRow(row: TodoRow): Todo {
+function mapTaxRecordRow(row: TaxRecordRow): TaxRecord {
   return {
     id: row.id,
     referenceNumber: row.reference_number,
@@ -34,7 +35,7 @@ function mapTodoRow(row: TodoRow): Todo {
   };
 }
 
-function sanitizeInput(input: CreateTodoInput | UpdateTodoInput) {
+function sanitizeInput(input: CreateTaxRecordInput | UpdateTaxRecordInput) {
   return {
     referenceNumber: input.referenceNumber.trim(),
     name: input.name.trim(),
@@ -103,7 +104,7 @@ function mapDbConstraintError(err: unknown): never {
   throw err;
 }
 
-export class TodoRepository {
+export class TaxRecordRepository {
   private readonly hasLegacyTitleColumn: boolean;
 
   constructor(private readonly db: Database) {
@@ -113,17 +114,17 @@ export class TodoRepository {
     this.hasLegacyTitleColumn = columns.some((column) => column.name === 'title');
   }
 
-  listTodos(): Todo[] {
+  listTaxRecords(): TaxRecord[] {
     const rows = this.db
       .prepare(
         'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at FROM todos ORDER BY id DESC',
       )
-      .all() as TodoRow[];
+      .all() as TaxRecordRow[];
 
-    return rows.map(mapTodoRow);
+    return rows.map(mapTaxRecordRow);
   }
 
-  createTodo(input: CreateTodoInput): Todo {
+  createTaxRecord(input: CreateTaxRecordInput): TaxRecord {
     const sanitizedInput = sanitizeInput(input);
     validateInput(sanitizedInput);
 
@@ -169,30 +170,30 @@ export class TodoRepository {
       .prepare(
         'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at FROM todos WHERE id = ?',
       )
-      .get(insertResult.lastInsertRowid) as TodoRow | undefined;
+      .get(insertResult.lastInsertRowid) as TaxRecordRow | undefined;
 
     if (!row) {
-      throw new Error('Failed to create todo.');
+      throw new Error('Failed to create tax record.');
     }
 
-    return mapTodoRow(row);
+    return mapTaxRecordRow(row);
   }
 
-  getTodoById(id: number): Todo {
+  getTaxRecordById(id: number): TaxRecord {
     const row = this.db
       .prepare(
         'SELECT id, reference_number, name, cnic, email, password, reference_name, status, notes, created_at FROM todos WHERE id = ?',
       )
-      .get(id) as TodoRow | undefined;
+      .get(id) as TaxRecordRow | undefined;
 
     if (!row) {
-      throw new Error('Todo not found.');
+      throw new Error('Tax record not found.');
     }
 
-    return mapTodoRow(row);
+    return mapTaxRecordRow(row);
   }
 
-  updateTodo(id: number, input: UpdateTodoInput): Todo {
+  updateTaxRecord(id: number, input: UpdateTaxRecordInput): TaxRecord {
     const sanitizedInput = sanitizeInput(input);
     validateInput(sanitizedInput);
 
@@ -237,19 +238,19 @@ export class TodoRepository {
     }
 
     if (updateResult.changes === 0) {
-      throw new Error('Todo not found.');
+      throw new Error('Tax record not found.');
     }
 
-    return this.getTodoById(id);
+    return this.getTaxRecordById(id);
   }
 
-  deleteTodo(id: number): void {
+  deleteTaxRecord(id: number): void {
     const deleteResult = this.db
       .prepare('DELETE FROM todos WHERE id = ?')
       .run(id);
 
     if (deleteResult.changes === 0) {
-      throw new Error('Todo not found.');
+      throw new Error('Tax record not found.');
     }
   }
 }

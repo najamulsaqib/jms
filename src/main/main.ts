@@ -14,8 +14,8 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { initDatabase } from './db/client';
-import { TodoRepository } from './db/todo.repository';
-import { registerTodoIpcHandlers } from './ipc/todo.handlers';
+import { TaxRecordRepository } from './db/taxRecord.repository';
+import { registerTaxRecordIpcHandlers } from './ipc/taxRecord.handlers';
 import { resolveHtmlPath } from './util';
 
 class AppUpdater {
@@ -131,8 +131,8 @@ app
   .whenReady()
   .then(() => {
     const db = initDatabase();
-    const todoRepository = new TodoRepository(db);
-    registerTodoIpcHandlers(todoRepository);
+    const taxRecordRepository = new TaxRecordRepository(db);
+    registerTaxRecordIpcHandlers(taxRecordRepository);
 
     createWindow();
     app.on('activate', () => {
