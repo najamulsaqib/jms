@@ -13,6 +13,7 @@ import {
   createHandleSubmit,
   CUSTOM_REFERENCE_VALUE,
   EMPTY_FORM_VALUES,
+  buildReferenceOptions,
   type FieldErrors,
   type FormValues,
 } from './taxRecordForm.helpers';
@@ -35,7 +36,7 @@ export default function TaxRecordFormPage() {
   const [formValues, setFormValues] = useState<FormValues>(EMPTY_FORM_VALUES);
   const [initialFormValues, setInitialFormValues] =
     useState<FormValues | null>(null);
-  const [referenceOptions, setReferenceOptions] = useState<string[]>([]);
+  const [referenceOptions, setReferenceOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(isEditMode);
   const [saving, setSaving] = useState(false);
@@ -54,20 +55,13 @@ export default function TaxRecordFormPage() {
         const existingEntries = await taxRecordApi.list();
         if (!mounted) return;
 
-        const references = new Set<string>(['Self']);
-        existingEntries.forEach((entry) => {
-          if (entry.name.trim()) references.add(entry.name.trim());
-          if (entry.reference.trim()) references.add(entry.reference.trim());
-        });
-
         if (isEditMode && parsedId !== null) {
           const todo = await taxRecordApi.getById(parsedId);
           if (!mounted) return;
 
-          references.delete(todo.name.trim());
-          setReferenceOptions(
-            Array.from(references).sort((a, b) => a.localeCompare(b)),
-          );
+          // Build reference options, excluding current record's name
+          const options = buildReferenceOptions(existingEntries, todo.name.trim());
+          setReferenceOptions(options);
 
           const nextFormValues: FormValues = {
             referenceNumber: todo.referenceNumber,
@@ -75,10 +69,12 @@ export default function TaxRecordFormPage() {
             cnic: todo.cnic,
             email: todo.email,
             password: todo.password,
-            selectedReference: references.has(todo.reference)
+            selectedReference: options.some((o) => o.value === todo.reference)
               ? todo.reference
               : CUSTOM_REFERENCE_VALUE,
-            customReference: references.has(todo.reference) ? '' : todo.reference,
+            customReference: options.some((o) => o.value === todo.reference)
+              ? ''
+              : todo.reference,
             status: todo.status,
             notes: todo.notes,
           };
@@ -86,9 +82,8 @@ export default function TaxRecordFormPage() {
           setFormValues(nextFormValues);
           setInitialFormValues(nextFormValues);
         } else {
-          setReferenceOptions(
-            Array.from(references).sort((a, b) => a.localeCompare(b)),
-          );
+          const options = buildReferenceOptions(existingEntries);
+          setReferenceOptions(options);
         }
       } catch (err) {
         if (!mounted) return;
@@ -143,11 +138,7 @@ export default function TaxRecordFormPage() {
     { value: 'late-filer', label: 'Late Filer' },
   ];
 
-  const allReferenceOptions = [
-    { value: 'Self', label: 'Self' },
-    ...referenceOptions.filter((ref) => ref !== 'Self').map((ref) => ({ value: ref, label: ref })),
-    { value: CUSTOM_REFERENCE_VALUE, label: '+ Add Custom Reference' },
-  ];
+  const allReferenceOptions = referenceOptions;
 
   return (
     <AppLayout
