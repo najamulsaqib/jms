@@ -22,7 +22,10 @@ import {
   EyeSlashIcon,
   ClipboardIcon,
   CheckIcon,
+  ArrowDownTrayIcon,
 } from '@heroicons/react/20/solid';
+import PdfExportModal from './PdfExportModal';
+import { toast } from 'sonner';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
 import { useEffect, useMemo, useState } from 'react';
@@ -31,13 +34,14 @@ import {
   createHandleChange,
   CUSTOM_REFERENCE_VALUE,
   EMPTY_FORM_VALUES,
+  buildReferenceOptions,
   type FieldErrors,
   type FormValues,
 } from './taxRecordForm.helpers';
 
 function recordToFormValues(
   record: TaxRecord,
-  references: Set<string>,
+  referenceValues: string[],
 ): FormValues {
   return {
     referenceNumber: record.referenceNumber,
@@ -45,10 +49,12 @@ function recordToFormValues(
     cnic: record.cnic,
     email: record.email,
     password: record.password,
-    selectedReference: references.has(record.reference)
+    selectedReference: referenceValues.includes(record.reference)
       ? record.reference
       : CUSTOM_REFERENCE_VALUE,
-    customReference: references.has(record.reference) ? '' : record.reference,
+    customReference: referenceValues.includes(record.reference)
+      ? ''
+      : record.reference,
     status: record.status,
     notes: record.notes,
   };
@@ -78,16 +84,21 @@ export default function TaxRecordDetailPage() {
   const [pendingDelete, setPendingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   const [formValues, setFormValues] = useState<FormValues>(EMPTY_FORM_VALUES);
   const [initialFormValues, setInitialFormValues] =
     useState<FormValues>(EMPTY_FORM_VALUES);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const [referenceOptions, setReferenceOptions] = useState<string[]>([]);
+  const [referenceOptions, setReferenceOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
 
   // Visibility and copy states
   const [showPassword, setShowPassword] = useState(false);
-  const [copiedField, setCopiedField] = useState<'email' | 'password' | null>(null);
+  const [copiedField, setCopiedField] = useState<
+    'email' | 'password' | 'cnic' | null
+  >(null);
 
   useEffect(() => {
     if (!parsedId) return;
@@ -119,15 +130,14 @@ export default function TaxRecordDetailPage() {
     if (!record) return;
     try {
       const allRecords = await taxRecordApi.list();
-      const refs = new Set<string>(['Self']);
-      allRecords.forEach((r) => {
-        if (r.id !== record.id) {
-          if (r.name.trim()) refs.add(r.name.trim());
-          if (r.reference.trim()) refs.add(r.reference.trim());
-        }
-      });
-      setReferenceOptions(Array.from(refs).sort((a, b) => a.localeCompare(b)));
-      const values = recordToFormValues(record, refs);
+      // Exclude current record from the reference options
+      const otherRecords = allRecords.filter((r) => r.id !== record.id);
+      const options = buildReferenceOptions(otherRecords);
+
+      console.log('OPTIONS', options);
+      setReferenceOptions(options);
+      const referenceValues = options.map((o) => o.value);
+      const values = recordToFormValues(record, referenceValues);
       setFormValues(values);
       setInitialFormValues(values);
     } catch {
@@ -215,6 +225,7 @@ export default function TaxRecordDetailPage() {
       setRecord(updated);
       setInitialFormValues(formValues);
       setMode('view');
+      toast.success('Record updated successfully');
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to save record.';
@@ -235,31 +246,38 @@ export default function TaxRecordDetailPage() {
     setDeleting(true);
     try {
       await taxRecordApi.remove(parsedId);
+      toast.success('Record deleted successfully');
       navigate('/tax-records', { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete record.');
+      toast.error('Failed to delete record');
       setPendingDelete(false);
       setDeleting(false);
     }
   };
 
-  const handleCopy = async (text: string, field: 'email' | 'password') => {
+  const handleCopy = async (
+    text: string,
+    field: 'email' | 'password' | 'cnic',
+  ) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
+      const label =
+        field === 'email'
+          ? 'Email'
+          : field === 'password'
+            ? 'Password'
+            : 'CNIC';
+      toast.success(`${label} copied to clipboard`);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      toast.error('Failed to copy to clipboard');
     }
   };
 
-  const allReferenceOptions = [
-    { value: 'Self', label: 'Self' },
-    ...referenceOptions
-      .filter((r) => r !== 'Self')
-      .map((r) => ({ value: r, label: r })),
-    { value: CUSTOM_REFERENCE_VALUE, label: '+ Add Custom Reference' },
-  ];
+  const allReferenceOptions = referenceOptions;
 
   return (
     <AppLayout
@@ -301,12 +319,21 @@ export default function TaxRecordDetailPage() {
                 <h1 className="text-3xl font-bold text-slate-900">
                   {record.name}
                 </h1>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-medium text-slate-500">
                   Ref # {record.referenceNumber}
                 </p>
               </div>
               {mode === 'view' && (
                 <div className="flex items-center gap-2 shrink-0 ml-4">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPdfModal(true)}
+                  >
+                    <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
+                    Export PDF
+                  </Button>
                   <Button
                     type="button"
                     variant="secondary"
@@ -358,17 +385,30 @@ export default function TaxRecordDetailPage() {
                         {record.status}
                       </Chip>
                     </div>
-                    <div className="text-right">
-                      <div className="text-xs text-slate-500 mb-1">
-                        Created
-                      </div>
-                      <div className="flex items-center text-sm text-slate-700">
+                    <div className="text-right space-y-3">
+                      <div className="flex items-center justify-end text-sm text-slate-700">
+                        <div className="mr-1">Created:</div>
                         <CalendarIcon className="h-4 w-4 mr-1 text-slate-400" />
-                        {new Date(record.createdAt).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {new Date(record.createdAt).toLocaleDateString(
+                          'en-US',
+                          {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          },
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end text-sm text-slate-700">
+                        <div className="mr-1">Last modified:</div>
+                        <CalendarIcon className="h-4 w-4 mr-1 text-slate-400" />
+                        {new Date(record.updatedAt).toLocaleDateString(
+                          'en-US',
+                          {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          },
+                        )}
                       </div>
                     </div>
                   </div>
@@ -396,8 +436,22 @@ export default function TaxRecordDetailPage() {
                         <IdentificationIcon className="h-3.5 w-3.5 mr-1" />
                         CNIC
                       </label>
-                      <div className="text-base font-mono text-slate-900">
-                        {record.cnic.replace(/(\d{5})(\d{7})(\d{1})/, '$1-$2-$3')}
+                      <div className="flex items-center gap-2">
+                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
+                          {record.cnic}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(record.cnic, 'cnic')}
+                          className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors shrink-0"
+                          title="Copy CNIC"
+                        >
+                          {copiedField === 'cnic' ? (
+                            <CheckIcon className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <ClipboardIcon className="h-4 w-4" />
+                          )}
+                        </button>
                       </div>
                     </div>
                     <div className="space-y-1">
@@ -414,8 +468,8 @@ export default function TaxRecordDetailPage() {
                         <LinkIcon className="h-3.5 w-3.5 mr-1" />
                         Reference
                       </label>
-                      <div className="text-base text-slate-900">
-                        {record.reference}
+                      <div className="text-base font-medium text-slate-900 capitalize">
+                        {record.reference.replace(/-/g, ' ')}
                       </div>
                     </div>
                   </div>
@@ -436,7 +490,7 @@ export default function TaxRecordDetailPage() {
                         Email Address
                       </label>
                       <div className="flex items-center gap-2">
-                        <div className="text-base text-slate-900 flex-1 select-all break-all">
+                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
                           {record.email}
                         </div>
                         <button
@@ -467,7 +521,9 @@ export default function TaxRecordDetailPage() {
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
                             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
-                            title={showPassword ? 'Hide password' : 'Show password'}
+                            title={
+                              showPassword ? 'Hide password' : 'Show password'
+                            }
                           >
                             {showPassword ? (
                               <EyeSlashIcon className="h-4 w-4" />
@@ -477,7 +533,9 @@ export default function TaxRecordDetailPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleCopy(record.password, 'password')}
+                            onClick={() =>
+                              handleCopy(record.password, 'password')
+                            }
                             className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
                             title="Copy password"
                           >
@@ -611,7 +669,7 @@ export default function TaxRecordDetailPage() {
                         name="notes"
                         value={formValues.notes}
                         onChange={handleChange}
-                        rows={4}
+                        rows={8}
                         className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
                         placeholder="Additional notes..."
                       />
@@ -673,6 +731,14 @@ export default function TaxRecordDetailPage() {
             setMode('view');
           }}
         />
+
+        {record && (
+          <PdfExportModal
+            isOpen={showPdfModal}
+            record={record}
+            onClose={() => setShowPdfModal(false)}
+          />
+        )}
       </div>
     </AppLayout>
   );

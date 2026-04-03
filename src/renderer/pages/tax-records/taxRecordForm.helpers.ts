@@ -1,9 +1,22 @@
 import { ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { type NavigateFunction } from 'react-router-dom';
+import { toast } from 'sonner';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { type TaxRecordStatus } from '@shared/taxRecord.contracts';
 
 export const CUSTOM_REFERENCE_VALUE = '__custom_reference__';
+
+/**
+ * Convert a string to kebab-case format
+ * Removes all non-alphanumeric characters and replaces them with hyphens
+ */
+export const toKebabCase = (str: string): string => {
+  return str
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+};
 
 export type FieldErrors = Record<string, string | undefined>;
 
@@ -29,6 +42,64 @@ export const EMPTY_FORM_VALUES: FormValues = {
   customReference: '',
   status: 'active',
   notes: '',
+};
+
+type ReferenceOption = { value: string; label: string };
+
+/**
+ * Build deduplicated reference options
+ * - Values: kebab-case (for uniqueness)
+ * - Labels: human-readable (for UI)
+ * - Order: Self first, then users alphabetically, then Add Custom
+ */
+export const buildReferenceOptions = (
+  existingRecords: Array<{ name: string; reference: string }>,
+  excludeValue?: string,
+): ReferenceOption[] => {
+  // Map: kebab-case value -> human-readable label
+  const seen = new Map<string, string>();
+
+  // Add Self first
+  seen.set('self', 'Self');
+
+  // Add all names from records
+  for (const record of existingRecords) {
+    const name = record.name.trim();
+    if (!name) continue;
+
+    const kebab = toKebabCase(name);
+    if (!kebab || seen.has(kebab)) continue;
+
+    seen.set(kebab, name);
+  }
+
+  // Remove excluded value
+  if (excludeValue) {
+    seen.delete(toKebabCase(excludeValue));
+  }
+
+  // Build options array
+  const options: ReferenceOption[] = [];
+
+  // 1. Self first
+  if (seen.has('self')) {
+    options.push({ value: 'self', label: seen.get('self')! });
+    seen.delete('self');
+  }
+
+  // 2. Rest sorted alphabetically by label
+  const rest = [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  for (const [value, label] of rest) {
+    options.push({ value, label });
+  }
+
+  // 3. Add Custom at end
+  options.push({
+    value: CUSTOM_REFERENCE_VALUE,
+    label: '+ Add Custom Reference',
+  });
+
+  return options;
 };
 
 type HandleChangeOptions = {
@@ -121,10 +192,15 @@ export const createHandleSubmit = ({
     event.preventDefault();
 
     const nextFieldErrors: FieldErrors = {};
-    const reference =
-      formValues.selectedReference === CUSTOM_REFERENCE_VALUE
-        ? formValues.customReference.trim()
-        : formValues.selectedReference.trim();
+
+    // Get reference value and normalize to kebab-case
+    let reference = '';
+    if (formValues.selectedReference === CUSTOM_REFERENCE_VALUE) {
+      reference = toKebabCase(formValues.customReference);
+    } else {
+      // selectedReference is already in kebab-case from buildReferenceOptions
+      reference = formValues.selectedReference.trim();
+    }
 
     if (!formValues.name.trim()) {
       nextFieldErrors.name = 'Name is required.';
@@ -152,17 +228,14 @@ export const createHandleSubmit = ({
       if (!formValues.customReference.trim()) {
         nextFieldErrors.customReference = 'Reference is required.';
       } else if (
-        formValues.customReference.trim().toLowerCase() ===
-        formValues.name.trim().toLowerCase()
+        toKebabCase(formValues.customReference) === toKebabCase(formValues.name)
       ) {
         nextFieldErrors.customReference =
           'Reference must be different from Name.';
       }
     } else if (!reference) {
       nextFieldErrors.reference = 'Reference is required.';
-    } else if (
-      reference.toLowerCase() === formValues.name.trim().toLowerCase()
-    ) {
+    } else if (reference === toKebabCase(formValues.name)) {
       nextFieldErrors.reference = 'Reference must be different from Name.';
     }
 
@@ -196,6 +269,7 @@ export const createHandleSubmit = ({
         });
         setInitialFormValues(formValues);
         setSuccess('Entry updated successfully.');
+        toast.success('Record updated successfully');
       } else {
         const created = await taxRecordApi.create({
           referenceNumber: formValues.referenceNumber,
@@ -207,6 +281,7 @@ export const createHandleSubmit = ({
           status: formValues.status,
           notes: formValues.notes,
         });
+        toast.success('Record created successfully');
         navigate(`/tax-records/${created.id}`, { replace: true });
         setSuccess('Entry created successfully.');
       }
@@ -214,24 +289,39 @@ export const createHandleSubmit = ({
       const message =
         err instanceof Error ? err.message : 'Failed to save entry.';
 
-      if (message === 'Email already exists.') {
+      // Handle both direct errors and IPC-wrapped errors
+      const cleanMessage = message.replace(
+        /^Error invoking remote method '[^']+': (Error: )?/,
+        '',
+      );
+
+      if (cleanMessage.includes('Email already exists')) {
         setFieldErrors((current) => ({
           ...current,
           email: 'Email already exists.',
         }));
-      } else if (message === 'CNIC already exists.') {
+        return;
+      }
+
+      if (cleanMessage.includes('CNIC already exists')) {
         setFieldErrors((current) => ({
           ...current,
           cnic: 'CNIC already exists.',
         }));
-      } else if (message === 'Reference number already exists.') {
+        return;
+      }
+
+      if (cleanMessage.includes('Reference number already exists')) {
         setFieldErrors((current) => ({
           ...current,
           referenceNumber: 'Reference number already exists.',
         }));
+        return;
       }
 
-      setError(message);
+      // Only show toast for unexpected errors
+      setError(cleanMessage);
+      toast.error(cleanMessage);
     } finally {
       setSaving(false);
     }

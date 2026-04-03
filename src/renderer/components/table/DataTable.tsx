@@ -10,9 +10,10 @@ export type SortState = {
 
 export type DataTableColumn<T> = {
   id: string;
-  header: string;
+  header: ReactNode;
   sortable?: boolean;
   align?: 'left' | 'center' | 'right';
+  pinned?: boolean;
   className?: string;
   render: (row: T) => ReactNode;
 };
@@ -67,7 +68,7 @@ export default function DataTable<T>({
                 <th
                   key={column.id}
                   scope="col"
-                  className={`px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider ${alignClasses[align]} ${column.className || ''}`}
+                  className={`px-6 py-3 text-xs font-semibold text-slate-700 uppercase tracking-wider ${alignClasses[align]} ${column.pinned ? 'sticky left-0 z-10 bg-slate-50 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200' : ''} ${column.className || ''}`}
                 >
                   {column.sortable ? (
                     <button
@@ -110,8 +111,8 @@ export default function DataTable<T>({
                   return (
                     <td
                       key={`${getRowId(row)}-${column.id}`}
-                      className={`px-6 py-4 whitespace-nowrap text-sm ${alignClasses[align]} ${column.className || ''}`}
-                      onClick={column.id === 'actions' ? (e) => e.stopPropagation() : undefined}
+                      className={`px-6 py-4 whitespace-nowrap text-sm ${alignClasses[align]} ${column.pinned ? 'sticky left-0 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200' : ''} ${column.className || ''}`}
+                      onClick={column.id === 'actions' || column.id === 'checkbox' ? (e) => e.stopPropagation() : undefined}
                     >
                       {column.render(row)}
                     </td>

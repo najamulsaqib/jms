@@ -90,15 +90,20 @@ function validateInput(input: ReturnType<typeof sanitizeInput>): void {
 
 function mapDbConstraintError(err: unknown): never {
   if (err instanceof Error) {
-    if (err.message.includes('idx_todos_cnic_unique')) {
+    const msg = err.message.toLowerCase();
+
+    if (msg.includes('cnic') || msg.includes('idx_todos_cnic_unique')) {
       throw new Error('CNIC already exists.');
     }
 
-    if (err.message.includes('idx_todos_email_unique')) {
+    if (msg.includes('email') || msg.includes('idx_todos_email_unique')) {
       throw new Error('Email already exists.');
     }
 
-    if (err.message.includes('idx_todos_reference_number_unique')) {
+    if (
+      msg.includes('reference_number') ||
+      msg.includes('idx_todos_reference_number_unique')
+    ) {
       throw new Error('Reference number already exists.');
     }
   }
@@ -113,7 +118,9 @@ export class TaxRecordRepository {
     const columns = this.db.prepare('PRAGMA table_info(todos)').all() as Array<{
       name: string;
     }>;
-    this.hasLegacyTitleColumn = columns.some((column) => column.name === 'title');
+    this.hasLegacyTitleColumn = columns.some(
+      (column) => column.name === 'title',
+    );
   }
 
   listTaxRecords(): TaxRecord[] {
@@ -204,7 +211,7 @@ export class TaxRecordRepository {
       if (this.hasLegacyTitleColumn) {
         updateResult = this.db
           .prepare(
-            'UPDATE todos SET reference_number = ?, name = ?, title = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ?, updated_at = datetime(\'now\') WHERE id = ?',
+            "UPDATE todos SET reference_number = ?, name = ?, title = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?",
           )
           .run(
             sanitizedInput.referenceNumber,
@@ -221,7 +228,7 @@ export class TaxRecordRepository {
       } else {
         updateResult = this.db
           .prepare(
-            'UPDATE todos SET reference_number = ?, name = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ?, updated_at = datetime(\'now\') WHERE id = ?',
+            "UPDATE todos SET reference_number = ?, name = ?, cnic = ?, email = ?, password = ?, reference_name = ?, status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?",
           )
           .run(
             sanitizedInput.referenceNumber,

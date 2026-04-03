@@ -7,11 +7,13 @@ export default function Dashboard() {
   const { taxRecords } = useTaxRecords();
 
   return (
-    <AppLayout>
+    <AppLayout breadcrumbs={[{ label: 'Dashboard' }]}>
       <div className="space-y-8">
         {/* Welcome Section */}
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Welcome to JMS Tax</h1>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Welcome to JMS Tax
+          </h1>
           <p className="mt-2 text-lg text-slate-600">
             Manage your tax services and client records efficiently
           </p>

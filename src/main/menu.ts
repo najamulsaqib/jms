@@ -105,9 +105,9 @@ Made with ❤️ using Electron + React + TypeScript`,
             ipcMain.emit('check-for-updates');
           },
         },
-        { type: 'separator' },
-        { label: 'Services', submenu: [] },
-        { type: 'separator' },
+        // { type: 'separator' },
+        // { label: 'Services', submenu: [] },
+        // { type: 'separator' },
         {
           label: 'Hide JMS Tax',
           accelerator: 'Command+H',
@@ -126,22 +126,6 @@ Made with ❤️ using Electron + React + TypeScript`,
           click: () => {
             app.quit();
           },
-        },
-      ],
-    };
-    const subMenuEdit: DarwinMenuItemConstructorOptions = {
-      label: 'Edit',
-      submenu: [
-        { label: 'Undo', accelerator: 'Command+Z', selector: 'undo:' },
-        { label: 'Redo', accelerator: 'Shift+Command+Z', selector: 'redo:' },
-        { type: 'separator' },
-        { label: 'Cut', accelerator: 'Command+X', selector: 'cut:' },
-        { label: 'Copy', accelerator: 'Command+C', selector: 'copy:' },
-        { label: 'Paste', accelerator: 'Command+V', selector: 'paste:' },
-        {
-          label: 'Select All',
-          accelerator: 'Command+A',
-          selector: 'selectAll:',
         },
       ],
     };
@@ -200,29 +184,18 @@ Made with ❤️ using Electron + React + TypeScript`,
       label: 'Help',
       submenu: [
         {
-          label: 'Learn More',
-          click() {
-            shell.openExternal('https://electronjs.org');
-          },
-        },
-        {
-          label: 'Documentation',
-          click() {
-            shell.openExternal(
-              'https://github.com/electron/electron/tree/main/docs#readme',
-            );
-          },
-        },
-        {
-          label: 'Community Discussions',
-          click() {
-            shell.openExternal('https://www.electronjs.org/community');
-          },
-        },
-        {
-          label: 'Search Issues',
-          click() {
-            shell.openExternal('https://github.com/electron/electron/issues');
+          label: 'Support Contact',
+          click: () => {
+            dialog.showMessageBox(this.mainWindow, {
+              type: 'info',
+              title: 'Contact Support',
+              message: 'Contact developer for support',
+              detail: `For support, please contact us at:
+
+📧 Email: 1najamulsaqib@gmail.com
+🌐 Website: https://najamulsaqib.me
+📖 GitHub: https://github.com/najamulsaqib`,
+            });
           },
         },
       ],
@@ -234,7 +207,7 @@ Made with ❤️ using Electron + React + TypeScript`,
         ? subMenuViewDev
         : subMenuViewProd;
 
-    return [subMenuAbout, subMenuEdit, subMenuView, subMenuWindow, subMenuHelp];
+    return [subMenuAbout, subMenuView, subMenuWindow, subMenuHelp];
   }
 
   buildDefaultTemplate(): MenuItemConstructorOptions[] {
