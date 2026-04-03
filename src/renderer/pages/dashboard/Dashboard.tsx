@@ -1,4 +1,4 @@
-import { DocumentTextIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 import AppLayout from '@components/layout/AppLayout';
 import ServiceCard from '@components/common/ServiceCard';
 import { useTaxRecords } from '@hooks/useTaxRecords';
@@ -35,6 +35,18 @@ export default function Dashboard() {
                 value: taxRecords.length,
               }}
               color="blue"
+            />
+
+            <ServiceCard
+              title="Sales Tax"
+              description="Track and manage your sales tax clients, filings, and deadlines all in one place."
+              icon={BanknotesIcon}
+              href="/sales-tax"
+              stats={{
+                label: 'Sales Tax Clients',
+                value: 0,
+              }}
+              color="green"
             />
 
             {/* Placeholder for future services */}
