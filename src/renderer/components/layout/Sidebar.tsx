@@ -5,6 +5,7 @@ import {
   Cog6ToothIcon,
 } from '@heroicons/react/24/outline';
 import logo from '../../../../assets/header-logo.png';
+import { toast } from 'sonner';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
@@ -63,6 +64,7 @@ export default function Sidebar() {
         <button
           type="button"
           className="flex items-center w-full px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
+          onClick={() => toast.info('Settings page coming soon!')}
         >
           <Cog6ToothIcon className="mr-3 h-5 w-5 text-slate-400" />
           Settings
