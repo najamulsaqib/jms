@@ -68,9 +68,10 @@ export function downloadCSV(records: TaxRecord[]) {
     'Name',
     'CNIC',
     'Email',
+    'Password',
     'Reference',
     'Status',
-    'Notes',
+    // 'Notes',
     'Created',
     'Updated',
   ];
@@ -81,9 +82,10 @@ export function downloadCSV(records: TaxRecord[]) {
       r.name,
       r.cnic,
       r.email,
+      r.password,
       r.reference,
       r.status,
-      r.notes,
+      // r.notes,
       new Date(r.createdAt).toLocaleDateString(),
       new Date(r.updatedAt).toLocaleDateString(),
     ]

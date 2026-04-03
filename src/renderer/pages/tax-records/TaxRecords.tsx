@@ -6,8 +6,16 @@ import {
   CheckCircleIcon,
   PauseCircleIcon,
   ExclamationTriangleIcon,
+  XMarkIcon,
 } from '@heroicons/react/20/solid';
-import { DocumentTextIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import {
+  DocumentTextIcon,
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+  FunnelIcon,
+} from '@heroicons/react/24/outline';
+import CsvImportModal from './CsvImportModal';
+import CsvExportModal from './CsvExportModal';
 import { toast } from 'sonner';
 import AppLayout from '@components/layout/AppLayout';
 import DataTable, {
@@ -26,7 +34,6 @@ import { Chip } from '@components/ui/Chip';
 import SelectField from '@components/ui/SelectField';
 import {
   sortRows,
-  downloadCSV,
   type SearchField,
   SEARCH_FIELD_OPTIONS,
   SEARCH_FIELD_PLACEHOLDER,
@@ -38,6 +45,8 @@ export default function TaxRecordsPage() {
     useTaxRecords();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchField, setSearchField] = useState<SearchField>('all');
+  const [referenceFilter, setReferenceFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortState, setSortState] = useState<SortState>({
     key: 'id',
     direction: 'asc',
@@ -47,6 +56,8 @@ export default function TaxRecordsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<TaxRecordStatus>('active');
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [showCsvExport, setShowCsvExport] = useState(false);
 
   const requestDelete = (record: TaxRecord) => {
     setPendingDeleteRecord(record);
@@ -72,37 +83,56 @@ export default function TaxRecordsPage() {
   };
 
   const filtered = useMemo(() => {
+    let results = taxRecords;
+
+    // Apply reference filter
+    if (referenceFilter !== 'all') {
+      results = results.filter(
+        (record) => record.reference === referenceFilter,
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      results = results.filter((record) => record.status === statusFilter);
+    }
+
+    // Apply search
     const normalizedSearch = searchQuery.trim().toLowerCase();
-    if (!normalizedSearch) return taxRecords;
+    if (normalizedSearch) {
+      results = results.filter((record) => {
+        if (searchField === 'all') {
+          return [
+            record.referenceNumber,
+            record.id,
+            record.name,
+            record.cnic,
+            record.email,
+            record.reference,
+            record.status,
+            record.notes,
+            record.createdAt,
+            new Date(record.createdAt).toLocaleString(),
+          ].some((v) => String(v).toLowerCase().includes(normalizedSearch));
+        }
 
-    return taxRecords.filter((record) => {
-      if (searchField === 'all') {
-        return [
-          record.referenceNumber,
-          record.id,
-          record.name,
-          record.cnic,
-          record.email,
-          record.reference,
-          record.status,
-          record.notes,
-          record.createdAt,
-          new Date(record.createdAt).toLocaleString(),
-        ].some((v) => String(v).toLowerCase().includes(normalizedSearch));
-      }
+        const fieldValue: Record<string, unknown> = {
+          referenceNumber: record.referenceNumber,
+          name: record.name,
+          cnic: record.cnic,
+          email: record.email,
+          reference: record.reference,
+          status: record.status,
+          notes: record.notes,
+        };
+        return String(fieldValue[searchField] ?? '')
+          .toLowerCase()
+          .includes(normalizedSearch);
+      });
+    }
 
-      const fieldValue: Record<string, unknown> = {
-        referenceNumber: record.referenceNumber,
-        name: record.name,
-        cnic: record.cnic,
-        email: record.email,
-        reference: record.reference,
-        status: record.status,
-        notes: record.notes,
-      };
-      return String(fieldValue[searchField] ?? '').toLowerCase().includes(normalizedSearch);
-    });
-  }, [searchQuery, searchField, taxRecords]);
+    return results;
+  }, [searchQuery, searchField, referenceFilter, statusFilter, taxRecords]);
 
   const sortedRecords = useMemo(
     () => sortRows(filtered, sortState),
@@ -162,6 +192,28 @@ export default function TaxRecordsPage() {
       setBulkUpdating(false);
     }
   };
+
+  const clearFilters = () => {
+    setReferenceFilter('all');
+    setStatusFilter('all');
+    setSearchQuery('');
+    setSearchField('all');
+  };
+
+  const hasActiveFilters =
+    referenceFilter !== 'all' ||
+    statusFilter !== 'all' ||
+    searchQuery.trim() !== '';
+
+  // Get unique reference options
+  const referenceOptions = Array.from(
+    new Set(taxRecords.map((r) => r.reference)),
+  )
+    .sort()
+    .map((ref) => ({
+      value: ref,
+      label: ref.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    }));
 
   const columns: DataTableColumn<TaxRecord>[] = [
     {
@@ -225,7 +277,9 @@ export default function TaxRecordsPage() {
       id: 'reference',
       header: 'Reference',
       sortable: true,
-      render: (record) => <Chip variant="grey">{record.reference.replace(/-/g, ' ')}</Chip>,
+      render: (record) => (
+        <Chip variant="grey">{record.reference.replace(/-/g, ' ')}</Chip>
+      ),
     },
     {
       id: 'status',
@@ -310,10 +364,16 @@ export default function TaxRecordsPage() {
               type="button"
               variant="secondary"
               size="md"
-              onClick={() => {
-                downloadCSV(sortedRecords);
-                toast.success(`Exported ${sortedRecords.length} record${sortedRecords.length !== 1 ? 's' : ''} to CSV`);
-              }}
+              onClick={() => setShowCsvImport(true)}
+            >
+              <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
+              Import CSV
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              onClick={() => setShowCsvExport(true)}
             >
               <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
               Export CSV
@@ -356,8 +416,27 @@ export default function TaxRecordsPage() {
               <div className="absolute bottom-0 right-0 w-24 h-24 bg-green-50 rounded-tl-full -mr-8 -mb-8"></div>
             </div>
 
+            {/* Require attention Card */}
+            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-orange-200 hover:shadow-lg transition-shadow">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">
+                    Late Filers
+                  </p>
+                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
+                    {taxRecords.filter((t) => t.status === 'late-filer').length}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500">Filed Tax late</p>
+                </div>
+                <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                  <ExclamationTriangleIcon className="w-7 h-7 text-orange-600" />
+                </div>
+              </div>
+              <div className="absolute bottom-0 right-0 w-24 h-24 bg-orange-50 rounded-tl-full -mr-8 -mb-8"></div>
+            </div>
+
             {/* Inactive Filers Card */}
-            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-slate-400 hover:shadow-lg transition-shadow">
+            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">
@@ -367,28 +446,7 @@ export default function TaxRecordsPage() {
                     {taxRecords.filter((t) => t.status === 'inactive').length}
                   </p>
                   <p className="mt-2 text-sm text-slate-500">
-                    No longer filing
-                  </p>
-                </div>
-                <div className="flex-shrink-0 w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <PauseCircleIcon className="w-7 h-7 text-slate-600" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 right-0 w-24 h-24 bg-slate-50 rounded-tl-full -mr-8 -mb-8"></div>
-            </div>
-
-            {/* Late Filers Card */}
-            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">
-                    Late Filers
-                  </p>
-                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
-                    {taxRecords.filter((t) => t.status === 'late-filer').length}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Require attention
+                    No longer filers or require follow-up
                   </p>
                 </div>
                 <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
@@ -399,36 +457,6 @@ export default function TaxRecordsPage() {
             </div>
           </div>
         </div>
-
-        {/* Search and Filters */}
-        <Card>
-          <div className="flex items-end gap-3">
-            <div className="w-44 shrink-0">
-              <SelectField
-                id="searchField"
-                label="Search in"
-                value={searchField}
-                onChange={(e) => {
-                  setSearchField(e.target.value as SearchField);
-                  setSearchQuery('');
-                }}
-                options={SEARCH_FIELD_OPTIONS}
-              />
-            </div>
-            <div className="relative flex-1">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                <MagnifyingGlassIcon className="h-5 w-5 text-slate-400" />
-              </div>
-              <input
-                type="text"
-                placeholder={SEARCH_FIELD_PLACEHOLDER[searchField]}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
-              />
-            </div>
-          </div>
-        </Card>
 
         {/* Error Message */}
         {error && (
@@ -447,32 +475,11 @@ export default function TaxRecordsPage() {
           </Card>
         )}
 
-        {!loading && sortedRecords.length === 0 && (
-          <Card>
-            <EmptyState
-              icon={<DocumentTextIcon className="w-full h-full" />}
-              title={searchQuery ? 'No records found' : 'No tax records yet'}
-              description={
-                searchQuery
-                  ? 'Try adjusting your search query'
-                  : 'Get started by creating your first tax record'
-              }
-              action={
-                !searchQuery ? (
-                  <Button onClick={() => navigate('/tax-records/new')}>
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Add First Record
-                  </Button>
-                ) : undefined
-              }
-            />
-          </Card>
-        )}
-
         {!loading && selectedIds.size > 0 && (
           <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
             <span className="text-sm font-medium text-blue-900">
-              {selectedIds.size} record{selectedIds.size > 1 ? 's' : ''} selected
+              {selectedIds.size} record{selectedIds.size > 1 ? 's' : ''}{' '}
+              selected
             </span>
             <div className="flex items-center gap-2 ml-auto">
               <label className="text-sm font-medium text-blue-900">
@@ -480,7 +487,9 @@ export default function TaxRecordsPage() {
               </label>
               <select
                 value={bulkStatus}
-                onChange={(e) => setBulkStatus(e.target.value as TaxRecordStatus)}
+                onChange={(e) =>
+                  setBulkStatus(e.target.value as TaxRecordStatus)
+                }
                 className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               >
                 <option value="active">Active</option>
@@ -507,8 +516,95 @@ export default function TaxRecordsPage() {
           </div>
         )}
 
-        {!loading && sortedRecords.length > 0 && (
-          <Card padding="none">
+        <Card padding="none">
+          {/* Integrated Filters Bar */}
+          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+            <div className="flex items-center gap-3">
+              {/* Search Field Selector */}
+              <div className="w-44">
+                <select
+                  id="searchField"
+                  value={searchField}
+                  onChange={(e) => {
+                    setSearchField(e.target.value as SearchField);
+                    setSearchQuery('');
+                  }}
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                >
+                  {SEARCH_FIELD_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search Input */}
+              <div className="flex-1 max-w-xs">
+                <div className="relative">
+                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <input
+                    id="search"
+                    type="text"
+                    placeholder={SEARCH_FIELD_PLACEHOLDER[searchField]}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="ml-auto flex items-center gap-3">
+                {/* Clear Filters Button */}
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                    Clear
+                  </button>
+                )}
+
+                {/* Reference Filter */}
+                <div className="w-44">
+                  <select
+                    id="referenceFilter"
+                    value={referenceFilter}
+                    onChange={(e) => setReferenceFilter(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                  >
+                    <option value="all">All References</option>
+                    {referenceOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="w-40">
+                  <select
+                    id="statusFilter"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="late-filer">Late Filer</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          {/* Table */}
+          {!loading && (
             <DataTable
               columns={columns}
               rows={sortedRecords}
@@ -516,10 +612,24 @@ export default function TaxRecordsPage() {
               sortState={sortState}
               onSortChange={setSortState}
               onRowClick={(row) => navigate(`/tax-records/${row.id}`)}
-              emptyMessage="No entries found"
+              emptyMessage="No records found. Try adjusting your search or filters?"
             />
-          </Card>
-        )}
+          )}
+        </Card>
+
+        {/* CSV Export Modal */}
+        <CsvExportModal
+          isOpen={showCsvExport}
+          records={sortedRecords}
+          onClose={() => setShowCsvExport(false)}
+        />
+
+        {/* CSV Import Modal */}
+        <CsvImportModal
+          isOpen={showCsvImport}
+          onClose={() => setShowCsvImport(false)}
+          onImported={reload}
+        />
 
         {/* Delete Confirmation Dialog */}
         <ConfirmDialog
