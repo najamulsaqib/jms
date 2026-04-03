@@ -12,7 +12,19 @@
     "resolveJsonModule": true,
     "allowJs": true,
     "rootDir": "src",
-    "outDir": ".erb/dll"
+    "baseUrl": "src",
+    "outDir": ".erb/dll",
+    "paths": {
+      "@components/*": ["renderer/components/*"],
+      "@hooks/*": ["renderer/hooks/*"],
+      "@pages/*": ["renderer/pages/*"],
+      "@services/*": ["renderer/services/*"],
+      "@types/*": ["renderer/types/*"],
+      "@shared/*": ["shared/*"]
+    },
   },
-  "exclude": ["test", "release/build", "release/app/dist", ".erb/dll"]
+  "exclude": ["test", "release/build", "release/app/dist", ".erb/dll"],
+  "ts-node": {
+    "transpileOnly": true
+  }
 }

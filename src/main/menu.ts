@@ -4,6 +4,8 @@ import {
   shell,
   BrowserWindow,
   MenuItemConstructorOptions,
+  dialog,
+  ipcMain,
 } from 'electron';
 
 interface DarwinMenuItemConstructorOptions extends MenuItemConstructorOptions {
@@ -54,17 +56,60 @@ export default class MenuBuilder {
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
     const subMenuAbout: DarwinMenuItemConstructorOptions = {
-      label: 'Electron',
+      label: 'JMS Tax',
       submenu: [
         {
-          label: 'About ElectronReact',
-          selector: 'orderFrontStandardAboutPanel:',
+          label: 'About JMS Tax',
+          click: () => {
+            dialog
+              .showMessageBox(this.mainWindow, {
+                type: 'info',
+                title: 'About JMS Tax',
+                message: 'JMS Tax Consultancy',
+                detail: `Version: ${app.getVersion()}
+Platform: ${process.platform}-${process.arch}
+Electron: ${process.versions.electron}
+Chrome: ${process.versions.chrome}
+Node.js: ${process.versions.node}
+V8: ${process.versions.v8}
+
+A desktop application built with Electron and React, designed to help tax consultants manage their clients and tax-related tasks efficiently.
+
+📧 Support: 1najamulsaqib@gmail.com
+🌐 Website: https://najamulsaqib.me
+📖 GitHub: https://github.com/najamulsaqib/jms
+🐛 Report Issues: https://github.com/najamulsaqib/jms/issues
+
+© ${new Date().getFullYear()} Najam UL Saqib
+Licensed under MIT License
+
+Made with ❤️ using Electron + React + TypeScript`,
+                buttons: ['OK', 'Visit Website'],
+              })
+              .then((result) => {
+                if (result.response === 1) {
+                  shell.openExternal('https://najamulsaqib.me');
+                }
+                return result;
+              })
+              .catch((err) => {
+                // eslint-disable-next-line no-console
+                console.error('Error showing about dialog:', err);
+              });
+          },
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates...',
+          click: () => {
+            ipcMain.emit('check-for-updates');
+          },
         },
         { type: 'separator' },
         { label: 'Services', submenu: [] },
         { type: 'separator' },
         {
-          label: 'Hide ElectronReact',
+          label: 'Hide JMS Tax',
           accelerator: 'Command+H',
           selector: 'hide:',
         },
@@ -192,8 +237,8 @@ export default class MenuBuilder {
     return [subMenuAbout, subMenuEdit, subMenuView, subMenuWindow, subMenuHelp];
   }
 
-  buildDefaultTemplate() {
-    const templateDefault = [
+  buildDefaultTemplate(): MenuItemConstructorOptions[] {
+    const templateDefault: MenuItemConstructorOptions[] = [
       {
         label: '&File',
         submenu: [
@@ -255,6 +300,54 @@ export default class MenuBuilder {
       {
         label: 'Help',
         submenu: [
+          {
+            label: 'About JMS Tax',
+            click: () => {
+              dialog
+                .showMessageBox(this.mainWindow, {
+                  type: 'info',
+                  title: 'About JMS Tax',
+                  message: 'JMS Tax Consultancy',
+                  detail: `Version: ${app.getVersion()}
+Platform: ${process.platform}-${process.arch}
+Electron: ${process.versions.electron}
+Chrome: ${process.versions.chrome}
+Node.js: ${process.versions.node}
+V8: ${process.versions.v8}
+
+A desktop application built with Electron and React, designed to help tax consultants manage their clients and tax-related tasks efficiently.
+
+📧 Support: 1najamulsaqib@gmail.com
+🌐 Website: https://najamulsaqib.me
+📖 GitHub: https://github.com/najamulsaqib/jms
+🐛 Report Issues: https://github.com/najamulsaqib/jms/issues
+
+© ${new Date().getFullYear()} Najam UL Saqib
+Licensed under MIT License
+
+Made with ❤️ using Electron + React + TypeScript`,
+                  buttons: ['OK', 'Visit Website'],
+                })
+                .then((result) => {
+                  if (result.response === 1) {
+                    shell.openExternal('https://najamulsaqib.me');
+                  }
+                  return result;
+                })
+                .catch((err) => {
+                  // eslint-disable-next-line no-console
+                  console.error('Error showing about dialog:', err);
+                });
+            },
+          },
+          { type: 'separator' },
+          {
+            label: 'Check for Updates...',
+            click: () => {
+              ipcMain.emit('check-for-updates');
+            },
+          },
+          { type: 'separator' },
           {
             label: 'Learn More',
             click() {

@@ -16,6 +16,8 @@
   "javascript.format.enable": false,
   "typescript.format.enable": false,
 
+  "css.lint.unknownAtRules": "ignore",
+
   "search.exclude": {
     ".git": true,
     ".eslintcache": true,
