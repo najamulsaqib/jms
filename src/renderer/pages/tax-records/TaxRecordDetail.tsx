@@ -7,33 +7,34 @@ import ConfirmDialog from '@components/ui/ConfirmDialog';
 import SelectField from '@components/ui/SelectField';
 import TextField from '@components/ui/TextField';
 import {
+  ArrowDownTrayIcon,
   ArrowLeftIcon,
+  CheckIcon,
+  ClipboardDocumentIcon,
+  ClipboardIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  IdentificationIcon,
+  KeyIcon,
+  LinkIcon,
   PencilIcon,
   TrashIcon,
   UserIcon,
-  IdentificationIcon,
-  EnvelopeIcon,
-  KeyIcon,
-  LinkIcon,
-  DocumentTextIcon,
-  ClipboardDocumentIcon,
-  EyeIcon,
-  EyeSlashIcon,
-  ClipboardIcon,
-  CheckIcon,
-  ArrowDownTrayIcon,
 } from '@heroicons/react/20/solid';
-import PdfExportModal from './PdfExportModal';
-import { toast } from 'sonner';
+import { useTaxRecord } from '@hooks/useTaxRecords';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import PdfExportModal from './PdfExportModal';
 import {
+  buildReferenceOptions,
   createHandleChange,
   CUSTOM_REFERENCE_VALUE,
   EMPTY_FORM_VALUES,
-  buildReferenceOptions,
   type FieldErrors,
   type FormValues,
 } from './taxRecordForm.helpers';
@@ -75,13 +76,19 @@ export default function TaxRecordDetailPage() {
     return Number.isNaN(id) ? null : id;
   }, [taxRecordId]);
 
-  const [record, setRecord] = useState<TaxRecord | null>(null);
+  const {
+    record,
+    loading,
+    error: queryError,
+    updateTaxRecord,
+    deleteTaxRecord,
+    saving,
+    deleting,
+  } = useTaxRecord(parsedId);
+
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
 
@@ -99,32 +106,6 @@ export default function TaxRecordDetailPage() {
     'email' | 'password' | 'cnic' | null
   >(null);
 
-  useEffect(() => {
-    if (!parsedId) return;
-    let mounted = true;
-    setLoading(true);
-    setError(null);
-
-    taxRecordApi
-      .getById(parsedId)
-      .then((r) => {
-        if (mounted) setRecord(r);
-      })
-      .catch((err) => {
-        if (mounted)
-          setError(
-            err instanceof Error ? err.message : 'Failed to load record.',
-          );
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [parsedId]);
-
   const enterEditMode = async () => {
     if (!record) return;
     try {
@@ -133,7 +114,6 @@ export default function TaxRecordDetailPage() {
       const otherRecords = allRecords.filter((r) => r.id !== record.id);
       const options = buildReferenceOptions(otherRecords);
 
-      console.log('OPTIONS', options);
       setReferenceOptions(options);
       const referenceValues = options.map((o) => o.value);
       const values = recordToFormValues(record, referenceValues);
@@ -163,7 +143,7 @@ export default function TaxRecordDetailPage() {
     }
   };
 
-  const handleEditSubmit = async (event: React.FormEvent) => {
+  const handleEditSubmit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
     if (!parsedId) return;
 
@@ -206,52 +186,79 @@ export default function TaxRecordDetailPage() {
       return;
     }
 
-    setSaving(true);
+    const uniquenessErrors = await taxRecordApi.validateUniqueness(
+      {
+        referenceNumber: formValues.referenceNumber,
+        cnic: formValues.cnic,
+        email: formValues.email,
+      },
+      parsedId,
+    );
+
+    if (Object.keys(uniquenessErrors).length > 0) {
+      setFieldErrors((current) => ({
+        ...current,
+        ...uniquenessErrors,
+      }));
+      setError(null);
+      return;
+    }
+
     setError(null);
     setFieldErrors({});
 
-    try {
-      const updated = await taxRecordApi.update(parsedId, {
-        referenceNumber: formValues.referenceNumber,
-        name: formValues.name,
-        cnic: formValues.cnic,
-        email: formValues.email,
-        password: formValues.password,
-        reference,
-        status: formValues.status,
-        notes: formValues.notes,
-      });
-      setRecord(updated);
-      setInitialFormValues(formValues);
-      setMode('view');
-      toast.success('Record updated successfully');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to save record.';
-      if (message === 'Email already exists.')
-        setFieldErrors((c) => ({ ...c, email: message }));
-      else if (message === 'CNIC already exists.')
-        setFieldErrors((c) => ({ ...c, cnic: message }));
-      else if (message === 'Reference number already exists.')
-        setFieldErrors((c) => ({ ...c, referenceNumber: message }));
-      setError(message);
-    } finally {
-      setSaving(false);
+    const { data: updated, error: updateError } = await updateTaxRecord({
+      referenceNumber: formValues.referenceNumber,
+      name: formValues.name,
+      cnic: formValues.cnic,
+      email: formValues.email,
+      password: formValues.password,
+      reference,
+      status: formValues.status,
+      notes: formValues.notes,
+    });
+
+    if (!updated) {
+      const mappedErrors: FieldErrors = {};
+
+      if (updateError?.includes('Email already exists')) {
+        mappedErrors.email = 'Email already exists.';
+      }
+
+      if (updateError?.includes('CNIC already exists')) {
+        mappedErrors.cnic = 'CNIC already exists.';
+      }
+
+      if (updateError?.includes('Reference number already exists')) {
+        mappedErrors.referenceNumber = 'Reference number already exists.';
+      }
+
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors((current) => ({
+          ...current,
+          ...mappedErrors,
+        }));
+        setError(null);
+        return;
+      }
+
+      setError(updateError ?? 'Failed to save record.');
+      return;
     }
+
+    setInitialFormValues(formValues);
+    setMode('view');
+    toast.success('Record updated successfully');
   };
 
   const handleDelete = async () => {
-    if (!parsedId) return;
-    setDeleting(true);
-    try {
-      await taxRecordApi.remove(parsedId);
+    const deleted = await deleteTaxRecord();
+    if (deleted) {
       toast.success('Record deleted successfully');
       navigate('/tax-records', { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete record.');
+    } else {
       toast.error('Failed to delete record');
       setPendingDelete(false);
-      setDeleting(false);
     }
   };
 
@@ -397,9 +404,11 @@ export default function TaxRecordDetailPage() {
               )}
             </div>
 
-            {error && (
+            {(error || queryError) && (
               <Card className="mb-5 border-red-200 bg-red-50">
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-sm text-red-800">
+                  {error ?? queryError ?? 'An error occurred.'}
+                </p>
               </Card>
             )}
 

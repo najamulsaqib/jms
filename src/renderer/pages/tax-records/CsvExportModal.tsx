@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { ArrowDownTrayIcon, TableCellsIcon } from '@heroicons/react/20/solid';
 import Button from '@components/ui/Button';
 import CheckboxField from '@components/ui/CheckboxField';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { ArrowDownTrayIcon, TableCellsIcon } from '@heroicons/react/20/solid';
 import { TaxRecord } from '@shared/taxRecord.contracts';
+import { useState } from 'react';
 
 export type CsvField =
   | 'referenceNumber'
@@ -26,16 +26,76 @@ type CsvFieldOption = {
 };
 
 const CSV_FIELD_OPTIONS: CsvFieldOption[] = [
-  { id: 'referenceNumber', label: 'Reference Number', header: 'Reference #',   defaultChecked: true,  section: 'Personal Information' },
-  { id: 'name',            label: 'Full Name',        header: 'Name',          defaultChecked: true,  section: 'Personal Information' },
-  { id: 'cnic',            label: 'CNIC',             header: 'CNIC',          defaultChecked: true,  section: 'Personal Information' },
-  { id: 'reference',       label: 'Reference',        header: 'Reference',     defaultChecked: true,  section: 'Personal Information' },
-  { id: 'email',           label: 'Email Address',    header: 'Email',         defaultChecked: true,  section: 'Account Credentials' },
-  { id: 'password',        label: 'Password',         header: 'Password',      defaultChecked: false, section: 'Account Credentials' },
-  { id: 'status',          label: 'Status',           header: 'Status',        defaultChecked: true,  section: 'Status & Dates' },
-  { id: 'createdAt',       label: 'Created Date',     header: 'Created',       defaultChecked: false, section: 'Status & Dates' },
-  { id: 'updatedAt',       label: 'Last Modified',    header: 'Last Modified', defaultChecked: false, section: 'Status & Dates' },
-  { id: 'notes',           label: 'Notes',            header: 'Notes',         defaultChecked: true,  section: 'Additional Notes' },
+  {
+    id: 'referenceNumber',
+    label: 'Reference Number',
+    header: 'Reference #',
+    defaultChecked: true,
+    section: 'Personal Information',
+  },
+  {
+    id: 'name',
+    label: 'Full Name',
+    header: 'Name',
+    defaultChecked: true,
+    section: 'Personal Information',
+  },
+  {
+    id: 'cnic',
+    label: 'CNIC',
+    header: 'CNIC',
+    defaultChecked: true,
+    section: 'Personal Information',
+  },
+  {
+    id: 'reference',
+    label: 'Reference',
+    header: 'Reference',
+    defaultChecked: true,
+    section: 'Personal Information',
+  },
+  {
+    id: 'email',
+    label: 'Email Address',
+    header: 'Email',
+    defaultChecked: true,
+    section: 'Account Credentials',
+  },
+  {
+    id: 'password',
+    label: 'Password',
+    header: 'Password',
+    defaultChecked: false,
+    section: 'Account Credentials',
+  },
+  {
+    id: 'status',
+    label: 'Status',
+    header: 'Status',
+    defaultChecked: true,
+    section: 'Status & Dates',
+  },
+  {
+    id: 'createdAt',
+    label: 'Created Date',
+    header: 'Created',
+    defaultChecked: false,
+    section: 'Status & Dates',
+  },
+  {
+    id: 'updatedAt',
+    label: 'Last Modified',
+    header: 'Last Modified',
+    defaultChecked: false,
+    section: 'Status & Dates',
+  },
+  {
+    id: 'notes',
+    label: 'Notes',
+    header: 'Notes',
+    defaultChecked: true,
+    section: 'Additional Notes',
+  },
 ];
 
 const SECTIONS = CSV_FIELD_OPTIONS.reduce<Record<string, CsvFieldOption[]>>(
@@ -63,26 +123,38 @@ function downloadCSV(records: TaxRecord[], selected: Set<CsvField>) {
     return fields
       .map((f) => {
         switch (f.id) {
-          case 'referenceNumber': return escape(r.referenceNumber);
-          case 'name':            return escape(r.name);
-          case 'cnic':            return escape(r.cnic);
-          case 'email':           return escape(r.email);
-          case 'password':        return escape(r.password);
-          case 'reference':       return escape(r.reference.replace(/-/g, ' '));
-          case 'status':          return escape(r.status);
-          case 'notes':           return escape(r.notes);
-          case 'createdAt':       return escape(new Date(r.createdAt).toLocaleDateString());
-          case 'updatedAt':       return escape(new Date(r.updatedAt).toLocaleDateString());
+          case 'referenceNumber':
+            return escape(r.referenceNumber);
+          case 'name':
+            return escape(r.name);
+          case 'cnic':
+            return escape(r.cnic);
+          case 'email':
+            return escape(r.email);
+          case 'password':
+            return escape(r.password);
+          case 'reference':
+            return escape(r.reference.replace(/-/g, ' '));
+          case 'status':
+            return escape(r.status);
+          case 'notes':
+            return escape(r.notes);
+          case 'createdAt':
+            return escape(new Date(r.createdAt).toLocaleDateString());
+          case 'updatedAt':
+            return escape(new Date(r.updatedAt).toLocaleDateString());
+          default:
+            return '';
         }
       })
       .join(',');
   });
 
-  const csv  = [headers.join(','), ...csvRows].join('\n');
+  const csv = [headers.join(','), ...csvRows].join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
   a.download = 'tax-records.csv';
   a.click();
   URL.revokeObjectURL(url);
@@ -95,7 +167,9 @@ type Props = {
 };
 
 export default function CsvExportModal({ isOpen, records, onClose }: Props) {
-  const [selected, setSelected] = useState<Set<CsvField>>(new Set(DEFAULT_FIELDS));
+  const [selected, setSelected] = useState<Set<CsvField>>(
+    new Set(DEFAULT_FIELDS),
+  );
 
   const toggle = (field: CsvField) => {
     setSelected((prev) => {
@@ -106,14 +180,14 @@ export default function CsvExportModal({ isOpen, records, onClose }: Props) {
     });
   };
 
-  const handleExport = () => {
-    downloadCSV(records, selected);
-    handleClose();
-  };
-
   const handleClose = () => {
     setSelected(new Set(DEFAULT_FIELDS));
     onClose();
+  };
+
+  const handleExport = () => {
+    downloadCSV(records, selected);
+    handleClose();
   };
 
   return (
@@ -139,7 +213,9 @@ export default function CsvExportModal({ isOpen, records, onClose }: Props) {
 
             {/* Record count badge */}
             <div className="mt-4 rounded-lg bg-white/15 px-3 py-2">
-              <p className="text-xs text-blue-200 leading-none mb-1">Exporting</p>
+              <p className="text-xs text-blue-200 leading-none mb-1">
+                Exporting
+              </p>
               <p className="text-sm font-semibold text-white leading-tight">
                 {records.length} record{records.length !== 1 ? 's' : ''}
               </p>
@@ -151,13 +227,17 @@ export default function CsvExportModal({ isOpen, records, onClose }: Props) {
             {/* Select all / clear */}
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">{selected.size}</span>{' '}
+                <span className="font-semibold text-slate-700">
+                  {selected.size}
+                </span>{' '}
                 of {CSV_FIELD_OPTIONS.length} fields selected
               </span>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => setSelected(new Set(CSV_FIELD_OPTIONS.map((f) => f.id)))}
+                  onClick={() =>
+                    setSelected(new Set(CSV_FIELD_OPTIONS.map((f) => f.id)))
+                  }
                   className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
                 >
                   Select all
@@ -198,7 +278,12 @@ export default function CsvExportModal({ isOpen, records, onClose }: Props) {
 
           {/* Actions */}
           <div className="px-6 py-4 flex gap-3 justify-end border-t border-slate-100 mt-3">
-            <Button variant="secondary" type="button" size="sm" onClick={handleClose}>
+            <Button
+              variant="secondary"
+              type="button"
+              size="sm"
+              onClick={handleClose}
+            >
               Cancel
             </Button>
             <Button
@@ -206,8 +291,8 @@ export default function CsvExportModal({ isOpen, records, onClose }: Props) {
               size="sm"
               onClick={handleExport}
               disabled={selected.size === 0}
+              icon={ArrowDownTrayIcon}
             >
-              <ArrowDownTrayIcon className="h-3.5 w-3.5 mr-1.5" />
               Download CSV
             </Button>
           </div>

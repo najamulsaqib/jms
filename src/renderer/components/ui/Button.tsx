@@ -1,4 +1,4 @@
-import { type ButtonHTMLAttributes } from 'react';
+import React, { type ButtonHTMLAttributes } from 'react';
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type ButtonSize = 'sm' | 'md' | 'lg';
@@ -98,7 +98,9 @@ export default function Button({
         <>
           {Icon && <Icon className={`${dim} shrink-0`} />}
           {children && (
-            <span className={hasIcon ? 'hidden sm:inline sm:ml-1.5' : undefined}>
+            <span
+              className={hasIcon ? 'hidden sm:inline sm:ml-1.5' : undefined}
+            >
               {children}
             </span>
           )}

@@ -1,81 +1,133 @@
-import { useNavigate } from 'react-router-dom';
-import { useMemo, useState } from 'react';
-import {
-  PlusIcon,
-  MagnifyingGlassIcon,
-  CheckCircleIcon,
-  PauseCircleIcon,
-  ExclamationTriangleIcon,
-  XMarkIcon,
-} from '@heroicons/react/20/solid';
-import {
-  DocumentTextIcon,
-  ArrowDownTrayIcon,
-  ArrowUpTrayIcon,
-  FunnelIcon,
-} from '@heroicons/react/24/outline';
-import CsvImportModal from './CsvImportModal';
-import CsvExportModal from './CsvExportModal';
-import { toast } from 'sonner';
-import AppLayout from '@components/layout/AppLayout';
+import FloatingActionBar from '@components/common/FloatingActionBar';
+import LoadingSpinner from '@components/common/LoadingSpinner';
 import StatCard from '@components/common/StatCard';
+import AppLayout from '@components/layout/AppLayout';
+import BulkActionModal from '@components/modals/BulkActionModal';
 import DataTable, {
   type DataTableColumn,
   type SortState,
 } from '@components/table/DataTable';
+import Pagination from '@components/table/Pagination';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
-import ConfirmDialog from '@components/ui/ConfirmDialog';
-import EmptyState from '@components/common/EmptyState';
-import LoadingSpinner from '@components/common/LoadingSpinner';
-import { useTaxRecords } from '@hooks/useTaxRecords';
-import { taxRecordApi } from '@services/taxRecord.api';
-import { TaxRecord, TaxRecordStatus } from '@shared/taxRecord.contracts';
 import { Chip } from '@components/ui/Chip';
-import SelectField from '@components/ui/SelectField';
+import ConfirmDialog from '@components/ui/ConfirmDialog';
+import DropdownMenu, {
+  type DropdownMenuItem,
+} from '@components/ui/DropdownMenu';
 import {
-  sortRows,
-  type SearchField,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  MagnifyingGlassIcon,
+  PlusIcon,
+  XMarkIcon,
+} from '@heroicons/react/20/solid';
+import {
+  ArrowDownTrayIcon,
+  ArrowUpTrayIcon,
+  FolderIcon,
+} from '@heroicons/react/24/outline';
+import {
+  useBulkUpdateStatus,
+  useDistinctReferences,
+  usePaginatedTaxRecords,
+  useStatusCounts,
+} from '@hooks/useTaxRecords';
+import { TaxRecord, TaxRecordStatus } from '@shared/taxRecord.contracts';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import CsvExportModal from './CsvExportModal';
+import CsvImportModal from './CsvImportModal';
+import {
   SEARCH_FIELD_OPTIONS,
   SEARCH_FIELD_PLACEHOLDER,
+  type SearchField,
 } from './taxRecords.helpers';
+
+const DEFAULT_PAGE_SIZE = 25;
 
 export default function TaxRecordsPage() {
   const navigate = useNavigate();
-  const { taxRecords, loading, deletingId, error, deleteTaxRecord, reload } =
-    useTaxRecords();
+
+  // Pagination + filter state
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchField, setSearchField] = useState<SearchField>('all');
   const [referenceFilter, setReferenceFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortState, setSortState] = useState<SortState>({
-    key: 'id',
-    direction: 'asc',
+    key: 'createdAt',
+    direction: 'desc',
   });
+
+  // Debounce search input
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setPage(0);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
+
+  // Reset page when any filter/sort changes
+  const resetPage = () => setPage(0);
+
+  // Server-side data
+  const {
+    records,
+    total,
+    loading,
+    error,
+    deleteTaxRecord,
+    deletingId,
+    reload,
+  } = usePaginatedTaxRecords({
+    page,
+    pageSize,
+    sortKey: sortState.key,
+    sortDirection: sortState.direction,
+    search: debouncedSearch,
+    searchField,
+    referenceFilter,
+    statusFilter,
+  });
+
+  const { data: statusCounts } = useStatusCounts();
+  const { data: distinctReferences = [] } = useDistinctReferences();
+  const {
+    bulkUpdateStatus,
+    bulkUpdateAllStatus,
+    isUpdating: bulkUpdating,
+  } = useBulkUpdateStatus();
+
+  // Selection
   const [pendingDeleteRecord, setPendingDeleteRecord] =
     useState<TaxRecord | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<TaxRecordStatus>('active');
-  const [bulkUpdating, setBulkUpdating] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [showCsvExport, setShowCsvExport] = useState(false);
+  const [bulkUpdateMode, setBulkUpdateMode] = useState<
+    'selected' | 'all' | null
+  >(null);
+  const [showBulkActionModal, setShowBulkActionModal] = useState(false);
 
-  const requestDelete = (record: TaxRecord) => {
-    setPendingDeleteRecord(record);
-  };
+  const requestDelete = (record: TaxRecord) => setPendingDeleteRecord(record);
 
   const cancelDelete = () => {
-    if (deletingId !== null) {
-      return;
-    }
+    if (deletingId !== null) return;
     setPendingDeleteRecord(null);
   };
 
   const confirmDelete = async () => {
-    if (!pendingDeleteRecord) {
-      return;
-    }
-
+    if (!pendingDeleteRecord) return;
     const deleted = await deleteTaxRecord(pendingDeleteRecord.id);
     if (deleted) {
       toast.success('Record deleted successfully');
@@ -83,74 +135,25 @@ export default function TaxRecordsPage() {
     }
   };
 
-  const filtered = useMemo(() => {
-    let results = taxRecords;
-
-    // Apply reference filter
-    if (referenceFilter !== 'all') {
-      results = results.filter(
-        (record) => record.reference === referenceFilter,
-      );
-    }
-
-    // Apply status filter
-    if (statusFilter !== 'all') {
-      results = results.filter((record) => record.status === statusFilter);
-    }
-
-    // Apply search
-    const normalizedSearch = searchQuery.trim().toLowerCase();
-    if (normalizedSearch) {
-      results = results.filter((record) => {
-        if (searchField === 'all') {
-          return [
-            record.referenceNumber,
-            record.id,
-            record.name,
-            record.cnic,
-            record.email,
-            record.reference,
-            record.status,
-            record.notes,
-            record.createdAt,
-            new Date(record.createdAt).toLocaleString(),
-          ].some((v) => String(v).toLowerCase().includes(normalizedSearch));
-        }
-
-        const fieldValue: Record<string, unknown> = {
-          referenceNumber: record.referenceNumber,
-          name: record.name,
-          cnic: record.cnic,
-          email: record.email,
-          reference: record.reference,
-          status: record.status,
-          notes: record.notes,
-        };
-        return String(fieldValue[searchField] ?? '')
-          .toLowerCase()
-          .includes(normalizedSearch);
-      });
-    }
-
-    return results;
-  }, [searchQuery, searchField, referenceFilter, statusFilter, taxRecords]);
-
-  const sortedRecords = useMemo(
-    () => sortRows(filtered, sortState),
-    [filtered, sortState],
-  );
-
   const allSelected =
-    sortedRecords.length > 0 &&
-    sortedRecords.every((r) => selectedIds.has(r.id));
+    records.length > 0 && records.every((r) => selectedIds.has(r.id));
   const someSelected =
-    sortedRecords.some((r) => selectedIds.has(r.id)) && !allSelected;
+    records.some((r) => selectedIds.has(r.id)) && !allSelected;
 
   const toggleAll = () => {
     if (allSelected) {
-      setSelectedIds(new Set());
+      // Deselect only current page
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        records.forEach((r) => next.delete(r.id));
+        return next;
+      });
     } else {
-      setSelectedIds(new Set(sortedRecords.map((r) => r.id)));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        records.forEach((r) => next.add(r.id));
+        return next;
+      });
     }
   };
 
@@ -163,34 +166,61 @@ export default function TaxRecordsPage() {
     });
   };
 
-  const handleBulkUpdate = async () => {
-    setBulkUpdating(true);
-    try {
-      await Promise.all(
-        Array.from(selectedIds).map((id) => {
-          const record = taxRecords.find((r) => r.id === id);
-          if (!record) return Promise.resolve();
-          return taxRecordApi.update(id, {
-            referenceNumber: record.referenceNumber,
-            name: record.name,
-            cnic: record.cnic,
-            email: record.email,
-            password: record.password,
-            reference: record.reference,
-            status: bulkStatus,
-            notes: record.notes,
-          });
-        }),
-      );
-      await reload();
-      toast.success(
-        `Updated ${selectedIds.size} record${selectedIds.size > 1 ? 's' : ''}`,
-      );
-      setSelectedIds(new Set());
-    } catch {
-      toast.error('Some records failed to update');
-    } finally {
-      setBulkUpdating(false);
+  const requestBulkUpdate = (mode: 'selected' | 'all') => {
+    setBulkUpdateMode(mode);
+  };
+
+  const handleBulkActionApply = (
+    mode: 'selected' | 'all',
+    status: TaxRecordStatus,
+  ) => {
+    setBulkStatus(status);
+    setBulkUpdateMode(mode);
+  };
+
+  const cancelBulkUpdate = () => {
+    if (bulkUpdating) return;
+    setBulkUpdateMode(null);
+  };
+
+  const confirmBulkUpdate = async () => {
+    if (!bulkUpdateMode) return;
+
+    let success = false;
+
+    if (bulkUpdateMode === 'all') {
+      // Update all records (filtered)
+      success = await bulkUpdateAllStatus(bulkStatus, {
+        search: debouncedSearch,
+        searchField,
+        referenceFilter,
+        statusFilter,
+      });
+
+      if (success) {
+        const count = total;
+        toast.success(
+          `Updated ${count} record${count !== 1 ? 's' : ''} to ${bulkStatus}`,
+        );
+        await reload();
+        setBulkUpdateMode(null);
+      } else {
+        toast.error('Bulk update failed');
+      }
+    } else {
+      // Update selected only
+      success = await bulkUpdateStatus(Array.from(selectedIds), bulkStatus);
+
+      if (success) {
+        toast.success(
+          `Updated ${selectedIds.size} record${selectedIds.size > 1 ? 's' : ''} to ${bulkStatus}`,
+        );
+        setSelectedIds(new Set());
+        await reload();
+        setBulkUpdateMode(null);
+      } else {
+        toast.error('Bulk update failed');
+      }
     }
   };
 
@@ -199,6 +229,7 @@ export default function TaxRecordsPage() {
     setStatusFilter('all');
     setSearchQuery('');
     setSearchField('all');
+    setPage(0);
   };
 
   const hasActiveFilters =
@@ -206,15 +237,34 @@ export default function TaxRecordsPage() {
     statusFilter !== 'all' ||
     searchQuery.trim() !== '';
 
-  // Get unique reference options
-  const referenceOptions = Array.from(
-    new Set(taxRecords.map((r) => r.reference)),
-  )
-    .sort()
-    .map((ref) => ({
-      value: ref,
-      label: ref.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-    }));
+  const referenceOptions = distinctReferences.map((ref) => ({
+    value: ref,
+    label: ref.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+  }));
+
+  // Dropdown menu items
+  const dropdownMenuItems: DropdownMenuItem[] = [
+    ...(total > 0
+      ? [
+          {
+            label: 'Bulk Actions',
+            icon: FolderIcon,
+            onClick: () => setShowBulkActionModal(true),
+            badge: selectedIds.size > 0 ? selectedIds.size : undefined,
+          },
+        ]
+      : []),
+    {
+      label: 'Import CSV',
+      icon: ArrowUpTrayIcon,
+      onClick: () => setShowCsvImport(true),
+    },
+    {
+      label: 'Export CSV',
+      icon: ArrowDownTrayIcon,
+      onClick: () => setShowCsvExport(true),
+    },
+  ];
 
   const columns: DataTableColumn<TaxRecord>[] = [
     {
@@ -229,7 +279,7 @@ export default function TaxRecordsPage() {
           }}
           onChange={toggleAll}
           className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-          aria-label="Select all"
+          aria-label="Select all on page"
         />
       ),
       render: (record) => (
@@ -360,25 +410,8 @@ export default function TaxRecordsPage() {
               contact details, and filing status.
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              icon={ArrowUpTrayIcon}
-              onClick={() => setShowCsvImport(true)}
-            >
-              Import CSV
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="md"
-              icon={ArrowDownTrayIcon}
-              onClick={() => setShowCsvExport(true)}
-            >
-              Export CSV
-            </Button>
+          <div className="flex items-center gap-2">
+            <DropdownMenu items={dropdownMenuItems} />
             <Button
               type="button"
               size="md"
@@ -394,21 +427,21 @@ export default function TaxRecordsPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <StatCard
             label="Active Filers"
-            value={taxRecords.filter((t) => t.status === 'active').length}
+            value={statusCounts?.active ?? 0}
             subtext="Currently active clients"
             icon={CheckCircleIcon}
             color="green"
           />
           <StatCard
             label="Late Filers"
-            value={taxRecords.filter((t) => t.status === 'late-filer').length}
+            value={statusCounts?.lateFiler ?? 0}
             subtext="Filed tax late"
             icon={ExclamationTriangleIcon}
             color="orange"
           />
           <StatCard
             label="Inactive Filers"
-            value={taxRecords.filter((t) => t.status === 'inactive').length}
+            value={statusCounts?.inactive ?? 0}
             subtext="Require follow-up"
             icon={ExclamationTriangleIcon}
             color="red"
@@ -422,59 +455,8 @@ export default function TaxRecordsPage() {
           </Card>
         )}
 
-        {/* Data Table */}
-        {loading && (
-          <Card>
-            <LoadingSpinner className="py-12" size="lg" />
-            <p className="text-center text-slate-600 mt-4">
-              Loading records...
-            </p>
-          </Card>
-        )}
-
-        {!loading && selectedIds.size > 0 && (
-          <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
-            <span className="text-sm font-medium text-blue-900">
-              {selectedIds.size} record{selectedIds.size > 1 ? 's' : ''}{' '}
-              selected
-            </span>
-            <div className="flex items-center gap-2 ml-auto">
-              <label className="text-sm font-medium text-blue-900">
-                Set status to:
-              </label>
-              <select
-                value={bulkStatus}
-                onChange={(e) =>
-                  setBulkStatus(e.target.value as TaxRecordStatus)
-                }
-                className="rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="late-filer">Late Filer</option>
-              </select>
-              <Button
-                type="button"
-                size="sm"
-                busy={bulkUpdating}
-                onClick={handleBulkUpdate}
-              >
-                Apply
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setSelectedIds(new Set())}
-              >
-                Deselect
-              </Button>
-            </div>
-          </div>
-        )}
-
         <Card padding="none">
-          {/* Integrated Filters Bar */}
+          {/* Filters Bar */}
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-2">
             {/* Row 1: Unified search bar */}
             <div className="flex items-stretch rounded-lg border border-slate-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
@@ -484,6 +466,7 @@ export default function TaxRecordsPage() {
                 onChange={(e) => {
                   setSearchField(e.target.value as SearchField);
                   setSearchQuery('');
+                  resetPage();
                 }}
                 className="shrink-0 border-r border-slate-200 bg-slate-50 pl-3 pr-7 text-xs font-medium text-slate-600 focus:outline-none cursor-pointer"
               >
@@ -513,7 +496,10 @@ export default function TaxRecordsPage() {
               <select
                 id="referenceFilter"
                 value={referenceFilter}
-                onChange={(e) => setReferenceFilter(e.target.value)}
+                onChange={(e) => {
+                  setReferenceFilter(e.target.value);
+                  resetPage();
+                }}
                 className="flex-1 min-w-32.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
               >
                 <option value="all">All References</option>
@@ -526,7 +512,10 @@ export default function TaxRecordsPage() {
               <select
                 id="statusFilter"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  resetPage();
+                }}
                 className="flex-1 min-w-30 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
               >
                 <option value="all">All Statuses</option>
@@ -546,23 +535,46 @@ export default function TaxRecordsPage() {
               )}
             </div>
           </div>
+
           {/* Table */}
-          {!loading && (
+          {loading ? (
+            <div className="py-12">
+              <LoadingSpinner className="py-4" size="lg" />
+              <p className="text-center text-slate-600 mt-4">
+                Loading records...
+              </p>
+            </div>
+          ) : (
             <DataTable
               columns={columns}
-              rows={sortedRecords}
+              rows={records}
               getRowId={(row) => row.id}
               sortState={sortState}
-              onSortChange={setSortState}
+              onSortChange={(next) => {
+                setSortState(next);
+                resetPage();
+              }}
               onRowClick={(row) => navigate(`/tax-records/${row.id}`)}
             />
           )}
+
+          {/* Pagination */}
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(0);
+            }}
+          />
         </Card>
 
         {/* CSV Export Modal */}
         <CsvExportModal
           isOpen={showCsvExport}
-          records={sortedRecords}
+          records={records}
           onClose={() => setShowCsvExport(false)}
         />
 
@@ -591,6 +603,48 @@ export default function TaxRecordsPage() {
           }
           onCancel={cancelDelete}
           onConfirm={confirmDelete}
+        />
+
+        {/* Bulk Update Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={bulkUpdateMode !== null}
+          title={`Update ${bulkUpdateMode === 'all' ? 'all' : 'selected'} records?`}
+          message={
+            bulkUpdateMode === 'all'
+              ? `This will update ${hasActiveFilters ? 'all filtered' : 'all'} records (${total} total) to "${bulkStatus}". This action cannot be undone.`
+              : `This will update ${selectedIds.size} selected record${selectedIds.size > 1 ? 's' : ''} to "${bulkStatus}". This action cannot be undone.`
+          }
+          cancelLabel="Cancel"
+          confirmLabel={`Update ${bulkUpdateMode === 'all' ? `All (${total})` : `Selected (${selectedIds.size})`}`}
+          confirmVariant="primary"
+          busy={bulkUpdating}
+          onCancel={cancelBulkUpdate}
+          onConfirm={confirmBulkUpdate}
+        />
+
+        {/* Bulk Action Modal */}
+        <BulkActionModal
+          isOpen={showBulkActionModal}
+          selectedCount={selectedIds.size}
+          totalCount={total}
+          hasActiveFilters={hasActiveFilters}
+          onClose={() => setShowBulkActionModal(false)}
+          onApplyToSelected={(status) =>
+            handleBulkActionApply('selected', status)
+          }
+          onApplyToAll={(status) => handleBulkActionApply('all', status)}
+        />
+
+        {/* Floating Action Bar */}
+        <FloatingActionBar
+          selectedCount={selectedIds.size}
+          totalCount={total}
+          status={bulkStatus}
+          hasActiveFilters={hasActiveFilters}
+          onStatusChange={setBulkStatus}
+          onApplyToSelected={() => requestBulkUpdate('selected')}
+          onApplyToAll={() => requestBulkUpdate('all')}
+          onClearSelection={() => setSelectedIds(new Set())}
         />
       </div>
     </AppLayout>

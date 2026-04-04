@@ -2,6 +2,9 @@ import 'webpack-dev-server';
 import path from 'path';
 import fs from 'fs';
 import webpack from 'webpack';
+import dotenv from 'dotenv';
+
+dotenv.config();
 import HtmlWebpackPlugin from 'html-webpack-plugin';
 import chalk from 'chalk';
 import { merge } from 'webpack-merge';
@@ -141,6 +144,8 @@ const configuration: webpack.Configuration = {
      */
     new webpack.EnvironmentPlugin({
       NODE_ENV: 'development',
+      SUPABASE_URL: '',
+      SUPABASE_ANON_KEY: '',
     }),
 
     new webpack.LoaderOptionsPlugin({

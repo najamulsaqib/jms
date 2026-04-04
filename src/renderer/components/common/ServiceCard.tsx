@@ -1,5 +1,5 @@
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRightIcon } from '@heroicons/react/20/solid';
 
 interface ServiceCardProps {
   title: string;
