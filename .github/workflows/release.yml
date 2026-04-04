@@ -21,7 +21,6 @@ on:
           - latest
           - beta
 
-
 jobs:
   bump:
     runs-on: ubuntu-latest
@@ -87,11 +86,16 @@ jobs:
         run: pnpm install
 
       - name: Build
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: pnpm run build
 
       - name: Package
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
         run: pnpm exec electron-builder --win --publish never
 
       - name: Zip installer
