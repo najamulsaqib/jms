@@ -11,6 +11,27 @@ export const PDF_COMPANY_INFO = {
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type PdfCompanyInfo = typeof PDF_COMPANY_INFO;
+
+function resolvePdfCompanyInfo(
+  overrides?: Partial<PdfCompanyInfo>,
+): PdfCompanyInfo {
+  if (!overrides) return PDF_COMPANY_INFO;
+
+  const resolved: PdfCompanyInfo = { ...PDF_COMPANY_INFO };
+
+  (Object.keys(PDF_COMPANY_INFO) as Array<keyof PdfCompanyInfo>).forEach(
+    (key) => {
+      const value = overrides[key];
+      if (typeof value === 'string' && value.trim()) {
+        resolved[key] = value.trim();
+      }
+    },
+  );
+
+  return resolved;
+}
+
 export type PdfField =
   | 'name'
   | 'referenceNumber'
@@ -128,8 +149,10 @@ const SAFE_BOTTOM = PAGE_H - FOOTER_H - 4;
 export function generateTaxRecordPdf(
   record: TaxRecord,
   selectedFields: Set<PdfField>,
+  companyInfoOverrides?: Partial<PdfCompanyInfo>,
 ) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const companyInfo = resolvePdfCompanyInfo(companyInfoOverrides);
 
   const genDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
@@ -151,13 +174,13 @@ export function generateTaxRecordPdf(
     doc.setTextColor(...C.white);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(18);
-    doc.text(PDF_COMPANY_INFO.name, ML, 16);
+    doc.text(companyInfo.name, ML, 16);
 
     // Tagline
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...C.blue100);
-    doc.text(PDF_COMPANY_INFO.tagline, ML, 24);
+    doc.text(companyInfo.tagline, ML, 24);
 
     // Generated date (top-right)
     doc.setFontSize(8);
@@ -182,7 +205,7 @@ export function generateTaxRecordPdf(
     doc.setTextColor(...C.white);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text(`${PDF_COMPANY_INFO.name} — Tax Record (continued)`, ML, 9.5);
+    doc.text(`${companyInfo.name} — Tax Record (continued)`, ML, 9.5);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...C.blue100);
@@ -202,7 +225,7 @@ export function generateTaxRecordPdf(
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(...C.blue600);
-    doc.text(PDF_COMPANY_INFO.name, ML, fy + 6);
+    doc.text(companyInfo.name, ML, fy + 6);
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...C.slate400);
@@ -219,12 +242,12 @@ export function generateTaxRecordPdf(
     doc.setFontSize(7.5);
     doc.setTextColor(...C.slate600);
     doc.text(
-      `${PDF_COMPANY_INFO.contactName}  •  ${PDF_COMPANY_INFO.phone}`,
+      `${companyInfo.contactName}  •  ${companyInfo.phone}`,
       ML,
       fy + 13.5,
     );
 
-    doc.text(PDF_COMPANY_INFO.address, PAGE_W - MR, fy + 13.5, {
+    doc.text(companyInfo.address, PAGE_W - MR, fy + 13.5, {
       align: 'right',
     });
 

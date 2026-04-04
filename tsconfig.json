@@ -20,7 +20,9 @@
       "@pages/*": ["renderer/pages/*"],
       "@services/*": ["renderer/services/*"],
       "@types/*": ["renderer/types/*"],
-      "@shared/*": ["shared/*"]
+      "@shared/*": ["shared/*"],
+      "@contexts/*": ["renderer/contexts/*"],
+      "@lib/*": ["renderer/lib/*"]
     },
   },
   "exclude": ["test", "release/build", "release/app/dist", ".erb/dll"],

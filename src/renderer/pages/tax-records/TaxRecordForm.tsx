@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
   UserIcon,
@@ -26,6 +27,7 @@ import {
 export default function TaxRecordFormPage() {
   const { taxRecordId } = useParams<{ taxRecordId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const parsedId = useMemo(() => {
     if (!taxRecordId) {
@@ -128,6 +130,7 @@ export default function TaxRecordFormPage() {
     setSuccess,
     setInitialFormValues,
     navigate,
+    onSaved: () => queryClient.invalidateQueries({ queryKey: ['taxRecords'] }),
   });
 
   const handleCancel = () => {

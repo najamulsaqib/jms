@@ -175,6 +175,7 @@ type HandleSubmitOptions = {
   setSuccess: Dispatch<SetStateAction<string | null>>;
   setSaving: Dispatch<SetStateAction<boolean>>;
   setInitialFormValues: Dispatch<SetStateAction<FormValues | null>>;
+  onSaved?: () => void;
 };
 
 export const createHandleSubmit = ({
@@ -187,6 +188,7 @@ export const createHandleSubmit = ({
   setSuccess,
   setSaving,
   setInitialFormValues,
+  onSaved,
 }: HandleSubmitOptions) => {
   return async (event: any) => {
     event.preventDefault();
@@ -256,6 +258,25 @@ export const createHandleSubmit = ({
     setFieldErrors({});
 
     try {
+      const uniquenessErrors = await taxRecordApi.validateUniqueness(
+        {
+          referenceNumber: formValues.referenceNumber,
+          cnic: formValues.cnic,
+          email: formValues.email,
+        },
+        isEditMode && parsedId !== null ? parsedId : undefined,
+      );
+
+      if (Object.keys(uniquenessErrors).length > 0) {
+        setFieldErrors((current) => ({
+          ...current,
+          ...uniquenessErrors,
+        }));
+        setError(null);
+        setSuccess(null);
+        return;
+      }
+
       if (isEditMode && parsedId !== null) {
         await taxRecordApi.update(parsedId, {
           referenceNumber: formValues.referenceNumber,
@@ -270,6 +291,7 @@ export const createHandleSubmit = ({
         setInitialFormValues(formValues);
         setSuccess('Entry updated successfully.');
         toast.success('Record updated successfully');
+        onSaved?.();
       } else {
         const created = await taxRecordApi.create({
           referenceNumber: formValues.referenceNumber,
@@ -282,6 +304,7 @@ export const createHandleSubmit = ({
           notes: formValues.notes,
         });
         toast.success('Record created successfully');
+        onSaved?.();
         navigate(`/tax-records/${created.id}`, { replace: true });
         setSuccess('Entry created successfully.');
       }
@@ -289,13 +312,7 @@ export const createHandleSubmit = ({
       const message =
         err instanceof Error ? err.message : 'Failed to save entry.';
 
-      // Handle both direct errors and IPC-wrapped errors
-      const cleanMessage = message.replace(
-        /^Error invoking remote method '[^']+': (Error: )?/,
-        '',
-      );
-
-      if (cleanMessage.includes('Email already exists')) {
+      if (message.includes('Email already exists')) {
         setFieldErrors((current) => ({
           ...current,
           email: 'Email already exists.',
@@ -303,7 +320,7 @@ export const createHandleSubmit = ({
         return;
       }
 
-      if (cleanMessage.includes('CNIC already exists')) {
+      if (message.includes('CNIC already exists')) {
         setFieldErrors((current) => ({
           ...current,
           cnic: 'CNIC already exists.',
@@ -311,7 +328,7 @@ export const createHandleSubmit = ({
         return;
       }
 
-      if (cleanMessage.includes('Reference number already exists')) {
+      if (message.includes('Reference number already exists')) {
         setFieldErrors((current) => ({
           ...current,
           referenceNumber: 'Reference number already exists.',
@@ -320,8 +337,8 @@ export const createHandleSubmit = ({
       }
 
       // Only show toast for unexpected errors
-      setError(cleanMessage);
-      toast.error(cleanMessage);
+      setError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }

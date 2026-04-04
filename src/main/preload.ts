@@ -1,12 +1,6 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
-import {
-  type CreateTaxRecordInput,
-  TAX_RECORD_CHANNELS,
-  type TaxRecord,
-  type UpdateTaxRecordInput,
-} from '../shared/taxRecord.contracts';
 
 export type Channels = 'ipc-example';
 
@@ -28,22 +22,12 @@ const electronHandler = {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
   },
-  taxRecord: {
-    list(): Promise<TaxRecord[]> {
-      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.list);
-    },
-    getById(id: number): Promise<TaxRecord> {
-      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.getById, id);
-    },
-    create(payload: CreateTaxRecordInput): Promise<TaxRecord> {
-      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.create, payload);
-    },
-    update(id: number, payload: UpdateTaxRecordInput): Promise<TaxRecord> {
-      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.update, id, payload);
-    },
-    remove(id: number): Promise<void> {
-      return ipcRenderer.invoke(TAX_RECORD_CHANNELS.remove, id);
-    },
+  updater: {
+    getChannel: () => ipcRenderer.invoke('updater:getChannel'),
+    setChannel: (channel: 'latest' | 'beta') =>
+      ipcRenderer.invoke('updater:setChannel', channel),
+    checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
+    getVersion: () => ipcRenderer.invoke('updater:getVersion'),
   },
 };
 

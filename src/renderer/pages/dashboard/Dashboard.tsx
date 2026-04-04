@@ -1,10 +1,10 @@
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import AppLayout from '@components/layout/AppLayout';
 import ServiceCard from '@components/common/ServiceCard';
-import { useTaxRecords } from '@hooks/useTaxRecords';
+import { useTotalCount } from '@hooks/useTaxRecords';
 
 export default function Dashboard() {
-  const { taxRecords } = useTaxRecords();
+  const { data: totalClients = 0 } = useTotalCount();
 
   return (
     <AppLayout breadcrumbs={[{ label: 'Dashboard' }]}>
@@ -32,7 +32,7 @@ export default function Dashboard() {
               href="/tax-records"
               stats={{
                 label: 'Total Clients',
-                value: taxRecords.length,
+                value: totalClients,
               }}
               color="blue"
             />

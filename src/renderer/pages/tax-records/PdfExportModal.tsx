@@ -1,14 +1,15 @@
-import { useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { ArrowDownTrayIcon } from '@heroicons/react/20/solid';
-import { DocumentTextIcon } from '@heroicons/react/20/solid';
-import { toast } from 'sonner';
 import Button from '@components/ui/Button';
 import CheckboxField from '@components/ui/CheckboxField';
+import { useAuth } from '@contexts/AuthContext';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/20/solid';
 import { TaxRecord } from '@shared/taxRecord.contracts';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   PDF_FIELD_OPTIONS,
   type PdfField,
+  type PdfCompanyInfo,
   generateTaxRecordPdf,
 } from './taxRecordPdf';
 
@@ -36,6 +37,7 @@ export default function PdfExportModal({
   record,
   onClose,
 }: PdfExportModalProps) {
+  const { user } = useAuth();
   const [selected, setSelected] = useState<Set<PdfField>>(
     new Set(DEFAULT_FIELDS),
   );
@@ -54,7 +56,21 @@ export default function PdfExportModal({
       toast.error('Select at least one field to export');
       return;
     }
-    generateTaxRecordPdf(record, selected);
+
+    const metadata = user?.user_metadata;
+    const companyInfoOverrides: Partial<PdfCompanyInfo> = {
+      name:
+        (metadata?.company_name as string | undefined) ||
+        (metadata?.full_name as string | undefined),
+      tagline: metadata?.description as string | undefined,
+      address: metadata?.address as string | undefined,
+      phone: metadata?.phone_number as string | undefined,
+      contactName:
+        (metadata?.full_name as string | undefined) ||
+        (metadata?.company_name as string | undefined),
+    };
+
+    generateTaxRecordPdf(record, selected, companyInfoOverrides);
     toast.success('PDF downloaded');
     onClose();
   };
@@ -166,8 +182,8 @@ export default function PdfExportModal({
               size="sm"
               onClick={handleExport}
               disabled={selected.size === 0}
+              icon={ArrowDownTrayIcon}
             >
-              <ArrowDownTrayIcon className="h-3.5 w-3.5 mr-1.5" />
               Download PDF
             </Button>
           </div>
