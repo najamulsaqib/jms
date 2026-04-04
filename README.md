@@ -99,3 +99,20 @@ src/
 
 - All DB access stays in the main process.
 - Renderer never imports `better-sqlite3` directly.
+
+## Downloads
+
+### Windows
+Download the latest `.exe` installer from the [Releases](https://github.com/najamulsaqib/jms/releases) page.
+
+### macOS (TODO)
+
+> macOS builds are not currently available for direct download.
+>
+> macOS requires apps to be **code signed and notarized** by Apple before they can be distributed. This requires an Apple Developer account ($99/year).
+>
+> **To do:**
+> - [ ] Obtain Apple Developer certificate
+> - [ ] Configure signing secrets in GitHub Actions (`APPLE_CSC_LINK`, `APPLE_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`)
+> - [ ] Set repo variable `APPLE_SIGNING_AVAILABLE=true` to enable the signed build path in CI
+> - [ ] Re-enable `hardenedRuntime` and `type: distribution` in `package.json`
