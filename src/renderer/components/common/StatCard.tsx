@@ -8,24 +8,24 @@ interface StatCardProps {
 
 const colorClasses = {
   green: {
-    border: 'border-green-500',
-    iconBg: 'bg-green-50',
-    icon: 'text-green-600',
+    border: 'border-green-300',
+    iconBg: 'bg-green-100',
+    icon: 'text-green-400',
   },
   orange: {
-    border: 'border-orange-400',
+    border: 'border-orange-200',
     iconBg: 'bg-orange-50',
-    icon: 'text-orange-600',
+    icon: 'text-orange-300',
   },
   red: {
-    border: 'border-red-500',
+    border: 'border-red-300',
     iconBg: 'bg-red-50',
-    icon: 'text-red-600',
+    icon: 'text-red-400',
   },
   blue: {
-    border: 'border-blue-500',
+    border: 'border-blue-300',
     iconBg: 'bg-blue-50',
-    icon: 'text-blue-600',
+    icon: 'text-blue-400',
   },
 };
 
