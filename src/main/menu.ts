@@ -211,77 +211,18 @@ Made with ❤️ using Electron + React + TypeScript`,
   }
 
   buildDefaultTemplate(): MenuItemConstructorOptions[] {
-    const templateDefault: MenuItemConstructorOptions[] = [
-      {
-        label: '&File',
-        submenu: [
-          {
-            label: '&Open',
-            accelerator: 'Ctrl+O',
-          },
-          {
-            label: '&Close',
-            accelerator: 'Ctrl+W',
-            click: () => {
-              this.mainWindow.close();
-            },
-          },
-        ],
-      },
-      {
-        label: '&View',
-        submenu:
-          process.env.NODE_ENV === 'development' ||
-          process.env.DEBUG_PROD === 'true'
-            ? [
-                {
-                  label: '&Reload',
-                  accelerator: 'Ctrl+R',
-                  click: () => {
-                    this.mainWindow.webContents.reload();
-                  },
-                },
-                {
-                  label: 'Toggle &Full Screen',
-                  accelerator: 'F11',
-                  click: () => {
-                    this.mainWindow.setFullScreen(
-                      !this.mainWindow.isFullScreen(),
-                    );
-                  },
-                },
-                {
-                  label: 'Toggle &Developer Tools',
-                  accelerator: 'Alt+Ctrl+I',
-                  click: () => {
-                    this.mainWindow.webContents.toggleDevTools();
-                  },
-                },
-              ]
-            : [
-                {
-                  label: 'Toggle &Full Screen',
-                  accelerator: 'F11',
-                  click: () => {
-                    this.mainWindow.setFullScreen(
-                      !this.mainWindow.isFullScreen(),
-                    );
-                  },
-                },
-              ],
-      },
-      {
-        label: 'Help',
-        submenu: [
-          {
-            label: 'About JMS Tax',
-            click: () => {
-              dialog
-                .showMessageBox(this.mainWindow, {
-                  type: 'info',
-                  title: 'About JMS Tax',
-                  message: 'JMS Tax Consultancy',
-                  detail: `Version: ${app.getVersion()}
+    const subMenuAbout: MenuItemConstructorOptions = {
+      label: 'JMS Tax',
+      submenu: [
+        {
+          label: 'About JMS Tax',
+          click: () => {
+            dialog
+              .showMessageBox(this.mainWindow, {
+                type: 'info',
+                title: 'About JMS Tax',
+                message: 'JMS Tax Consultancy',
+                detail: `Version: ${app.getVersion()}
 Platform: ${process.platform}-${process.arch}
 Electron: ${process.versions.electron}
 Chrome: ${process.versions.chrome}
@@ -299,58 +240,121 @@ A desktop application built with Electron and React, designed to help tax consul
 Licensed under MIT License
 
 Made with ❤️ using Electron + React + TypeScript`,
-                  buttons: ['OK', 'Visit Website'],
-                })
-                .then((result) => {
-                  if (result.response === 1) {
-                    shell.openExternal('https://najamulsaqib.me');
-                  }
-                  return result;
-                })
-                .catch((err) => {
-                  // eslint-disable-next-line no-console
-                  console.error('Error showing about dialog:', err);
-                });
-            },
+                buttons: ['OK', 'Visit Website'],
+              })
+              .then((result) => {
+                if (result.response === 1) {
+                  shell.openExternal('https://najamulsaqib.me');
+                }
+                return result;
+              })
+              .catch((err) => {
+                // eslint-disable-next-line no-console
+                console.error('Error showing about dialog:', err);
+              });
           },
-          { type: 'separator' },
-          {
-            label: 'Check for Updates...',
-            click: () => {
-              ipcMain.emit('check-for-updates');
-            },
+        },
+        { type: 'separator' },
+        {
+          label: 'Check for Updates...',
+          click: () => {
+            ipcMain.emit('check-for-updates');
           },
-          { type: 'separator' },
-          {
-            label: 'Learn More',
-            click() {
-              shell.openExternal('https://electronjs.org');
-            },
+        },
+        { type: 'separator' },
+        {
+          label: 'Quit',
+          accelerator: 'Ctrl+Q',
+          click: () => {
+            app.quit();
           },
-          {
-            label: 'Documentation',
-            click() {
-              shell.openExternal(
-                'https://github.com/electron/electron/tree/main/docs#readme',
-              );
-            },
+        },
+      ],
+    };
+    const subMenuViewDev: MenuItemConstructorOptions = {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'Ctrl+R',
+          click: () => {
+            this.mainWindow.webContents.reload();
           },
-          {
-            label: 'Community Discussions',
-            click() {
-              shell.openExternal('https://www.electronjs.org/community');
-            },
+        },
+        {
+          label: 'Toggle Full Screen',
+          accelerator: 'F11',
+          click: () => {
+            this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
           },
-          {
-            label: 'Search Issues',
-            click() {
-              shell.openExternal('https://github.com/electron/electron/issues');
-            },
+        },
+        {
+          label: 'Toggle Developer Tools',
+          accelerator: 'Alt+Ctrl+I',
+          click: () => {
+            this.mainWindow.webContents.toggleDevTools();
           },
-        ],
-      },
-    ];
+        },
+      ],
+    };
+    const subMenuViewProd: MenuItemConstructorOptions = {
+      label: 'View',
+      submenu: [
+        {
+          label: 'Toggle Full Screen',
+          accelerator: 'F11',
+          click: () => {
+            this.mainWindow.setFullScreen(!this.mainWindow.isFullScreen());
+          },
+        },
+      ],
+    };
+    const subMenuWindow: MenuItemConstructorOptions = {
+      label: 'Window',
+      submenu: [
+        {
+          label: 'Minimize',
+          accelerator: 'Ctrl+M',
+          click: () => {
+            this.mainWindow.minimize();
+          },
+        },
+        {
+          label: 'Close',
+          accelerator: 'Ctrl+W',
+          click: () => {
+            this.mainWindow.close();
+          },
+        },
+      ],
+    };
+    const subMenuHelp: MenuItemConstructorOptions = {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'Support Contact',
+          click: () => {
+            dialog.showMessageBox(this.mainWindow, {
+              type: 'info',
+              title: 'Contact Support',
+              message: 'Contact developer for support',
+              detail: `For support, please contact us at:
 
-    return templateDefault;
+📧 Email: 1najamulsaqib@gmail.com
+🌐 Website: https://najamulsaqib.me
+📖 GitHub: https://github.com/najamulsaqib`,
+            });
+          },
+        },
+      ],
+    };
+
+    const subMenuView =
+      process.env.NODE_ENV === 'development' ||
+      process.env.DEBUG_PROD === 'true'
+        ? subMenuViewDev
+        : subMenuViewProd;
+
+    return [subMenuAbout, subMenuView, subMenuWindow, subMenuHelp];
   }
 }

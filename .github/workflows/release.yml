@@ -9,14 +9,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  release:
-    runs-on: ${{ matrix.os }}
-    permissions:
-      contents: write
-
-    strategy:
-      matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+  build:
+    runs-on: windows-latest
 
     steps:
       - name: Check out Git repository
@@ -35,15 +29,43 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build and publish to GitHub Release
+      - name: Build
+        run: pnpm run build
+
+      - name: Package
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pnpm run build
-          pnpm exec electron-builder --publish always
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: pnpm exec electron-builder --win --publish never
+
+      - name: Zip installer
+        shell: pwsh
+        run: Compress-Archive -Path release/build/*.exe -DestinationPath release/build/JMSTax-windows.zip
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.os }}
-          path: release/build/*
+          name: release-windows
+          path: |
+            release/build/JMSTax-windows.zip
+            release/build/*.exe
+            release/build/latest*.yml
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Create GitHub Release and upload assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
