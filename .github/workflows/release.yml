@@ -12,6 +12,14 @@ on:
           - patch
           - minor
           - major
+      channel:
+        description: 'Release channel'
+        required: true
+        default: 'latest'
+        type: choice
+        options:
+          - latest
+          - beta
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -44,7 +52,11 @@ jobs:
         id: bump
         working-directory: release/app
         run: |
-          NEW_VERSION=$(npm version ${{ inputs.bump }} --no-git-tag-version)
+          if [ "${{ inputs.channel }}" = "beta" ]; then
+            NEW_VERSION=$(npm version pre${{ inputs.bump }} --preid=beta --no-git-tag-version)
+          else
+            NEW_VERSION=$(npm version ${{ inputs.bump }} --no-git-tag-version)
+          fi
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Commit and push
@@ -96,6 +108,7 @@ jobs:
             release/build/JMSTax-windows.zip
             release/build/*.exe
             release/build/latest*.yml
+            release/build/beta.yml
           if-no-files-found: error
 
   release:
@@ -116,5 +129,6 @@ jobs:
         with:
           tag_name: ${{ needs.bump.outputs.new_version }}
           name: ${{ needs.bump.outputs.new_version }}
+          prerelease: ${{ inputs.channel == 'beta' }}
           files: artifacts/**/*
           generate_release_notes: true
