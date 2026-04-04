@@ -24,7 +24,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-slate-900 mb-4">
             Services
           </h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <ServiceCard
               title="Tax Records"
               description="Manage client tax records, including reference numbers, CNICs, contact details, and filing status."
