@@ -16,7 +16,6 @@ import {
   KeyIcon,
   LinkIcon,
   DocumentTextIcon,
-  CalendarIcon,
   ClipboardDocumentIcon,
   EyeIcon,
   EyeSlashIcon,
@@ -287,11 +286,11 @@ export default function TaxRecordDetailPage() {
         { label: record?.name ?? 'Record' },
       ]}
     >
-      <div className="max-w-3xl">
+      <div className="max-w-6xl">
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
-          className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Tax Records
@@ -313,18 +312,60 @@ export default function TaxRecordDetailPage() {
 
         {!loading && record && (
           <>
-            {/* Header */}
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">
-                  {record.name}
-                </h1>
-                <p className="mt-1 text-medium text-slate-500">
-                  Ref # {record.referenceNumber}
-                </p>
+            {/* Hero Header */}
+            <div className="flex items-center gap-4 bg-white rounded-xl border border-slate-200 px-5 py-4 shadow-sm mb-5">
+              <div className="shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-lg font-bold text-blue-600 select-none">
+                  {record.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold text-slate-900 truncate">
+                    {record.name}
+                  </h1>
+                  <Chip
+                    variant={
+                      ({
+                        active: 'green',
+                        inactive: 'red',
+                        'late-filer': 'orange',
+                      }[record.status] || 'slate') as any
+                    }
+                    size="md"
+                  >
+                    {record.status}
+                  </Chip>
+                </div>
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">
+                  <span>Ref # {record.referenceNumber}</span>
+                  <span>·</span>
+                  <span>
+                    Created{' '}
+                    {new Date(record.createdAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    Updated{' '}
+                    {new Date(record.updatedAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
               </div>
               {mode === 'view' && (
-                <div className="flex items-center gap-2 shrink-0 ml-4">
+                <div className="flex items-center gap-2 shrink-0">
                   <Button
                     type="button"
                     variant="ghost"
@@ -357,178 +398,130 @@ export default function TaxRecordDetailPage() {
             </div>
 
             {error && (
-              <Card className="mb-6 border-red-200 bg-red-50">
+              <Card className="mb-5 border-red-200 bg-red-50">
                 <p className="text-sm text-red-800">{error}</p>
               </Card>
             )}
 
             {/* VIEW MODE */}
             {mode === 'view' && (
-              <div className="space-y-6">
-                {/* Status Banner */}
-                <Card className="bg-linear-to-r from-slate-50 to-white border-l-4 border-l-blue-500">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-slate-500 mb-1">
-                        Current Status
+              <div className="space-y-5">
+                {/* 2-col grid: Personal Info + Account Credentials */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Personal Information */}
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                        <UserIcon className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Personal Information
                       </h3>
-                      <Chip
-                        variant={
-                          {
-                            active: 'green',
-                            inactive: 'red',
-                            'late-filer': 'orange',
-                          }[record.status] || ('slate' as any)
-                        }
-                        size="md"
-                      >
-                        {record.status}
-                      </Chip>
                     </div>
-                    <div className="text-right space-y-3">
-                      <div className="flex items-center justify-end text-sm text-slate-700">
-                        <div className="mr-1">Created:</div>
-                        <CalendarIcon className="h-4 w-4 mr-1 text-slate-400" />
-                        {new Date(record.createdAt).toLocaleDateString(
-                          'en-US',
-                          {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          },
-                        )}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <UserIcon className="h-3 w-3" /> Full Name
+                        </p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {record.name}
+                        </p>
                       </div>
-                      <div className="flex items-center justify-end text-sm text-slate-700">
-                        <div className="mr-1">Last modified:</div>
-                        <CalendarIcon className="h-4 w-4 mr-1 text-slate-400" />
-                        {new Date(record.updatedAt).toLocaleDateString(
-                          'en-US',
-                          {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          },
-                        )}
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <IdentificationIcon className="h-3 w-3" /> CNIC
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {record.cnic}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(record.cnic, 'cnic')}
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                            title="Copy CNIC"
+                          >
+                            {copiedField === 'cnic' ? (
+                              <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <ClipboardIcon className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <ClipboardDocumentIcon className="h-3 w-3" />{' '}
+                          Reference Number
+                        </p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {record.referenceNumber}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <LinkIcon className="h-3 w-3" /> Reference
+                        </p>
+                        <p className="text-sm font-medium text-slate-900 capitalize">
+                          {record.reference.replace(/-/g, ' ')}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
 
-                {/* Personal Information */}
-                <Card>
-                  <div className="border-b border-slate-200 pb-4 mb-6">
-                    <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                      <UserIcon className="h-5 w-5 mr-2 text-blue-600" />
-                      Personal Information
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                        Full Name
-                      </label>
-                      <div className="text-base font-medium text-slate-900">
-                        {record.name}
+                  {/* Account Credentials */}
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                        <KeyIcon className="h-4 w-4 text-emerald-600" />
                       </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Account Credentials
+                      </h3>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <IdentificationIcon className="h-3.5 w-3.5 mr-1" />
-                        CNIC
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
-                          {record.cnic}
+                    <div className="space-y-5">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <EnvelopeIcon className="h-3 w-3" /> Email Address
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {record.email}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(record.email, 'email')}
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                            title="Copy email"
+                          >
+                            {copiedField === 'email' ? (
+                              <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                            ) : (
+                              <ClipboardIcon className="h-3.5 w-3.5" />
+                            )}
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(record.cnic, 'cnic')}
-                          className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors shrink-0"
-                          title="Copy CNIC"
-                        >
-                          {copiedField === 'cnic' ? (
-                            <CheckIcon className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <ClipboardIcon className="h-4 w-4" />
-                          )}
-                        </button>
                       </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <ClipboardDocumentIcon className="h-3.5 w-3.5 mr-1" />
-                        Reference Number
-                      </label>
-                      <div className="text-base font-medium text-slate-900">
-                        {record.referenceNumber}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <LinkIcon className="h-3.5 w-3.5 mr-1" />
-                        Reference
-                      </label>
-                      <div className="text-base font-medium text-slate-900 capitalize">
-                        {record.reference.replace(/-/g, ' ')}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Account Credentials */}
-                <Card>
-                  <div className="border-b border-slate-200 pb-4 mb-6">
-                    <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                      <KeyIcon className="h-5 w-5 mr-2 text-emerald-600" />
-                      Account Credentials
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <EnvelopeIcon className="h-3.5 w-3.5 mr-1" />
-                        Email Address
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
-                          {record.email}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(record.email, 'email')}
-                          className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors shrink-0"
-                          title="Copy email"
-                        >
-                          {copiedField === 'email' ? (
-                            <CheckIcon className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <ClipboardIcon className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <KeyIcon className="h-3.5 w-3.5 mr-1" />
-                        Password
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
-                          {showPassword ? record.password : '••••••••••••'}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <KeyIcon className="h-3 w-3" /> Password
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {showPassword ? record.password : '••••••••••••'}
+                          </span>
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
                             title={
                               showPassword ? 'Hide password' : 'Show password'
                             }
                           >
                             {showPassword ? (
-                              <EyeSlashIcon className="h-4 w-4" />
+                              <EyeSlashIcon className="h-3.5 w-3.5" />
                             ) : (
-                              <EyeIcon className="h-4 w-4" />
+                              <EyeIcon className="h-3.5 w-3.5" />
                             )}
                           </button>
                           <button
@@ -536,35 +529,35 @@ export default function TaxRecordDetailPage() {
                             onClick={() =>
                               handleCopy(record.password, 'password')
                             }
-                            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
                             title="Copy password"
                           >
                             {copiedField === 'password' ? (
-                              <CheckIcon className="h-4 w-4 text-green-600" />
+                              <CheckIcon className="h-3.5 w-3.5 text-green-600" />
                             ) : (
-                              <ClipboardIcon className="h-4 w-4" />
+                              <ClipboardIcon className="h-3.5 w-3.5" />
                             )}
                           </button>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+                </div>
 
                 {/* Additional Notes */}
                 {record.notes && (
                   <Card>
-                    <div className="border-b border-slate-200 pb-4 mb-6">
-                      <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                        <DocumentTextIcon className="h-5 w-5 mr-2 text-amber-600" />
+                    <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                        <DocumentTextIcon className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
                         Additional Notes
                       </h3>
                     </div>
-                    <div className="prose prose-sm max-w-none">
-                      <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
-                        {record.notes}
-                      </p>
-                    </div>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {record.notes}
+                    </p>
                   </Card>
                 )}
               </div>
@@ -572,9 +565,18 @@ export default function TaxRecordDetailPage() {
 
             {/* EDIT MODE */}
             {mode === 'edit' && (
-              <Card>
-                <form onSubmit={handleEditSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <form onSubmit={handleEditSubmit} className="space-y-5">
+                {/* Personal Info */}
+                <Card>
+                  <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                    <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                      <UserIcon className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Personal Information
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <TextField
                       id="referenceNumber"
                       name="referenceNumber"
@@ -593,9 +595,6 @@ export default function TaxRecordDetailPage() {
                       error={fieldErrors.name}
                       placeholder="John Doe"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <TextField
                       id="cnic"
                       name="cnic"
@@ -605,97 +604,117 @@ export default function TaxRecordDetailPage() {
                       error={fieldErrors.cnic}
                       placeholder="3520112345671"
                     />
-                    <TextField
-                      id="email"
-                      name="email"
-                      label="Email"
-                      value={formValues.email}
-                      onChange={handleChange}
-                      error={fieldErrors.email}
-                      placeholder="john@example.com"
-                    />
+                    <div className="space-y-5">
+                      <SelectField
+                        id="selectedReference"
+                        name="selectedReference"
+                        label="Reference"
+                        value={formValues.selectedReference}
+                        onChange={handleChange}
+                        options={allReferenceOptions}
+                        error={fieldErrors.selectedReference}
+                      />
+                      {formValues.selectedReference ===
+                        CUSTOM_REFERENCE_VALUE && (
+                        <TextField
+                          id="customReference"
+                          name="customReference"
+                          label="Custom Reference"
+                          value={formValues.customReference}
+                          onChange={handleChange}
+                          error={fieldErrors.customReference}
+                          placeholder="Enter custom reference"
+                        />
+                      )}
+                    </div>
                   </div>
+                </Card>
 
-                  <TextField
-                    id="password"
-                    name="password"
-                    label="Password"
-                    value={formValues.password}
-                    onChange={handleChange}
-                    error={fieldErrors.password}
-                    placeholder="Enter password"
-                  />
+                {/* Credentials + Status */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                        <KeyIcon className="h-4 w-4 text-emerald-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Account Credentials & Status
+                      </h3>
+                    </div>
+                    <div className="space-y-5">
+                      <TextField
+                        id="email"
+                        name="email"
+                        label="Email"
+                        value={formValues.email}
+                        onChange={handleChange}
+                        error={fieldErrors.email}
+                        placeholder="john@example.com"
+                      />
+                      <TextField
+                        id="password"
+                        name="password"
+                        label="Password"
+                        value={formValues.password}
+                        onChange={handleChange}
+                        error={fieldErrors.password}
+                        placeholder="Enter password"
+                      />
+                      <SelectField
+                        id="status"
+                        name="status"
+                        label="Status"
+                        value={formValues.status}
+                        onChange={handleChange}
+                        options={STATUS_OPTIONS}
+                        error={fieldErrors.status}
+                      />
+                    </div>
+                  </Card>
 
-                  <SelectField
-                    id="selectedReference"
-                    name="selectedReference"
-                    label="Reference"
-                    value={formValues.selectedReference}
-                    onChange={handleChange}
-                    options={allReferenceOptions}
-                    error={fieldErrors.selectedReference}
-                  />
-
-                  {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
-                    <TextField
-                      id="customReference"
-                      name="customReference"
-                      label="Custom Reference"
-                      value={formValues.customReference}
-                      onChange={handleChange}
-                      error={fieldErrors.customReference}
-                      placeholder="Enter custom reference"
-                    />
-                  )}
-
-                  <SelectField
-                    id="status"
-                    name="status"
-                    label="Status"
-                    value={formValues.status}
-                    onChange={handleChange}
-                    options={STATUS_OPTIONS}
-                    error={fieldErrors.status}
-                  />
-
-                  <div className="space-y-1">
-                    <label
-                      htmlFor="notes"
-                      className="block text-sm font-medium text-slate-700"
-                    >
-                      Notes
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+                        <ClipboardDocumentIcon className="h-4 w-4 text-slate-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Notes
+                      </h3>
+                    </div>
+                    <div className="space-y-5">
                       <textarea
                         id="notes"
                         name="notes"
                         value={formValues.notes}
                         onChange={handleChange}
-                        rows={8}
-                        className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                        rows={10}
+                        className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
                         placeholder="Additional notes..."
                       />
-                    </label>
-                    {fieldErrors.notes && (
-                      <p className="text-sm text-red-600">
-                        {fieldErrors.notes}
-                      </p>
-                    )}
-                  </div>
+                      {fieldErrors.notes && (
+                        <p className="text-sm text-red-600">
+                          {fieldErrors.notes}
+                        </p>
+                      )}
+                    </div>
+                  </Card>
+                </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-slate-200">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleEditCancel}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" busy={saving}>
-                      Save Changes
-                    </Button>
-                  </div>
-                </form>
-              </Card>
+                <div className="flex gap-3 pt-1 justify-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleEditCancel}
+                    disabled={saving}
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" busy={saving} size="sm">
+                    Save Changes
+                  </Button>
+                </div>
+              </form>
             )}
           </>
         )}

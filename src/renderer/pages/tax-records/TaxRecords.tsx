@@ -18,6 +18,7 @@ import CsvImportModal from './CsvImportModal';
 import CsvExportModal from './CsvExportModal';
 import { toast } from 'sonner';
 import AppLayout from '@components/layout/AppLayout';
+import StatCard from '@components/common/StatCard';
 import DataTable, {
   type DataTableColumn,
   type SortState,
@@ -363,7 +364,7 @@ export default function TaxRecordsPage() {
             <Button
               type="button"
               variant="secondary"
-              size="md"
+              size="sm"
               onClick={() => setShowCsvImport(true)}
             >
               <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
@@ -372,7 +373,7 @@ export default function TaxRecordsPage() {
             <Button
               type="button"
               variant="secondary"
-              size="md"
+              size="sm"
               onClick={() => setShowCsvExport(true)}
             >
               <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
@@ -380,7 +381,7 @@ export default function TaxRecordsPage() {
             </Button>
             <Button
               type="button"
-              size="md"
+              size="sm"
               onClick={() => navigate('/tax-records/new')}
             >
               <PlusIcon className="h-5 w-5 mr-2" />
@@ -390,72 +391,28 @@ export default function TaxRecordsPage() {
         </div>
 
         {/* Quick Stats */}
-        <div className="bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">
-            Filers Overview
-          </h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-            {/* Active Filers Card */}
-            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-green-500 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">
-                    Active Filers
-                  </p>
-                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
-                    {taxRecords.filter((t) => t.status === 'active').length}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Currently active clients
-                  </p>
-                </div>
-                <div className="flex-shrink-0 w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                  <CheckCircleIcon className="w-7 h-7 text-green-600" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 right-0 w-24 h-24 bg-green-50 rounded-tl-full -mr-8 -mb-8"></div>
-            </div>
-
-            {/* Require attention Card */}
-            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-orange-200 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">
-                    Late Filers
-                  </p>
-                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
-                    {taxRecords.filter((t) => t.status === 'late-filer').length}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">Filed Tax late</p>
-                </div>
-                <div className="flex-shrink-0 w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <ExclamationTriangleIcon className="w-7 h-7 text-orange-600" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 right-0 w-24 h-24 bg-orange-50 rounded-tl-full -mr-8 -mb-8"></div>
-            </div>
-
-            {/* Inactive Filers Card */}
-            <div className="relative overflow-hidden bg-white rounded-xl p-6 shadow-md border-l-4 border-red-500 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-slate-600 uppercase tracking-wide">
-                    Inactive Filers
-                  </p>
-                  <p className="mt-3 text-4xl font-extrabold text-slate-900">
-                    {taxRecords.filter((t) => t.status === 'inactive').length}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-500">
-                    No longer filers or require follow-up
-                  </p>
-                </div>
-                <div className="flex-shrink-0 w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                  <ExclamationTriangleIcon className="w-7 h-7 text-red-600" />
-                </div>
-              </div>
-              <div className="absolute bottom-0 right-0 w-24 h-24 bg-red-50 rounded-tl-full -mr-8 -mb-8"></div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <StatCard
+            label="Active Filers"
+            value={taxRecords.filter((t) => t.status === 'active').length}
+            subtext="Currently active clients"
+            icon={CheckCircleIcon}
+            color="green"
+          />
+          <StatCard
+            label="Late Filers"
+            value={taxRecords.filter((t) => t.status === 'late-filer').length}
+            subtext="Filed tax late"
+            icon={ExclamationTriangleIcon}
+            color="orange"
+          />
+          <StatCard
+            label="Inactive Filers"
+            value={taxRecords.filter((t) => t.status === 'inactive').length}
+            subtext="Require follow-up"
+            icon={ExclamationTriangleIcon}
+            color="red"
+          />
         </div>
 
         {/* Error Message */}
