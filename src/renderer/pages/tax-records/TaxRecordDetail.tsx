@@ -370,27 +370,27 @@ export default function TaxRecordDetailPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
+                    icon={ArrowDownTrayIcon}
                     onClick={() => setShowPdfModal(true)}
                   >
-                    <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
                     Export PDF
                   </Button>
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
+                    icon={PencilIcon}
                     onClick={enterEditMode}
                   >
-                    <PencilIcon className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
                   <Button
                     type="button"
                     variant="danger"
                     size="sm"
+                    icon={TrashIcon}
                     onClick={() => setPendingDelete(true)}
                   >
-                    <TrashIcon className="h-4 w-4 mr-1" />
                     Delete
                   </Button>
                 </div>

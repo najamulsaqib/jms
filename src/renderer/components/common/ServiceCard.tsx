@@ -64,9 +64,13 @@ export default function ServiceCard({
           <Icon className={`h-6 w-6 ${colors.icon}`} />
         </div>
         {stats && (
-          <div className={`flex flex-col items-end gap-0.5 px-2 sm:px-3 py-1.5 rounded-lg ${colors.bg} ${colors.border} border`}>
-            <p className="text-[10px] sm:text-xs font-medium tracking-wide uppercase text-slate-400">{stats.label}</p>
-            <p className={`text-sm sm:text-base font-bold ${colors.icon}`}>{stats.value}</p>
+          <div className="ml-4 text-right">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+              {stats.label}
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              {stats.value}
+            </p>
           </div>
         )}
       </div>

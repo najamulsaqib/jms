@@ -353,38 +353,38 @@ export default function TaxRecordsPage() {
       <div className="space-y-6">
         {/* Page Header */}
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-3xl font-bold text-slate-900">Tax Records</h1>
             <p className="mt-2 text-slate-600">
               Manage client tax records, including reference numbers, CNICs,
               contact details, and filing status.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 justify-end">
             <Button
               type="button"
               variant="secondary"
-              size="sm"
+              size="md"
+              icon={ArrowUpTrayIcon}
               onClick={() => setShowCsvImport(true)}
             >
-              <ArrowUpTrayIcon className="h-5 w-5 mr-2" />
               Import CSV
             </Button>
             <Button
               type="button"
               variant="secondary"
-              size="sm"
+              size="md"
+              icon={ArrowDownTrayIcon}
               onClick={() => setShowCsvExport(true)}
             >
-              <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
               Export CSV
             </Button>
             <Button
               type="button"
-              size="sm"
+              size="md"
+              icon={PlusIcon}
               onClick={() => navigate('/tax-records/new')}
             >
-              <PlusIcon className="h-5 w-5 mr-2" />
               Add New Entry
             </Button>
           </div>
@@ -475,89 +475,75 @@ export default function TaxRecordsPage() {
 
         <Card padding="none">
           {/* Integrated Filters Bar */}
-          <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
-            <div className="flex items-center gap-3">
-              {/* Search Field Selector */}
-              <div className="w-44">
-                <select
-                  id="searchField"
-                  value={searchField}
-                  onChange={(e) => {
-                    setSearchField(e.target.value as SearchField);
-                    setSearchQuery('');
-                  }}
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+          <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-2">
+            {/* Row 1: Unified search bar */}
+            <div className="flex items-stretch rounded-lg border border-slate-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
+              <select
+                id="searchField"
+                value={searchField}
+                onChange={(e) => {
+                  setSearchField(e.target.value as SearchField);
+                  setSearchQuery('');
+                }}
+                className="shrink-0 border-r border-slate-200 bg-slate-50 pl-3 pr-7 text-xs font-medium text-slate-600 focus:outline-none cursor-pointer"
+              >
+                {SEARCH_FIELD_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="relative flex-1 min-w-0">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                  <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
+                </div>
+                <input
+                  id="search"
+                  type="text"
+                  placeholder={SEARCH_FIELD_PLACEHOLDER[searchField]}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Row 2: Filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                id="referenceFilter"
+                value={referenceFilter}
+                onChange={(e) => setReferenceFilter(e.target.value)}
+                className="flex-1 min-w-32.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+              >
+                <option value="all">All References</option>
+                {referenceOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                id="statusFilter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="flex-1 min-w-30 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+              >
+                <option value="all">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="late-filer">Late Filer</option>
+              </select>
+              {hasActiveFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-300 hover:border-red-200 transition-colors whitespace-nowrap"
                 >
-                  {SEARCH_FIELD_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Search Input */}
-              <div className="flex-1 max-w-xs">
-                <div className="relative">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
-                  </div>
-                  <input
-                    id="search"
-                    type="text"
-                    placeholder={SEARCH_FIELD_PLACEHOLDER[searchField]}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <div className="ml-auto flex items-center gap-3">
-                {/* Clear Filters Button */}
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors"
-                  >
-                    <XMarkIcon className="h-4 w-4" />
-                    Clear
-                  </button>
-                )}
-
-                {/* Reference Filter */}
-                <div className="w-44">
-                  <select
-                    id="referenceFilter"
-                    value={referenceFilter}
-                    onChange={(e) => setReferenceFilter(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-                  >
-                    <option value="all">All References</option>
-                    {referenceOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Status Filter */}
-                <div className="w-40">
-                  <select
-                    id="statusFilter"
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="late-filer">Late Filer</option>
-                  </select>
-                </div>
-              </div>
+                  <XMarkIcon className="h-3.5 w-3.5" />
+                  Clear
+                </button>
+              )}
             </div>
           </div>
           {/* Table */}
@@ -569,7 +555,6 @@ export default function TaxRecordsPage() {
               sortState={sortState}
               onSortChange={setSortState}
               onRowClick={(row) => navigate(`/tax-records/${row.id}`)}
-              emptyMessage="No records found. Try adjusting your search or filters?"
             />
           )}
         </Card>
