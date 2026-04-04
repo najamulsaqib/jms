@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   ReactNode,
 } from 'react';
@@ -24,6 +25,9 @@ interface AuthContextValue {
     description: string;
   }) => Promise<void>;
   updatePassword: (payload: { newPassword: string }) => Promise<void>;
+  sendPasswordResetOtp: (email: string) => Promise<void>;
+  verifyPasswordResetOtp: (email: string, token: string) => Promise<void>;
+  completePasswordReset: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -31,6 +35,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // When true, auth state changes are suppressed so the app doesn't
+  // navigate away while the user is mid-password-reset.
+  const passwordResetPending = useRef(false);
 
   useEffect(() => {
     let subscription: { unsubscribe(): void };
@@ -43,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
 
       const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+        if (passwordResetPending.current) return;
         setSession(next);
       });
       subscription = data.subscription;
@@ -102,6 +111,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const sendPasswordResetOtp = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false },
+    });
+    if (error) throw error;
+  }, []);
+
+  const verifyPasswordResetOtp = useCallback(
+    async (email: string, token: string) => {
+      // Suppress the SIGNED_IN event that verifyOtp fires so the app
+      // doesn't route the user in before they've set a new password.
+      passwordResetPending.current = true;
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      if (error) {
+        passwordResetPending.current = false;
+        throw error;
+      }
+      // Flag stays true — Supabase JS client holds the session internally
+      // so updateUser will work, but our React session state stays null.
+    },
+    [],
+  );
+
+  const completePasswordReset = useCallback(async (newPassword: string) => {
+    // Supabase JS client still has the OTP session; updateUser works fine.
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+
+    // Clear the pending flag before signing out so the SIGNED_OUT event
+    // propagates normally (sets session → null).
+    passwordResetPending.current = false;
+    await supabase.auth.signOut();
+  }, []);
+
   const value = useMemo(
     () => ({
       session,
@@ -111,8 +159,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut,
       updateProfile,
       updatePassword,
+      sendPasswordResetOtp,
+      verifyPasswordResetOtp,
+      completePasswordReset,
     }),
-    [session, loading, signIn, signOut, updateProfile, updatePassword],
+    [
+      session,
+      loading,
+      signIn,
+      signOut,
+      updateProfile,
+      updatePassword,
+      sendPasswordResetOtp,
+      verifyPasswordResetOtp,
+      completePasswordReset,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
