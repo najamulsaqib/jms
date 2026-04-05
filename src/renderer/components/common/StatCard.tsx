@@ -1,9 +1,11 @@
+import React from 'react';
+
 interface StatCardProps {
   label: string;
   value: number | string;
   subtext?: string;
   icon: React.ComponentType<{ className?: string }>;
-  color: 'green' | 'orange' | 'red' | 'blue';
+  color: 'green' | 'orange' | 'red' | 'blue' | 'neon';
 }
 
 const colorClasses = {
@@ -26,6 +28,11 @@ const colorClasses = {
     border: 'border-blue-300',
     iconBg: 'bg-blue-50',
     icon: 'text-blue-400',
+  },
+  neon: {
+    border: 'border-purple-300',
+    iconBg: 'bg-purple-50',
+    icon: 'text-purple-400',
   },
 };
 
