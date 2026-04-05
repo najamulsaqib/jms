@@ -27,6 +27,7 @@ type DataTableProps<T> = {
   sortState?: SortState;
   onSortChange?: (nextSort: SortState) => void;
   onRowClick?: (row: T) => void;
+  footer?: ReactNode;
 };
 
 const alignClasses = {
@@ -43,6 +44,7 @@ export default function DataTable<T>({
   sortState,
   onSortChange,
   onRowClick,
+  footer,
 }: DataTableProps<T>) {
   const handleSort = (columnId: string, sortable?: boolean) => {
     if (!sortable || !onSortChange) {
@@ -136,6 +138,7 @@ export default function DataTable<T>({
             </tr>
           )}
         </tbody>
+        {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>
   );
