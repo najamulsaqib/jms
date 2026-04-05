@@ -1,4 +1,5 @@
 name: Build and Release
+run-name: "Release · ${{ github.ref_name }} | ${{ inputs.bump }} | ${{ inputs.channel }}"
 
 on:
   workflow_dispatch:
