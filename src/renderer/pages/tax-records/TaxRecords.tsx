@@ -36,6 +36,7 @@ import {
   useStatusCounts,
 } from '@hooks/useTaxRecords';
 import { TaxRecord, TaxRecordStatus } from '@shared/taxRecord.contracts';
+import { encodeRecordId } from '@lib/recordId';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -567,7 +568,7 @@ export default function TaxRecordsPage() {
                 setSortState(next);
                 resetPage();
               }}
-              onRowClick={(row) => navigate(`/tax-records/${row.id}`)}
+              onRowClick={(row) => navigate(`/tax-records/${encodeRecordId(row.id)}`)}
             />
           )}
 

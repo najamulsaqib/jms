@@ -24,6 +24,7 @@ import {
   UserIcon,
 } from '@heroicons/react/20/solid';
 import { useTaxRecord } from '@hooks/useTaxRecords';
+import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
 import { useMemo, useState } from 'react';
@@ -72,8 +73,7 @@ export default function TaxRecordDetailPage() {
 
   const parsedId = useMemo(() => {
     if (!taxRecordId) return null;
-    const id = Number(taxRecordId);
-    return Number.isNaN(id) ? null : id;
+    return decodeRecordId(taxRecordId);
   }, [taxRecordId]);
 
   const {

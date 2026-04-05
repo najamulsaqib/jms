@@ -128,6 +128,7 @@ async function getCurrentUserId(): Promise<string> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
+  //TODO: if no session logout the user
   if (!session?.user) throw new Error('Not authenticated');
   return session.user.id;
 }
@@ -147,7 +148,9 @@ export const taxRecordApi = {
     if (error) throw mapSupabaseError(error);
 
     return {
-      emails: new Set((data ?? []).map((r) => (r.email as string).toLowerCase())),
+      emails: new Set(
+        (data ?? []).map((r) => (r.email as string).toLowerCase()),
+      ),
       cnics: new Set((data ?? []).map((r) => r.cnic as string)),
       referenceNumbers: new Set(
         (data ?? []).map((r) => (r.reference_number as string).toLowerCase()),
@@ -209,13 +212,16 @@ export const taxRecordApi = {
   },
 
   async getById(id: number): Promise<TaxRecord> {
+    const userId = await getCurrentUserId();
     const { data, error } = await supabase
       .from('tax_records')
       .select('*')
       .eq('id', id)
-      .single();
+      .eq('user_id', userId)
+      .maybeSingle();
 
     if (error) throw mapSupabaseError(error);
+    if (!data) throw new Error('Record not found');
     return mapRow(data as Record<string, unknown>);
   },
 
@@ -245,10 +251,12 @@ export const taxRecordApi = {
   },
 
   async update(id: number, payload: UpdateTaxRecordInput): Promise<TaxRecord> {
+    const userId = await getCurrentUserId();
     const { data, error } = await supabase
       .from('tax_records')
       .update(toSnakeCase({ ...payload, updatedAt: new Date().toISOString() }))
       .eq('id', id)
+      .eq('user_id', userId)
       .select()
       .single();
 
@@ -257,16 +265,23 @@ export const taxRecordApi = {
   },
 
   async remove(id: number): Promise<void> {
-    const { error } = await supabase.from('tax_records').delete().eq('id', id);
+    const userId = await getCurrentUserId();
+    const { error } = await supabase
+      .from('tax_records')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId);
 
     if (error) throw mapSupabaseError(error);
   },
 
   async bulkRemove(ids: number[]): Promise<void> {
+    const userId = await getCurrentUserId();
     const { error } = await supabase
       .from('tax_records')
       .delete()
-      .in('id', ids);
+      .in('id', ids)
+      .eq('user_id', userId);
 
     if (error) throw mapSupabaseError(error);
   },
@@ -368,10 +383,12 @@ export const taxRecordApi = {
     ids: number[],
     status: TaxRecordStatus,
   ): Promise<void> {
+    const userId = await getCurrentUserId();
     const { error } = await supabase
       .from('tax_records')
       .update({ status, updated_at: new Date().toISOString() })
-      .in('id', ids);
+      .in('id', ids)
+      .eq('user_id', userId);
     if (error) throw mapSupabaseError(error);
   },
 

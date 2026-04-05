@@ -1,6 +1,7 @@
 import { ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { type NavigateFunction } from 'react-router-dom';
 import { toast } from 'sonner';
+import { encodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { type TaxRecordStatus } from '@shared/taxRecord.contracts';
 
@@ -296,7 +297,7 @@ export const createHandleSubmit = ({
         const created = await taxRecordApi.create(recordPayload);
         toast.success('Record created successfully');
         onSaved?.();
-        navigate(`/tax-records/${created.id}`, { replace: true });
+        navigate(`/tax-records/${encodeRecordId(created.id)}`, { replace: true });
         setSuccess('Entry created successfully.');
       }
     } catch (err) {

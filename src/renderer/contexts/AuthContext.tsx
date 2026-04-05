@@ -173,7 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return {
               email: session.user.email ?? '',
               createdAt: session.user.created_at,
-              provider: (session.user.app_metadata?.provider as string) ?? 'unknown',
+              provider:
+                (session.user.app_metadata?.provider as string) ?? 'unknown',
               fullName: (meta.fullName as string) ?? '',
               companyName: (meta.companyName as string) ?? '',
               address: (meta.address as string) ?? '',

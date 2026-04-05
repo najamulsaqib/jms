@@ -50,7 +50,14 @@ export default function LoginPage() {
     setLoading(true);
     clearMessages();
     try {
-      await signIn(email, password);
+      await signIn(email, password)
+        .then(() => {
+          window.location.href = '/'; // Force reload to reset state and load user data
+          return null;
+        })
+        .catch((err) => {
+          throw err;
+        });
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Login failed. Please try again.',
