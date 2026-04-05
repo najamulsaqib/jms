@@ -38,7 +38,7 @@ function SettingsContent() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-6 lg:self-start">
           <SettingsSidebar
             activeSection={activeSection}

@@ -26,14 +26,21 @@ export default function BulkActionModal({
 
   if (!isOpen) return null;
 
+  const handleClose = () => {
+    setSelectedStatus('active');
+    onClose();
+  };
+
   const handleApplyToSelected = () => {
     onApplyToSelected(selectedStatus);
-    onClose();
+    setSelectedStatus('active');
+    handleClose();
   };
 
   const handleApplyToAll = () => {
     onApplyToAll(selectedStatus);
-    onClose();
+    setSelectedStatus('active');
+    handleClose();
   };
 
   return (
@@ -41,7 +48,7 @@ export default function BulkActionModal({
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal */}
@@ -145,7 +152,7 @@ export default function BulkActionModal({
             <Button
               type="button"
               variant="secondary"
-              size="md"
+              size="sm"
               onClick={onClose}
             >
               Cancel
@@ -154,7 +161,7 @@ export default function BulkActionModal({
               <Button
                 type="button"
                 variant="primary"
-                size="md"
+                size="sm"
                 onClick={handleApplyToSelected}
               >
                 Apply to {selectedCount} Selected
@@ -163,7 +170,7 @@ export default function BulkActionModal({
             <Button
               type="button"
               variant={selectedCount > 0 ? 'secondary' : 'primary'}
-              size="md"
+              size="sm"
               onClick={handleApplyToAll}
             >
               Apply to {hasActiveFilters ? 'Filtered' : 'All'} ({totalCount})

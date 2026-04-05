@@ -24,6 +24,8 @@ module.exports = {
     'no-nested-ternary': 'off',
     'jsx-a11y/label-has-associated-control': 'off',
     'react/no-unescaped-entities': 'off',
+    'jsx-a11y/no-static-element-interactions': 'off',
+    'jsx-a11y/click-events-have-key-events': 'off',
   },
   parserOptions: {
     ecmaVersion: 2022,

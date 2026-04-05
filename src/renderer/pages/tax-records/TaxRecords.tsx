@@ -26,8 +26,10 @@ import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
   FolderIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 import {
+  useBulkDeleteRecords,
   useBulkUpdateStatus,
   useDistinctReferences,
   usePaginatedTaxRecords,
@@ -106,10 +108,12 @@ export default function TaxRecordsPage() {
     bulkUpdateAllStatus,
     isUpdating: bulkUpdating,
   } = useBulkUpdateStatus();
+  const { bulkDelete, isDeleting: bulkDeleting } = useBulkDeleteRecords();
 
   // Selection
   const [pendingDeleteRecord, setPendingDeleteRecord] =
     useState<TaxRecord | null>(null);
+  const [pendingBulkDelete, setPendingBulkDelete] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [bulkStatus, setBulkStatus] = useState<TaxRecordStatus>('active');
   const [showCsvImport, setShowCsvImport] = useState(false);
@@ -132,6 +136,16 @@ export default function TaxRecordsPage() {
     if (deleted) {
       toast.success('Record deleted successfully');
       setPendingDeleteRecord(null);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    const deleted = await bulkDelete(ids);
+    if (deleted) {
+      toast.success(`${ids.length} record${ids.length > 1 ? 's' : ''} deleted`);
+      setSelectedIds(new Set());
+      setPendingBulkDelete(false);
     }
   };
 
@@ -378,16 +392,15 @@ export default function TaxRecordsPage() {
       header: 'Actions',
       align: 'right',
       render: (record) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="danger"
-            size="sm"
+        <div className="flex items-center justify-center gap-2">
+          <button
             type="button"
-            busy={deletingId === record.id}
             onClick={() => requestDelete(record)}
+            className="flex items-center justify-center w-8 h-8 text-red-400 hover:text-red-500 hover:bg-red-200 rounded-lg transition-colors"
+            title="Delete selected"
           >
-            Delete
-          </Button>
+            <TrashIcon className="w-4 h-4" />
+          </button>
         </div>
       ),
     },
@@ -455,7 +468,7 @@ export default function TaxRecordsPage() {
           </Card>
         )}
 
-        <Card padding="none">
+        <Card padding="none" className="mb-20">
           {/* Filters Bar */}
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-2">
             {/* Row 1: Unified search bar */}
@@ -635,6 +648,19 @@ export default function TaxRecordsPage() {
           onApplyToAll={(status) => handleBulkActionApply('all', status)}
         />
 
+        {/* Bulk Delete Confirmation Dialog */}
+        <ConfirmDialog
+          isOpen={pendingBulkDelete}
+          title={`Delete ${selectedIds.size} record${selectedIds.size > 1 ? 's' : ''}?`}
+          message={`This action cannot be undone. ${selectedIds.size} selected record${selectedIds.size > 1 ? 's' : ''} will be permanently deleted.`}
+          cancelLabel="Cancel"
+          confirmLabel={`Delete ${selectedIds.size} record${selectedIds.size > 1 ? 's' : ''}`}
+          confirmVariant="danger"
+          busy={bulkDeleting}
+          onCancel={() => setPendingBulkDelete(false)}
+          onConfirm={confirmBulkDelete}
+        />
+
         {/* Floating Action Bar */}
         <FloatingActionBar
           selectedCount={selectedIds.size}
@@ -645,6 +671,7 @@ export default function TaxRecordsPage() {
           onApplyToSelected={() => requestBulkUpdate('selected')}
           onApplyToAll={() => requestBulkUpdate('all')}
           onClearSelection={() => setSelectedIds(new Set())}
+          onDeleteSelected={() => setPendingBulkDelete(true)}
         />
       </div>
     </AppLayout>

@@ -232,6 +232,29 @@ export function useTaxRecord(id: number | null) {
   };
 }
 
+export function useBulkDeleteRecords() {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (ids: number[]) => taxRecordApi.bulkRemove(ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+  });
+
+  const bulkDelete = async (ids: number[]) => {
+    try {
+      await mutation.mutateAsync(ids);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  return {
+    bulkDelete,
+    isDeleting: mutation.isPending,
+  };
+}
+
 export function useBulkUpdateStatus() {
   const queryClient = useQueryClient();
 

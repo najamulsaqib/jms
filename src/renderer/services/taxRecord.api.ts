@@ -240,6 +240,15 @@ export const taxRecordApi = {
     if (error) throw mapSupabaseError(error);
   },
 
+  async bulkRemove(ids: number[]): Promise<void> {
+    const { error } = await supabase
+      .from('tax_records')
+      .delete()
+      .in('id', ids);
+
+    if (error) throw mapSupabaseError(error);
+  },
+
   async listPaginated(
     params: PaginatedListParams,
   ): Promise<{ data: TaxRecord[]; total: number }> {

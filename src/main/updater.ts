@@ -42,13 +42,21 @@ export class AppUpdater {
     return this.storePromise;
   }
 
+  private detectChannelFromVersion(): 'latest' | 'beta' {
+    return app.getVersion().includes('-beta') ? 'beta' : 'latest';
+  }
+
   async setUpdateChannel() {
     const store = await this.getStore();
 
-    // Get channel preference (default: 'latest')
-    const channel = store.get<'latest' | 'beta'>('updateChannel', 'latest');
+    // If no explicit preference saved, infer from the installed version
+    const versionChannel = this.detectChannelFromVersion();
+    const channel = store.get<'latest' | 'beta'>('updateChannel', versionChannel);
 
-    // Set the allowPrerelease flag
+    // Persist so future reads are consistent
+    store.set('updateChannel', channel);
+
+    autoUpdater.channel = channel;
     autoUpdater.allowPrerelease = channel === 'beta';
 
     log.info(`Update channel set to: ${channel}`);
@@ -155,6 +163,6 @@ export class AppUpdater {
   async getCurrentChannel(): Promise<'latest' | 'beta'> {
     const store = await this.getStore();
 
-    return store.get<'latest' | 'beta'>('updateChannel', 'latest');
+    return store.get<'latest' | 'beta'>('updateChannel', this.detectChannelFromVersion());
   }
 }
