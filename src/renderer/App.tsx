@@ -5,7 +5,7 @@ import TaxRecordDetailPage from '@pages/tax-records/TaxRecordDetail';
 import TaxRecordFormPage from '@pages/tax-records/TaxRecordForm';
 import TaxRecordsPage from '@pages/tax-records/TaxRecords';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
+import { Route, HashRouter as Router, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
