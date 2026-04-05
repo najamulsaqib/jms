@@ -29,9 +29,9 @@ export default function FloatingActionBar({
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 duration-300">
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 whitespace-nowrap">
+      <div className="flex items-stretch gap-3 px-4 py-2.5 bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 whitespace-nowrap">
         {/* Selection count */}
-        <div className="flex items-center gap-1.5 pr-3 border-r border-slate-700 text-sm">
+        <div className="flex items-center gap-1.5 pr-3 border-r border-slate-700 text-sm self-stretch">
           <span className="font-semibold">{selectedCount}</span>
           <span className="text-slate-300">of {totalCount} selected</span>
         </div>
@@ -49,10 +49,6 @@ export default function FloatingActionBar({
             <option value="inactive">Inactive</option>
             <option value="late-filer">Late Filer</option>
           </select>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex items-center gap-1.5 pl-3 border-l border-slate-700">
           <button
             type="button"
             onClick={onApplyToSelected}
@@ -70,7 +66,10 @@ export default function FloatingActionBar({
           >
             <CheckCircleIcon className="w-4 h-4" />
           </button>
+        </div>
 
+        {/* Action buttons */}
+        <div className="flex items-center gap-1.5 pl-3 border-l border-slate-700 self-stretch">
           <button
             type="button"
             onClick={onDeleteSelected}

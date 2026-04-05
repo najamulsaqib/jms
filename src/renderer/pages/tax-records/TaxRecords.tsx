@@ -396,7 +396,7 @@ export default function TaxRecordsPage() {
           <button
             type="button"
             onClick={() => requestDelete(record)}
-            className="flex items-center justify-center w-8 h-8 text-red-400 hover:text-red-500 hover:bg-red-200 rounded-lg transition-colors"
+            className="flex items-center justify-center w-8 h-8 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
             title="Delete selected"
           >
             <TrashIcon className="w-4 h-4" />
@@ -670,7 +670,10 @@ export default function TaxRecordsPage() {
           onStatusChange={setBulkStatus}
           onApplyToSelected={() => requestBulkUpdate('selected')}
           onApplyToAll={() => requestBulkUpdate('all')}
-          onClearSelection={() => setSelectedIds(new Set())}
+          onClearSelection={() => {
+            setBulkStatus('active');
+            setSelectedIds(new Set());
+          }}
           onDeleteSelected={() => setPendingBulkDelete(true)}
         />
       </div>
