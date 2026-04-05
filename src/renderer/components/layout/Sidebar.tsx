@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   HomeIcon,
   DocumentTextIcon,
+  BanknotesIcon,
   Cog6ToothIcon,
   ArrowLeftStartOnRectangleIcon as LogoutIcon,
 } from '@heroicons/react/24/outline';
@@ -12,6 +13,7 @@ import logo from '../../../../assets/header-logo.png';
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Tax Records', href: '/tax-records', icon: DocumentTextIcon },
+  { name: 'Sales Tax', href: '/sales-tax', icon: BanknotesIcon },
 ];
 
 export default function Sidebar() {

@@ -1,5 +1,6 @@
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import Dashboard from '@pages/dashboard/Dashboard';
+import SalesTax from '@pages/sales-tax/SalesTax';
 import Settings from '@pages/settings';
 import TaxRecordDetailPage from '@pages/tax-records/TaxRecordDetail';
 import TaxRecordFormPage from '@pages/tax-records/TaxRecordForm';
@@ -12,6 +13,7 @@ import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { queryClient } from './lib/queryClient';
 import LoginPage from './pages/auth/Login';
 import NoInternetPage from './pages/NoInternet';
+
 import './styles.css';
 
 function AppRoutes() {
@@ -44,6 +46,7 @@ function AppRoutes() {
           path="/tax-records/:taxRecordId/edit"
           element={<TaxRecordFormPage />}
         />
+        <Route path="/sales-tax" element={<SalesTax />} />
       </Routes>
       <Toaster position="bottom-right" richColors />
     </Router>
