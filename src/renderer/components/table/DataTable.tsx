@@ -75,7 +75,7 @@ export default function DataTable<T>({
                     <button
                       type="button"
                       onClick={() => handleSort(column.id, column.sortable)}
-                      className="group inline-flex items-center gap-1 hover:text-slate-900 transition-colors whitespace-nowrap"
+                      className="group inline-flex items-center gap-1 hover:text-slate-900 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       {column.header}
                       <span className="flex-none">
