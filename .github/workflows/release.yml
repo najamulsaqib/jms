@@ -1,5 +1,5 @@
 name: Build and Release
-run-name: "Release · ${{ github.ref_name }} | ${{ inputs.bump }} | ${{ inputs.channel }}"
+run-name: "${{ inputs.channel == 'beta' && '🧪 Beta drop' || '🚀 Shipping' }} · ${{ inputs.bump }} bump on ${{ github.ref_name }} by @${{ github.actor }}"
 
 on:
   workflow_dispatch:
