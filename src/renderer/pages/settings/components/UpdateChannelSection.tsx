@@ -157,9 +157,10 @@ export default function UpdateChannelSection() {
           onClick={checkForUpdates}
           variant="secondary"
           busy={isLoading}
+          size="sm"
           className="w-full sm:w-auto"
+          icon={ArrowPathIcon}
         >
-          <ArrowPathIcon className="h-5 w-5" />
           Check for updates
         </Button>
       </div>

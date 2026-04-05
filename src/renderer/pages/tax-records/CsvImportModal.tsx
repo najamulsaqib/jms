@@ -18,7 +18,8 @@ import { toKebabCase } from './taxRecordForm.helpers';
 type Step = 'upload' | 'map' | 'results';
 
 type ImportError = { row: number; label: string; reason: string };
-type ImportResult = { added: number; errors: ImportError[] };
+type ImportSuccess = { row: number; label: string };
+type ImportResult = { added: ImportSuccess[]; errors: ImportError[] };
 
 const SYSTEM_FIELDS: {
   id: keyof CreateTaxRecordInput;
@@ -166,11 +167,11 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
   const handleImport = async () => {
     setImporting(true);
     const errors: ImportError[] = [];
-    const validPayloads: CreateTaxRecordInput[] = [];
+    const validPayloads: { payload: CreateTaxRecordInput; rowNum: number }[] = [];
 
     // Validate all rows first — no network calls yet
     rows.forEach((row, i) => {
-      const rowNum = i + 2;
+      const rowNum = i + 1;
       const referenceNumber = getCell(row, 'referenceNumber');
       const name = getCell(row, 'name');
       const cnic = getCell(row, 'cnic');
@@ -196,34 +197,87 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
         return;
       }
 
+      const normalizedCnic = cnic.replace(/\D/g, '');
+      if (normalizedCnic.length !== 13) {
+        errors.push({
+          row: rowNum,
+          label: name,
+          reason: `CNIC must be exactly 13 digits (got ${normalizedCnic.length})`,
+        });
+        return;
+      }
+
       validPayloads.push({
-        referenceNumber,
-        name,
-        cnic: cnic.replace(/\D/g, ''),
-        email,
-        password,
-        reference: rawReference ? toKebabCase(rawReference) : 'self',
-        status: normalizeStatus(rawStatus),
-        notes,
+        rowNum,
+        payload: {
+          referenceNumber,
+          name,
+          cnic: normalizedCnic,
+          email,
+          password,
+          reference: rawReference ? toKebabCase(rawReference) : 'self',
+          status: normalizeStatus(rawStatus),
+          notes,
+        },
       });
     });
 
-    // Single bulk insert for all valid rows
-    let added = 0;
+    // Pre-check uniqueness — one query to get all existing values, then filter
+    // per row so duplicates are skipped individually instead of failing the batch.
+    const added: ImportSuccess[] = [];
     if (validPayloads.length > 0) {
+      let existing: Awaited<ReturnType<typeof taxRecordApi.getExistingUniqueValues>>;
       try {
-        const inserted = await taxRecordApi.bulkCreate(validPayloads);
-        added = inserted.length;
+        existing = await taxRecordApi.getExistingUniqueValues();
       } catch (err: unknown) {
         const reason = err instanceof Error ? err.message : String(err);
-        errors.push({ row: 0, label: 'Bulk insert failed', reason });
+        errors.push({ row: 0, label: 'Could not fetch existing records', reason });
+        setResult({ added, errors });
+        setImporting(false);
+        setStep('results');
+        return;
+      }
+
+      // Also track values seen within this CSV to catch intra-file duplicates
+      const seenEmails = new Set(existing.emails);
+      const seenCnics = new Set(existing.cnics);
+      const seenRefs = new Set(existing.referenceNumbers);
+
+      const toInsert: { payload: CreateTaxRecordInput; rowNum: number }[] = [];
+      for (const { payload, rowNum } of validPayloads) {
+        const dupes: string[] = [];
+        if (seenEmails.has(payload.email.toLowerCase())) dupes.push('email already exists');
+        if (seenCnics.has(payload.cnic)) dupes.push('CNIC already exists');
+        if (seenRefs.has(payload.referenceNumber.toLowerCase())) dupes.push('reference number already exists');
+
+        if (dupes.length > 0) {
+          errors.push({ row: rowNum, label: payload.name, reason: dupes.join(', ') });
+          continue;
+        }
+
+        seenEmails.add(payload.email.toLowerCase());
+        seenCnics.add(payload.cnic);
+        seenRefs.add(payload.referenceNumber.toLowerCase());
+        toInsert.push({ payload, rowNum });
+      }
+
+      if (toInsert.length > 0) {
+        try {
+          await taxRecordApi.bulkCreate(toInsert.map((r) => r.payload));
+          toInsert.forEach(({ payload, rowNum }) =>
+            added.push({ row: rowNum, label: payload.name }),
+          );
+        } catch (err: unknown) {
+          const reason = err instanceof Error ? err.message : String(err);
+          errors.push({ row: 0, label: 'Bulk insert failed', reason });
+        }
       }
     }
 
     setResult({ added, errors });
     setImporting(false);
     setStep('results');
-    if (added > 0) onImported();
+    if (added.length > 0) onImported();
   };
 
   const handleClose = () => {
@@ -396,7 +450,7 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
                   <CheckCircleIcon className="h-9 w-9 text-green-500 shrink-0" />
                   <div>
                     <p className="text-3xl font-bold text-green-700">
-                      {result.added}
+                      {result.added.length}
                     </p>
                     <p className="text-sm text-green-600">Records added</p>
                   </div>
@@ -422,41 +476,68 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
                 </div>
               </div>
 
-              {result.errors.length > 0 && (
-                <div className="rounded-lg border border-red-100 overflow-hidden">
-                  <div className="bg-red-50 px-3 py-2 border-b border-red-100">
-                    <p className="text-xs font-semibold text-red-700 uppercase tracking-wider">
-                      Skipped rows
-                    </p>
-                  </div>
-                  <div className="max-h-52 overflow-y-auto divide-y divide-red-50">
-                    {result.errors.map((e, i) => (
-                      <div
-                        key={`error-${i}`}
-                        className="px-3 py-2.5 flex items-start gap-3 bg-white"
-                      >
-                        <span className="text-xs font-mono bg-red-100 text-red-600 rounded px-1.5 py-0.5 shrink-0 mt-0.5">
-                          Row {e.row}
-                        </span>
-                        <div className="min-w-0">
+              <div className="space-y-3 max-h-64 overflow-y-auto pr-0.5">
+                {result.added.length > 0 && (
+                  <div className="rounded-lg border border-green-100 overflow-hidden">
+                    <div className="bg-green-50 px-3 py-2 border-b border-green-100">
+                      <p className="text-xs font-semibold text-green-700 uppercase tracking-wider">
+                        Added rows
+                      </p>
+                    </div>
+                    <div className="divide-y divide-green-50">
+                      {result.added.map((s, i) => (
+                        <div
+                          key={`added-${i}`}
+                          className="px-3 py-2 flex items-center gap-3 bg-white"
+                        >
+                          <span className="text-xs font-mono bg-green-100 text-green-700 rounded px-1.5 py-0.5 shrink-0">
+                            Row {s.row}
+                          </span>
                           <p className="text-sm font-medium text-slate-800 truncate">
-                            {e.label}
-                          </p>
-                          <p className="text-xs text-red-500 mt-0.5">
-                            {e.reason}
+                            {s.label}
                           </p>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {result.errors.length === 0 && (
-                <p className="text-sm text-green-600 text-center py-2">
-                  All rows imported successfully!
-                </p>
-              )}
+                {result.errors.length > 0 && (
+                  <div className="rounded-lg border border-red-100 overflow-hidden">
+                    <div className="bg-red-50 px-3 py-2 border-b border-red-100">
+                      <p className="text-xs font-semibold text-red-700 uppercase tracking-wider">
+                        Skipped rows
+                      </p>
+                    </div>
+                    <div className="divide-y divide-red-50">
+                      {result.errors.map((e, i) => (
+                        <div
+                          key={`error-${i}`}
+                          className="px-3 py-2.5 flex items-start gap-3 bg-white"
+                        >
+                          <span className="text-xs font-mono bg-red-100 text-red-600 rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                            Row {e.row}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">
+                              {e.label}
+                            </p>
+                            <p className="text-xs text-red-500 mt-0.5">
+                              {e.reason}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {result.errors.length === 0 && (
+                  <p className="text-sm text-green-600 text-center py-2">
+                    All rows imported successfully!
+                  </p>
+                )}
+              </div>
 
               <div className="flex justify-end mt-5 pt-4 border-t border-slate-100">
                 <Button size="sm" type="button" onClick={handleClose}>

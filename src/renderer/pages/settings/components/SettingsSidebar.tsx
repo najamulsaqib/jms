@@ -44,20 +44,14 @@ export default function SettingsSidebar({
               key={section.id}
               type="button"
               onClick={() => onSelectSection(section.id)}
-              className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left transition-colors ${
+              className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors ${
                 active
-                  ? 'bg-blue-50 text-blue-700 ring-1 ring-inset ring-blue-200'
-                  : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-blue-50 text-blue-700'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <Icon
-                className={`mt-0.5 h-5 w-5 shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`}
-              />
-              <span>
-                <span className="block text-sm font-medium">
-                  {section.label}
-                </span>
-              </span>
+              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
+              {section.label}
             </button>
           );
         })}

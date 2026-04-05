@@ -126,13 +126,35 @@ function mapRow(row: Record<string, unknown>): TaxRecord {
 
 async function getCurrentUserId(): Promise<string> {
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  return user.id;
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error('Not authenticated');
+  return session.user.id;
 }
 
 export const taxRecordApi = {
+  async getExistingUniqueValues(): Promise<{
+    emails: Set<string>;
+    cnics: Set<string>;
+    referenceNumbers: Set<string>;
+  }> {
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from('tax_records')
+      .select('email, cnic, reference_number')
+      .eq('user_id', userId);
+
+    if (error) throw mapSupabaseError(error);
+
+    return {
+      emails: new Set((data ?? []).map((r) => (r.email as string).toLowerCase())),
+      cnics: new Set((data ?? []).map((r) => r.cnic as string)),
+      referenceNumbers: new Set(
+        (data ?? []).map((r) => (r.reference_number as string).toLowerCase()),
+      ),
+    };
+  },
+
   async validateUniqueness(
     payload: Pick<CreateTaxRecordInput, 'referenceNumber' | 'cnic' | 'email'>,
     excludeId?: number,
@@ -236,6 +258,15 @@ export const taxRecordApi = {
 
   async remove(id: number): Promise<void> {
     const { error } = await supabase.from('tax_records').delete().eq('id', id);
+
+    if (error) throw mapSupabaseError(error);
+  },
+
+  async bulkRemove(ids: number[]): Promise<void> {
+    const { error } = await supabase
+      .from('tax_records')
+      .delete()
+      .in('id', ids);
 
     if (error) throw mapSupabaseError(error);
   },
