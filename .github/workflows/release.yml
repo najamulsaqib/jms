@@ -138,6 +138,20 @@ jobs:
           fi
           echo "tag=$PREV" >> $GITHUB_OUTPUT
 
+      - name: Generate release notes
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS="-f tag_name=${{ needs.bump.outputs.new_version }} -f target_commitish=${{ github.ref_name }}"
+          if [ -n "${{ steps.prev_tag.outputs.tag }}" ]; then
+            ARGS="$ARGS -f previous_tag_name=${{ steps.prev_tag.outputs.tag }}"
+          fi
+          BODY=$(gh api repos/${{ github.repository }}/releases/generate-notes $ARGS --jq '.body')
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -151,5 +165,4 @@ jobs:
           name: ${{ needs.bump.outputs.new_version }}
           prerelease: ${{ inputs.channel == 'beta' }}
           files: artifacts/**/*
-          generate_release_notes: true
-          previous_tag: ${{ steps.prev_tag.outputs.tag }}
+          body: ${{ steps.release_notes.outputs.body }}
