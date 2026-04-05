@@ -13,6 +13,7 @@ import Card from '@components/ui/Card';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import SelectField from '@components/ui/SelectField';
 import TextField from '@components/ui/TextField';
+import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import {
   createHandleChange,
@@ -30,12 +31,8 @@ export default function TaxRecordFormPage() {
   const queryClient = useQueryClient();
 
   const parsedId = useMemo(() => {
-    if (!taxRecordId) {
-      return null;
-    }
-
-    const id = Number(taxRecordId);
-    return Number.isNaN(id) ? null : id;
+    if (!taxRecordId) return null;
+    return decodeRecordId(taxRecordId);
   }, [taxRecordId]);
 
   const isEditMode = parsedId !== null;

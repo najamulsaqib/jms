@@ -82,7 +82,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    window.location.hash = '/';
     await supabase.auth.signOut();
     queryClient.clear();
   }, []);
