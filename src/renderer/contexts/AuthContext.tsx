@@ -8,12 +8,25 @@ import {
   useState,
   ReactNode,
 } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from '@lib/supabase';
+import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
+import { queryClient } from '@lib/queryClient';
+
+export type UserInfo = {
+  email: string;
+  createdAt: string;
+  provider: string;
+  fullName: string;
+  companyName: string;
+  address: string;
+  phoneNumber: string;
+  description: string;
+};
 
 interface AuthContextValue {
   session: Session | null;
-  user: User | null;
+  userInfo: UserInfo | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -70,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    queryClient.clear();
   }, []);
 
   const updateProfile = useCallback(
@@ -81,13 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description: string;
     }) => {
       const { error } = await supabase.auth.updateUser({
-        data: {
-          full_name: payload.fullName.trim(),
-          company_name: payload.companyName.trim(),
+        data: toSnakeCase({
+          fullName: payload.fullName.trim(),
+          companyName: payload.companyName.trim(),
           address: payload.address.trim(),
-          phone_number: payload.phoneNumber.trim(),
+          phoneNumber: payload.phoneNumber.trim(),
           description: payload.description.trim(),
-        },
+        }),
       });
 
       if (error) throw error;
@@ -153,7 +167,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       session,
-      user: session?.user ?? null,
+      userInfo: session?.user
+        ? (() => {
+            const meta = toCamelCase(session.user.user_metadata ?? {});
+            return {
+              email: session.user.email ?? '',
+              createdAt: session.user.created_at,
+              provider: (session.user.app_metadata?.provider as string) ?? 'unknown',
+              fullName: (meta.fullName as string) ?? '',
+              companyName: (meta.companyName as string) ?? '',
+              address: (meta.address as string) ?? '',
+              phoneNumber: (meta.phoneNumber as string) ?? '',
+              description: (meta.description as string) ?? '',
+            } satisfies UserInfo;
+          })()
+        : null,
       loading,
       signIn,
       signOut,

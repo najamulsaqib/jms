@@ -37,7 +37,7 @@ export default function PdfExportModal({
   record,
   onClose,
 }: PdfExportModalProps) {
-  const { user } = useAuth();
+  const { userInfo } = useAuth();
   const [selected, setSelected] = useState<Set<PdfField>>(
     new Set(DEFAULT_FIELDS),
   );
@@ -57,17 +57,12 @@ export default function PdfExportModal({
       return;
     }
 
-    const metadata = user?.user_metadata;
     const companyInfoOverrides: Partial<PdfCompanyInfo> = {
-      name:
-        (metadata?.company_name as string | undefined) ||
-        (metadata?.full_name as string | undefined),
-      tagline: metadata?.description as string | undefined,
-      address: metadata?.address as string | undefined,
-      phone: metadata?.phone_number as string | undefined,
-      contactName:
-        (metadata?.full_name as string | undefined) ||
-        (metadata?.company_name as string | undefined),
+      name: userInfo?.companyName || userInfo?.fullName,
+      tagline: userInfo?.description,
+      address: userInfo?.address,
+      phone: userInfo?.phoneNumber,
+      contactName: userInfo?.fullName || userInfo?.companyName,
     };
 
     generateTaxRecordPdf(record, selected, companyInfoOverrides);

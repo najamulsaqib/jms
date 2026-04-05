@@ -59,7 +59,7 @@ export default function TaxRecordsPage() {
   const [referenceFilter, setReferenceFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortState, setSortState] = useState<SortState>({
-    key: 'createdAt',
+    key: 'updatedAt',
     direction: 'desc',
   });
 

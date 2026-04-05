@@ -132,7 +132,19 @@ Expert in React 19 patterns and best practices.
 - Memoization
 - Lazy loading
 
-### 4. **TailwindCSS Skill** (`tailwindcss.md`)
+### 4. **Data Layer Skill** (`data-layer.md`)
+
+Expert in data conventions for the JMS Tax app.
+
+**Capabilities:**
+
+- camelCase ↔ snake_case transformation via `toCamelCase` / `toSnakeCase`
+- Correct `mapRow` pattern for Supabase reads
+- `toSnakeCase` usage for Supabase writes
+- `userInfo` from `useAuth()` for all auth and profile data (never `user` or `user.user_metadata`)
+- Per-user uniqueness validation pattern
+
+### 5. **TailwindCSS Skill** (`tailwindcss.md`)
 
 Expert in utility-first styling with Tailwind.
 
@@ -173,6 +185,7 @@ The specialized skills are invoked automatically when:
 - **Electron Skill:** Implementing IPC, file operations, or native features
 - **React Skill:** Creating components, hooks, or React patterns
 - **TailwindCSS Skill:** Styling components or implementing layouts
+- **Data Layer Skill:** Anything touching Supabase reads/writes, user profile, or uniqueness validation
 
 ### Manual Invocation
 
@@ -194,6 +207,7 @@ You can also explicitly request a skill:
       electron.md      # Desktop app patterns
       react.md         # Component patterns
       tailwindcss.md   # Styling patterns
+      data-layer.md    # camelCase convention, mapRow, toSnakeCase, UserProfile
 .instructions.md       # Core project rules
 ```
 

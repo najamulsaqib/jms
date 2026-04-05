@@ -48,17 +48,12 @@ function InfoRow({
 }
 
 export default function UserInfoSection() {
-  const { user, updateProfile, updatePassword } = useAuth();
-  const currentFullName =
-    (user?.user_metadata?.full_name as string | undefined) ?? '';
-  const currentCompanyName =
-    (user?.user_metadata?.company_name as string | undefined) ?? '';
-  const currentAddress =
-    (user?.user_metadata?.address as string | undefined) ?? '';
-  const currentPhoneNumber =
-    (user?.user_metadata?.phone_number as string | undefined) ?? '';
-  const currentDescription =
-    (user?.user_metadata?.description as string | undefined) ?? '';
+  const { updateProfile, updatePassword, userInfo } = useAuth();
+  const currentFullName = userInfo?.fullName ?? '';
+  const currentCompanyName = userInfo?.companyName ?? '';
+  const currentAddress = userInfo?.address ?? '';
+  const currentPhoneNumber = userInfo?.phoneNumber ?? '';
+  const currentDescription = userInfo?.description ?? '';
 
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(currentFullName);
@@ -210,7 +205,7 @@ export default function UserInfoSection() {
                 variant="secondary"
                 icon={PencilSquareIcon}
                 onClick={startEditing}
-                disabled={!user}
+                disabled={!userInfo}
               >
                 Edit
               </Button>
@@ -348,7 +343,7 @@ export default function UserInfoSection() {
         />
         <InfoRow
           label="Email address"
-          value={user?.email ?? 'Not signed in'}
+          value={userInfo?.email ?? 'Not signed in'}
           icon={IdentificationIcon}
         />
         <InfoRow
@@ -373,7 +368,7 @@ export default function UserInfoSection() {
         />
         <InfoRow
           label="Member since"
-          value={formatDate(user?.created_at)}
+          value={formatDate(userInfo?.createdAt)}
           icon={SparklesIcon}
         />
       </div>
@@ -385,7 +380,7 @@ export default function UserInfoSection() {
         </span>
         <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
           <CloudArrowUpIcon className="h-4 w-4 text-blue-500" />
-          Provider: {user?.app_metadata?.provider ?? 'unknown'}
+          Provider: {userInfo?.provider ?? 'unknown'}
         </span>
       </div>
     </Card>

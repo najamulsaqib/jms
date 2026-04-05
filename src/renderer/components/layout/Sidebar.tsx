@@ -16,7 +16,7 @@ const navigation = [
 
 export default function Sidebar() {
   const location = useLocation();
-  const { signOut, user } = useAuth();
+  const { signOut, userInfo } = useAuth();
   const isSettingsActive = location.pathname.startsWith('/settings');
 
   return (
@@ -68,10 +68,10 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="p-3 border-t border-slate-200 space-y-1">
-        {user && (
+        {userInfo && (
           <div className="px-3 py-2 mb-1">
             <p className="text-xs text-slate-400 truncate">
-              {user?.user_metadata?.full_name ?? user?.email ?? 'Account'}
+              {userInfo.fullName || userInfo.email || 'Account'}
             </p>
           </div>
         )}

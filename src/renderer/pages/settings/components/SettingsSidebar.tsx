@@ -14,7 +14,7 @@ export default function SettingsSidebar({
   sections,
   onSelectSection,
 }: SettingsSidebarProps) {
-  const { user } = useAuth();
+  const { userInfo } = useAuth();
 
   return (
     <Card padding="none" className="overflow-hidden border-slate-200">
@@ -25,10 +25,10 @@ export default function SettingsSidebar({
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900">
-              {user?.user_metadata?.full_name ?? user?.email ?? 'Account'}
+              {userInfo?.fullName || userInfo?.email || 'Account'}
             </p>
             <p className="truncate text-xs text-slate-500">
-              {user?.email ?? 'Not signed in'}
+              {userInfo?.email ?? 'Not signed in'}
             </p>
           </div>
         </div>

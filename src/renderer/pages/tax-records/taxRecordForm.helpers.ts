@@ -258,6 +258,7 @@ export const createHandleSubmit = ({
     setFieldErrors({});
 
     try {
+      // Check uniqueness per user — all three fields validated in parallel.
       const uniquenessErrors = await taxRecordApi.validateUniqueness(
         {
           referenceNumber: formValues.referenceNumber,
@@ -268,75 +269,56 @@ export const createHandleSubmit = ({
       );
 
       if (Object.keys(uniquenessErrors).length > 0) {
-        setFieldErrors((current) => ({
-          ...current,
-          ...uniquenessErrors,
-        }));
+        setFieldErrors((current) => ({ ...current, ...uniquenessErrors }));
         setError(null);
         setSuccess(null);
         return;
       }
 
+      const recordPayload = {
+        referenceNumber: formValues.referenceNumber,
+        name: formValues.name,
+        cnic: formValues.cnic,
+        email: formValues.email,
+        password: formValues.password,
+        reference,
+        status: formValues.status,
+        notes: formValues.notes,
+      };
+
       if (isEditMode && parsedId !== null) {
-        await taxRecordApi.update(parsedId, {
-          referenceNumber: formValues.referenceNumber,
-          name: formValues.name,
-          cnic: formValues.cnic,
-          email: formValues.email,
-          password: formValues.password,
-          reference,
-          status: formValues.status,
-          notes: formValues.notes,
-        });
+        await taxRecordApi.update(parsedId, recordPayload);
         setInitialFormValues(formValues);
         setSuccess('Entry updated successfully.');
         toast.success('Record updated successfully');
         onSaved?.();
       } else {
-        const created = await taxRecordApi.create({
-          referenceNumber: formValues.referenceNumber,
-          name: formValues.name,
-          cnic: formValues.cnic,
-          email: formValues.email,
-          password: formValues.password,
-          reference,
-          status: formValues.status,
-          notes: formValues.notes,
-        });
+        const created = await taxRecordApi.create(recordPayload);
         toast.success('Record created successfully');
         onSaved?.();
         navigate(`/tax-records/${created.id}`, { replace: true });
         setSuccess('Entry created successfully.');
       }
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to save entry.';
+      const message = err instanceof Error ? err.message : 'Failed to save entry.';
 
-      if (message.includes('Email already exists')) {
-        setFieldErrors((current) => ({
-          ...current,
-          email: 'Email already exists.',
-        }));
+      // Safety net: map any DB-level uniqueness violations that slipped through
+      // (e.g. race condition between validateUniqueness and save).
+      const uniquenessFieldMap: Record<string, keyof FieldErrors> = {
+        'Email already exists': 'email',
+        'CNIC already exists': 'cnic',
+        'Reference number already exists': 'referenceNumber',
+      };
+
+      const matchedField = Object.entries(uniquenessFieldMap).find(([key]) =>
+        message.includes(key),
+      );
+
+      if (matchedField) {
+        setFieldErrors((current) => ({ ...current, [matchedField[1]]: `${matchedField[0]}.` }));
         return;
       }
 
-      if (message.includes('CNIC already exists')) {
-        setFieldErrors((current) => ({
-          ...current,
-          cnic: 'CNIC already exists.',
-        }));
-        return;
-      }
-
-      if (message.includes('Reference number already exists')) {
-        setFieldErrors((current) => ({
-          ...current,
-          referenceNumber: 'Reference number already exists.',
-        }));
-        return;
-      }
-
-      // Only show toast for unexpected errors
       setError(message);
       toast.error(message);
     } finally {
