@@ -129,7 +129,11 @@ export const createHandleChange = ({
     }
 
     const nextValue =
-      name === 'cnic' ? value.replace(/\D/g, '').slice(0, 13) : value;
+      name === 'cnic'
+        ? value.replace(/\D/g, '').slice(0, 13)
+        : name === 'notes'
+          ? value.slice(0, 5000)
+          : value;
 
     setFormValues((current) => {
       return {
@@ -246,6 +250,10 @@ export const createHandleSubmit = ({
       nextFieldErrors.status = 'Status is required.';
     }
 
+    if (formValues.notes.length > 5000) {
+      nextFieldErrors.notes = `Notes must be 5000 characters or fewer (${formValues.notes.length}/5000).`;
+    }
+
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
       setError(null);
@@ -297,11 +305,14 @@ export const createHandleSubmit = ({
         const created = await taxRecordApi.create(recordPayload);
         toast.success('Record created successfully');
         onSaved?.();
-        navigate(`/tax-records/${encodeRecordId(created.id)}`, { replace: true });
+        navigate(`/tax-records/${encodeRecordId(created.id)}`, {
+          replace: true,
+        });
         setSuccess('Entry created successfully.');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to save entry.';
+      const message =
+        err instanceof Error ? err.message : 'Failed to save entry.';
 
       // Safety net: map any DB-level uniqueness violations that slipped through
       // (e.g. race condition between validateUniqueness and save).
@@ -316,7 +327,10 @@ export const createHandleSubmit = ({
       );
 
       if (matchedField) {
-        setFieldErrors((current) => ({ ...current, [matchedField[1]]: `${matchedField[0]}.` }));
+        setFieldErrors((current) => ({
+          ...current,
+          [matchedField[1]]: `${matchedField[0]}.`,
+        }));
         return;
       }
 

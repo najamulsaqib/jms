@@ -697,14 +697,24 @@ export default function TaxRecordDetailPage() {
                         value={formValues.notes}
                         onChange={handleChange}
                         rows={10}
+                        maxLength={5000}
                         className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
                         placeholder="Additional notes..."
                       />
-                      {fieldErrors.notes && (
-                        <p className="text-sm text-red-600">
-                          {fieldErrors.notes}
+                      <div className="flex items-center justify-between mt-1.5">
+                        {fieldErrors.notes ? (
+                          <p className="text-sm text-red-600">
+                            {fieldErrors.notes}
+                          </p>
+                        ) : (
+                          <span />
+                        )}
+                        <p
+                          className={`text-xs tabular-nums ${formValues.notes.length >= 5000 ? 'text-red-500 font-medium' : formValues.notes.length >= 4500 ? 'text-amber-500' : 'text-slate-400'}`}
+                        >
+                          {formValues.notes.length} / 5000
                         </p>
-                      )}
+                      </div>
                     </div>
                   </Card>
                 </div>
