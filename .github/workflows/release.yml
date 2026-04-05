@@ -121,6 +121,22 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Find previous tag
+        id: prev_tag
+        run: |
+          if [ "${{ inputs.channel }}" = "beta" ]; then
+            PREV=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-beta\.' | head -1)
+          else
+            PREV=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          fi
+          echo "tag=$PREV" >> $GITHUB_OUTPUT
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -135,3 +151,4 @@ jobs:
           prerelease: ${{ inputs.channel == 'beta' }}
           files: artifacts/**/*
           generate_release_notes: true
+          previous_tag: ${{ steps.prev_tag.outputs.tag }}
