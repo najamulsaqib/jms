@@ -4,15 +4,29 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   ReactNode,
 } from 'react';
-import { Session, User } from '@supabase/supabase-js';
+import { Session } from '@supabase/supabase-js';
 import { supabase } from '@lib/supabase';
+import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
+import { queryClient } from '@lib/queryClient';
+
+export type UserInfo = {
+  email: string;
+  createdAt: string;
+  provider: string;
+  fullName: string;
+  companyName: string;
+  address: string;
+  phoneNumber: string;
+  description: string;
+};
 
 interface AuthContextValue {
   session: Session | null;
-  user: User | null;
+  userInfo: UserInfo | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -24,6 +38,9 @@ interface AuthContextValue {
     description: string;
   }) => Promise<void>;
   updatePassword: (payload: { newPassword: string }) => Promise<void>;
+  sendPasswordResetOtp: (email: string) => Promise<void>;
+  verifyPasswordResetOtp: (email: string, token: string) => Promise<void>;
+  completePasswordReset: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -31,6 +48,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // When true, auth state changes are suppressed so the app doesn't
+  // navigate away while the user is mid-password-reset.
+  const passwordResetPending = useRef(false);
 
   useEffect(() => {
     let subscription: { unsubscribe(): void };
@@ -43,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
 
       const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+        if (passwordResetPending.current) return;
         setSession(next);
       });
       subscription = data.subscription;
@@ -61,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
+    queryClient.clear();
   }, []);
 
   const updateProfile = useCallback(
@@ -72,13 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description: string;
     }) => {
       const { error } = await supabase.auth.updateUser({
-        data: {
-          full_name: payload.fullName.trim(),
-          company_name: payload.companyName.trim(),
+        data: toSnakeCase({
+          fullName: payload.fullName.trim(),
+          companyName: payload.companyName.trim(),
           address: payload.address.trim(),
-          phone_number: payload.phoneNumber.trim(),
+          phoneNumber: payload.phoneNumber.trim(),
           description: payload.description.trim(),
-        },
+        }),
       });
 
       if (error) throw error;
@@ -102,17 +125,83 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const sendPasswordResetOtp = useCallback(async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false },
+    });
+    if (error) throw error;
+  }, []);
+
+  const verifyPasswordResetOtp = useCallback(
+    async (email: string, token: string) => {
+      // Suppress the SIGNED_IN event that verifyOtp fires so the app
+      // doesn't route the user in before they've set a new password.
+      passwordResetPending.current = true;
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email',
+      });
+      if (error) {
+        passwordResetPending.current = false;
+        throw error;
+      }
+      // Flag stays true — Supabase JS client holds the session internally
+      // so updateUser will work, but our React session state stays null.
+    },
+    [],
+  );
+
+  const completePasswordReset = useCallback(async (newPassword: string) => {
+    // Supabase JS client still has the OTP session; updateUser works fine.
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+
+    // Clear the pending flag before signing out so the SIGNED_OUT event
+    // propagates normally (sets session → null).
+    passwordResetPending.current = false;
+    await supabase.auth.signOut();
+  }, []);
+
   const value = useMemo(
     () => ({
       session,
-      user: session?.user ?? null,
+      userInfo: session?.user
+        ? (() => {
+            const meta = toCamelCase(session.user.user_metadata ?? {});
+            return {
+              email: session.user.email ?? '',
+              createdAt: session.user.created_at,
+              provider: (session.user.app_metadata?.provider as string) ?? 'unknown',
+              fullName: (meta.fullName as string) ?? '',
+              companyName: (meta.companyName as string) ?? '',
+              address: (meta.address as string) ?? '',
+              phoneNumber: (meta.phoneNumber as string) ?? '',
+              description: (meta.description as string) ?? '',
+            } satisfies UserInfo;
+          })()
+        : null,
       loading,
       signIn,
       signOut,
       updateProfile,
       updatePassword,
+      sendPasswordResetOtp,
+      verifyPasswordResetOtp,
+      completePasswordReset,
     }),
-    [session, loading, signIn, signOut, updateProfile, updatePassword],
+    [
+      session,
+      loading,
+      signIn,
+      signOut,
+      updateProfile,
+      updatePassword,
+      sendPasswordResetOtp,
+      verifyPasswordResetOtp,
+      completePasswordReset,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

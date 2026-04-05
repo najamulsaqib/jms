@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { toCamelCase, toSnakeCase } from '../lib/caseTransform';
 import {
   CreateTaxRecordInput,
   TaxRecord,
@@ -45,44 +46,44 @@ const SEARCH_FIELD_MAP: Record<string, string> = {
   notes: 'notes',
 };
 
-// Supabase SQL migration — run this in your Supabase SQL editor:
+// ─── Supabase SQL ────────────────────────────────────────────────────────────
 //
-// create table tax_records (
-//   id bigint generated always as identity primary key,
-//   reference_number text not null unique,
-//   name text not null,
-//   cnic text not null unique,
-//   email text not null unique,
-//   password text not null,
-//   reference text not null default '',
-//   status text not null check (status in ('active', 'inactive', 'late-filer')),
-//   notes text not null default '',
-//   user_id uuid references auth.users(id) not null,
-//   created_at timestamptz not null default now(),
-//   updated_at timestamptz not null default now()
-// );
-
-// alter table tax_records enable row level security;
-
-// create policy "Users manage own records"
-//   on tax_records for all
-//   using (auth.uid() = user_id)
-//   with check (auth.uid() = user_id);
-
-type SupabaseRow = {
-  id: number;
-  reference_number: string;
-  name: string;
-  cnic: string;
-  email: string;
-  password: string;
-  reference: string;
-  status: string;
-  notes: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-};
+// Initial table creation:
+//
+//   create table tax_records (
+//     id               bigint generated always as identity primary key,
+//     reference_number text not null,
+//     name             text not null,
+//     cnic             text not null,
+//     email            text not null,
+//     password         text not null,
+//     reference        text not null default '',
+//     status           text not null check (status in ('active', 'inactive', 'late-filer')),
+//     notes            text not null default '',
+//     user_id          uuid references auth.users(id) not null,
+//     created_at       timestamptz not null default now(),
+//     updated_at       timestamptz not null default now()
+//   );
+//
+//   alter table tax_records enable row level security;
+//
+//   create policy "Users manage own records"
+//     on tax_records for all
+//     using  (auth.uid() = user_id)
+//     with check (auth.uid() = user_id);
+//
+// Migration — drop global unique constraints, replace with per-user uniques:
+//
+// alter table tax_records drop constraint if exists tax_records_email_key;
+// alter table tax_records drop constraint if exists tax_records_cnic_key;
+// alter table tax_records drop constraint if exists tax_records_reference_number_key;
+//
+// alter table tax_records
+//   add constraint tax_records_user_email_unique          unique (user_id, email),
+//   add constraint tax_records_user_cnic_unique           unique (user_id, cnic),
+//   add constraint tax_records_user_reference_number_unique unique (user_id, reference_number);
+//
+// ─────────────────────────────────────────────────────────────────────────────
 
 type SupabaseErrorLike = {
   code?: string | null;
@@ -92,41 +93,34 @@ type SupabaseErrorLike = {
 };
 
 function mapSupabaseError(error: SupabaseErrorLike): Error {
-  const haystack = `${error.message} ${error.details ?? ''} ${error.hint ?? ''}`
-    .toLowerCase()
-    .trim();
+  if (error.code === '23505') {
+    // Composite unique constraint names contain the field name — match on that.
+    const haystack =
+      `${error.message} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
 
-  if (error.code === '23505' || haystack.includes('duplicate key value')) {
-    if (haystack.includes('email')) {
-      return new Error('Email already exists.');
-    }
-    if (haystack.includes('cnic')) {
-      return new Error('CNIC already exists.');
-    }
-    if (
-      haystack.includes('reference_number') ||
-      haystack.includes('reference')
-    ) {
+    if (haystack.includes('email')) return new Error('Email already exists.');
+    if (haystack.includes('cnic')) return new Error('CNIC already exists.');
+    if (haystack.includes('reference_number'))
       return new Error('Reference number already exists.');
-    }
   }
 
   return new Error(error.message);
 }
 
-function mapRow(row: SupabaseRow): TaxRecord {
+function mapRow(row: Record<string, unknown>): TaxRecord {
+  const r = toCamelCase(row);
   return {
-    id: row.id,
-    referenceNumber: row.reference_number,
-    name: row.name,
-    cnic: row.cnic,
-    email: row.email,
-    password: row.password,
-    reference: row.reference,
-    status: row.status as TaxRecordStatus,
-    notes: row.notes || '',
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    id: r.id as number,
+    referenceNumber: r.referenceNumber as string,
+    name: r.name as string,
+    cnic: r.cnic as string,
+    email: r.email as string,
+    password: r.password as string,
+    reference: r.reference as string,
+    status: r.status as TaxRecordStatus,
+    notes: (r.notes as string) || '',
+    createdAt: r.createdAt as string,
+    updatedAt: r.updatedAt as string,
   };
 }
 
@@ -143,13 +137,18 @@ export const taxRecordApi = {
     payload: Pick<CreateTaxRecordInput, 'referenceNumber' | 'cnic' | 'email'>,
     excludeId?: number,
   ): Promise<TaxRecordUniquenessErrors> {
-    const runCountQuery = async (
+    // Uniqueness is scoped per user — RLS handles this automatically,
+    // but we also pass user_id explicitly for clarity.
+    const userId = await getCurrentUserId();
+
+    const checkExists = async (
       column: 'email' | 'cnic' | 'reference_number',
       value: string,
-    ) => {
+    ): Promise<boolean> => {
       let query = supabase
         .from('tax_records')
         .select('id', { head: true, count: 'exact' })
+        .eq('user_id', userId)
         .eq(column, value);
 
       if (typeof excludeId === 'number') {
@@ -161,23 +160,18 @@ export const taxRecordApi = {
       return (count ?? 0) > 0;
     };
 
-    const [emailExists, cnicExists, referenceNumberExists] = await Promise.all([
-      runCountQuery('email', payload.email.trim()),
-      runCountQuery('cnic', payload.cnic.trim()),
-      runCountQuery('reference_number', payload.referenceNumber.trim()),
+    // Run all three checks in parallel and collect every error at once.
+    const [emailExists, cnicExists, refNumberExists] = await Promise.all([
+      checkExists('email', payload.email.trim()),
+      checkExists('cnic', payload.cnic.trim()),
+      checkExists('reference_number', payload.referenceNumber.trim()),
     ]);
 
     const errors: TaxRecordUniquenessErrors = {};
-
-    if (emailExists) {
-      errors.email = 'Email already exists.';
-    }
-    if (cnicExists) {
-      errors.cnic = 'CNIC already exists.';
-    }
-    if (referenceNumberExists) {
+    if (emailExists) errors.email = 'Email already exists.';
+    if (cnicExists) errors.cnic = 'CNIC already exists.';
+    if (refNumberExists)
       errors.referenceNumber = 'Reference number already exists.';
-    }
 
     return errors;
   },
@@ -189,7 +183,7 @@ export const taxRecordApi = {
       .order('created_at', { ascending: false });
 
     if (error) throw mapSupabaseError(error);
-    return (data as SupabaseRow[]).map(mapRow);
+    return (data as Record<string, unknown>[]).map(mapRow);
   },
 
   async getById(id: number): Promise<TaxRecord> {
@@ -200,7 +194,7 @@ export const taxRecordApi = {
       .single();
 
     if (error) throw mapSupabaseError(error);
-    return mapRow(data as SupabaseRow);
+    return mapRow(data as Record<string, unknown>);
   },
 
   async create(payload: CreateTaxRecordInput): Promise<TaxRecord> {
@@ -208,22 +202,12 @@ export const taxRecordApi = {
 
     const { data, error } = await supabase
       .from('tax_records')
-      .insert({
-        reference_number: payload.referenceNumber,
-        name: payload.name,
-        cnic: payload.cnic,
-        email: payload.email,
-        password: payload.password,
-        reference: payload.reference,
-        status: payload.status,
-        notes: payload.notes,
-        user_id: userId,
-      })
+      .insert(toSnakeCase({ ...payload, userId }))
       .select()
       .single();
 
     if (error) throw mapSupabaseError(error);
-    return mapRow(data as SupabaseRow);
+    return mapRow(data as Record<string, unknown>);
   },
 
   async bulkCreate(payloads: CreateTaxRecordInput[]): Promise<TaxRecord[]> {
@@ -231,45 +215,23 @@ export const taxRecordApi = {
 
     const { data, error } = await supabase
       .from('tax_records')
-      .insert(
-        payloads.map((p) => ({
-          reference_number: p.referenceNumber,
-          name: p.name,
-          cnic: p.cnic,
-          email: p.email,
-          password: p.password,
-          reference: p.reference,
-          status: p.status,
-          notes: p.notes,
-          user_id: userId,
-        })),
-      )
+      .insert(payloads.map((p) => toSnakeCase({ ...p, userId })))
       .select();
 
     if (error) throw mapSupabaseError(error);
-    return (data as SupabaseRow[]).map(mapRow);
+    return (data as Record<string, unknown>[]).map(mapRow);
   },
 
   async update(id: number, payload: UpdateTaxRecordInput): Promise<TaxRecord> {
     const { data, error } = await supabase
       .from('tax_records')
-      .update({
-        reference_number: payload.referenceNumber,
-        name: payload.name,
-        cnic: payload.cnic,
-        email: payload.email,
-        password: payload.password,
-        reference: payload.reference,
-        status: payload.status,
-        notes: payload.notes,
-        updated_at: new Date().toISOString(),
-      })
+      .update(toSnakeCase({ ...payload, updatedAt: new Date().toISOString() }))
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw mapSupabaseError(error);
-    return mapRow(data as SupabaseRow);
+    return mapRow(data as Record<string, unknown>);
   },
 
   async remove(id: number): Promise<void> {
@@ -320,7 +282,10 @@ export const taxRecordApi = {
 
     const { data, error, count } = await query;
     if (error) throw mapSupabaseError(error);
-    return { data: (data as SupabaseRow[]).map(mapRow), total: count ?? 0 };
+    return {
+      data: (data as Record<string, unknown>[]).map(mapRow),
+      total: count ?? 0,
+    };
   },
 
   async listStatusCounts(): Promise<{
@@ -388,9 +353,12 @@ export const taxRecordApi = {
       statusFilter?: string;
     },
   ): Promise<void> {
+    const userId = await getCurrentUserId();
+
     let query = supabase
       .from('tax_records')
-      .update({ status, updated_at: new Date().toISOString() });
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('user_id', userId);
 
     if (filters) {
       if (filters.referenceFilter && filters.referenceFilter !== 'all') {
