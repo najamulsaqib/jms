@@ -63,30 +63,39 @@ export default function TaxRecordFormPage() {
         if (!mounted) return;
 
         if (isEditMode && parsedId !== null) {
-          const todo = await taxRecordApi.getById(parsedId);
+          const record = await taxRecordApi.getById(parsedId);
           if (!mounted) return;
 
           // Build reference options, excluding current record's name
           const options = buildReferenceOptions(
             existingEntries,
-            todo.name.trim(),
+            record.name.trim(),
           );
           setReferenceOptions(options);
 
+          // Strip \"0092\" prefix from phone for editing (user only sees 10 digits)
+          let phone = '';
+          if (record.phone && record.phone.startsWith('0092')) {
+            phone = record.phone.slice(4); // Remove \"0092\" prefix
+          } else if (record.phone) {
+            phone = record.phone;
+          }
+
           const nextFormValues: FormValues = {
-            referenceNumber: todo.referenceNumber,
-            name: todo.name,
-            cnic: todo.cnic,
-            email: todo.email,
-            password: todo.password,
-            selectedReference: options.some((o) => o.value === todo.reference)
-              ? todo.reference
+            referenceNumber: record.referenceNumber,
+            name: record.name,
+            cnic: record.cnic,
+            phone,
+            email: record.email,
+            password: record.password,
+            selectedReference: options.some((o) => o.value === record.reference)
+              ? record.reference
               : CUSTOM_REFERENCE_VALUE,
-            customReference: options.some((o) => o.value === todo.reference)
+            customReference: options.some((o) => o.value === record.reference)
               ? ''
-              : todo.reference,
-            status: todo.status,
-            notes: todo.notes,
+              : record.reference,
+            status: record.status,
+            notes: record.notes,
           };
 
           setFormValues(nextFormValues);
@@ -251,28 +260,38 @@ export default function TaxRecordFormPage() {
                   error={fieldErrors.cnic}
                   placeholder="3520112345671"
                 />
-                <div className="space-y-5">
-                  <SelectField
-                    id="selectedReference"
-                    name="selectedReference"
-                    label="Reference"
-                    value={formValues.selectedReference}
+                <TextField
+                  id="phone"
+                  name="phone"
+                  label="Phone"
+                  prefix="0092"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={formValues.phone}
+                  onChange={handleChange}
+                  error={fieldErrors.phone}
+                  placeholder="3123456789"
+                />
+                <SelectField
+                  id="selectedReference"
+                  name="selectedReference"
+                  label="Reference"
+                  value={formValues.selectedReference}
+                  onChange={handleChange}
+                  options={allReferenceOptions}
+                  error={fieldErrors.selectedReference}
+                />
+                {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
+                  <TextField
+                    id="customReference"
+                    name="customReference"
+                    label="Custom Reference"
+                    value={formValues.customReference}
                     onChange={handleChange}
-                    options={allReferenceOptions}
-                    error={fieldErrors.selectedReference}
+                    error={fieldErrors.customReference}
+                    placeholder="Enter custom reference"
                   />
-                  {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
-                    <TextField
-                      id="customReference"
-                      name="customReference"
-                      label="Custom Reference"
-                      value={formValues.customReference}
-                      onChange={handleChange}
-                      error={fieldErrors.customReference}
-                      placeholder="Enter custom reference"
-                    />
-                  )}
-                </div>
+                )}
               </div>
             </Card>
 

@@ -48,7 +48,7 @@ import {
   type SearchField,
 } from './taxRecords.helpers';
 
-const DEFAULT_PAGE_SIZE = 25;
+const DEFAULT_PAGE_SIZE = 10;
 
 export default function TaxRecordsPage() {
   const navigate = useNavigate();
@@ -336,7 +336,15 @@ export default function TaxRecordsPage() {
       header: 'Email',
       sortable: true,
       render: (record) => (
-        <span className="text-slate-600">{record.email}</span>
+        <span className="text-slate-600">{record.email || 'N/A'}</span>
+      ),
+    },
+    {
+      id: 'phone',
+      header: 'Phone',
+      sortable: true,
+      render: (record) => (
+        <span className="text-slate-600">{record.phone || 'N/A'}</span>
       ),
     },
     {
@@ -568,7 +576,9 @@ export default function TaxRecordsPage() {
                 setSortState(next);
                 resetPage();
               }}
-              onRowClick={(row) => navigate(`/tax-records/${encodeRecordId(row.id)}`)}
+              onRowClick={(row) =>
+                navigate(`/tax-records/${encodeRecordId(row.id)}`)
+              }
             />
           )}
 

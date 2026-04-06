@@ -4,6 +4,7 @@ type TextFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   label: string;
   hint?: string;
   error?: string;
+  prefix?: ReactNode;
   suffix?: ReactNode;
 };
 
@@ -12,6 +13,7 @@ export default function TextField({
   label,
   hint,
   error,
+  prefix,
   suffix,
   className = '',
   ...props
@@ -22,17 +24,23 @@ export default function TextField({
         {label}
       </label>
       {hint && <p className="text-sm text-slate-500">{hint}</p>}
-      <div className="relative">
+      <div className="relative flex items-center">
+        {prefix && (
+          <div className="absolute left-0 flex items-center pl-3 pointer-events-none">
+            <span className="text-sm font-medium text-slate-500">{prefix}</span>
+          </div>
+        )}
         <input
           id={id}
           type="text"
           className={`
-            block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm
+            block w-full rounded-lg border border-slate-300 bg-white py-2.5 text-sm text-slate-900 shadow-sm
             placeholder:text-slate-400
             focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20
             disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed
             transition-colors
-            ${suffix ? 'pr-10' : ''}
+            ${prefix ? 'pl-12' : 'pl-3'}
+            ${suffix ? 'pr-10' : 'pr-3'}
             ${error ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : ''}
             ${className}
           `}

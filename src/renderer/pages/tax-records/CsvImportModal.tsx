@@ -8,12 +8,13 @@ import {
 } from '@heroicons/react/20/solid';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
 import { taxRecordApi } from '@services/taxRecord.api';
-import {
-  CreateTaxRecordInput,
-  TaxRecordStatus,
-} from '@shared/taxRecord.contracts';
+import { CreateTaxRecordInput } from '@shared/taxRecord.contracts';
 import { useState } from 'react';
-import { toKebabCase } from './taxRecordForm.helpers';
+import {
+  normalizePhoneBulk,
+  normalizeStatus,
+  toKebabCase,
+} from './taxRecordForm.helpers';
 
 type Step = 'upload' | 'map' | 'results';
 
@@ -29,8 +30,9 @@ const SYSTEM_FIELDS: {
   { id: 'referenceNumber', label: 'Reference Number', required: true },
   { id: 'name', label: 'Full Name', required: true },
   { id: 'cnic', label: 'CNIC', required: true },
-  { id: 'email', label: 'Email Address', required: true },
-  { id: 'password', label: 'Password', required: true },
+  { id: 'phone', label: 'Phone', required: false },
+  { id: 'email', label: 'Email Address', required: false },
+  { id: 'password', label: 'Password', required: false },
   { id: 'reference', label: 'Reference', required: false },
   { id: 'status', label: 'Status', required: false },
   { id: 'notes', label: 'Notes', required: false },
@@ -82,13 +84,6 @@ function parseCSV(text: string): { headers: string[]; rows: string[][] } {
   return { headers: allRows[0], rows: allRows.slice(1) };
 }
 
-function normalizeStatus(val: string): TaxRecordStatus {
-  const v = val.toLowerCase().trim().replace(/[\s_]/g, '-');
-  if (v === 'inactive') return 'inactive';
-  if (v === 'late-filer' || v === 'latefiler') return 'late-filer';
-  return 'active';
-}
-
 function autoDetectMapping(headers: string[]): Record<string, string> {
   const result: Record<string, string> = {};
   const normalize = (s: string) => s.toLowerCase().replace(/[\s_-]/g, '');
@@ -103,6 +98,7 @@ function autoDetectMapping(headers: string[]): Record<string, string> {
     ],
     name: ['name', 'fullname', 'clientname'],
     cnic: ['cnic', 'nic', 'nationalid', 'idcard'],
+    phone: ['phone', 'phonenumber', 'mobile', 'mobilenumber', 'contact'],
     email: ['email', 'emailaddress', 'mail'],
     password: ['password', 'pass', 'pwd'],
     reference: ['reference', 'referredby', 'referrer'],
@@ -167,7 +163,8 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
   const handleImport = async () => {
     setImporting(true);
     const errors: ImportError[] = [];
-    const validPayloads: { payload: CreateTaxRecordInput; rowNum: number }[] = [];
+    const validPayloads: { payload: CreateTaxRecordInput; rowNum: number }[] =
+      [];
 
     // Validate all rows first — no network calls yet
     rows.forEach((row, i) => {
@@ -175,6 +172,7 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
       const referenceNumber = getCell(row, 'referenceNumber');
       const name = getCell(row, 'name');
       const cnic = getCell(row, 'cnic');
+      const phone = getCell(row, 'phone');
       const email = getCell(row, 'email');
       const password = getCell(row, 'password');
       const rawReference = getCell(row, 'reference');
@@ -185,8 +183,6 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
       if (!referenceNumber) missing.push('Reference Number');
       if (!name) missing.push('Name');
       if (!cnic) missing.push('CNIC');
-      if (!email) missing.push('Email');
-      if (!password) missing.push('Password');
 
       if (missing.length > 0) {
         errors.push({
@@ -207,12 +203,28 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
         return;
       }
 
+      // Normalize phone number (allows null/empty)
+      let normalizedPhone = '';
+      if (phone && phone.trim()) {
+        try {
+          normalizedPhone = normalizePhoneBulk(phone);
+        } catch (err) {
+          errors.push({
+            row: rowNum,
+            label: name,
+            reason: `Invalid phone format: ${err instanceof Error ? err.message : String(err)}`,
+          });
+          return;
+        }
+      }
+
       validPayloads.push({
         rowNum,
         payload: {
           referenceNumber,
           name,
           cnic: normalizedCnic,
+          phone: normalizedPhone,
           email,
           password,
           reference: rawReference ? toKebabCase(rawReference) : 'self',
@@ -226,12 +238,18 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
     // per row so duplicates are skipped individually instead of failing the batch.
     const added: ImportSuccess[] = [];
     if (validPayloads.length > 0) {
-      let existing: Awaited<ReturnType<typeof taxRecordApi.getExistingUniqueValues>>;
+      let existing: Awaited<
+        ReturnType<typeof taxRecordApi.getExistingUniqueValues>
+      >;
       try {
         existing = await taxRecordApi.getExistingUniqueValues();
       } catch (err: unknown) {
         const reason = err instanceof Error ? err.message : String(err);
-        errors.push({ row: 0, label: 'Could not fetch existing records', reason });
+        errors.push({
+          row: 0,
+          label: 'Could not fetch existing records',
+          reason,
+        });
         setResult({ added, errors });
         setImporting(false);
         setStep('results');
@@ -239,37 +257,69 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
       }
 
       // Also track values seen within this CSV to catch intra-file duplicates
-      const seenEmails = new Set(existing.emails);
       const seenCnics = new Set(existing.cnics);
       const seenRefs = new Set(existing.referenceNumbers);
 
       const toInsert: { payload: CreateTaxRecordInput; rowNum: number }[] = [];
       for (const { payload, rowNum } of validPayloads) {
         const dupes: string[] = [];
-        if (seenEmails.has(payload.email.toLowerCase())) dupes.push('email already exists');
         if (seenCnics.has(payload.cnic)) dupes.push('CNIC already exists');
-        if (seenRefs.has(payload.referenceNumber.toLowerCase())) dupes.push('reference number already exists');
+        if (seenRefs.has(payload.referenceNumber.toLowerCase()))
+          dupes.push('reference number already exists');
 
         if (dupes.length > 0) {
-          errors.push({ row: rowNum, label: payload.name, reason: dupes.join(', ') });
+          errors.push({
+            row: rowNum,
+            label: payload.name,
+            reason: dupes.join(', '),
+          });
           continue;
         }
 
-        seenEmails.add(payload.email.toLowerCase());
         seenCnics.add(payload.cnic);
         seenRefs.add(payload.referenceNumber.toLowerCase());
         toInsert.push({ payload, rowNum });
       }
 
       if (toInsert.length > 0) {
-        try {
-          await taxRecordApi.bulkCreate(toInsert.map((r) => r.payload));
-          toInsert.forEach(({ payload, rowNum }) =>
-            added.push({ row: rowNum, label: payload.name }),
+        // Batch inserts in chunks of 10 so database errors don't fail entire batch
+        const BATCH_SIZE = 10;
+        const batchPromises = [];
+
+        for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+          const batch = toInsert.slice(i, i + BATCH_SIZE);
+          batchPromises.push(
+            taxRecordApi
+              .bulkCreate(batch.map((r) => r.payload))
+              .then(() => ({ success: true as const, batch }))
+              .catch((err: unknown) => ({
+                success: false as const,
+                batch,
+                error: err,
+              })),
           );
-        } catch (err: unknown) {
-          const reason = err instanceof Error ? err.message : String(err);
-          errors.push({ row: 0, label: 'Bulk insert failed', reason });
+        }
+
+        const results = await Promise.all(batchPromises);
+
+        for (const res of results) {
+          if (res.success) {
+            res.batch.forEach(({ payload, rowNum }) =>
+              added.push({ row: rowNum, label: payload.name }),
+            );
+          } else {
+            const reason =
+              res.error instanceof Error
+                ? res.error.message
+                : String(res.error);
+            res.batch.forEach(({ rowNum, payload }) => {
+              errors.push({
+                row: rowNum,
+                label: payload.name,
+                reason: `Database error: ${reason}`,
+              });
+            });
+          }
         }
       }
     }

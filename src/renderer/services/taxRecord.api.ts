@@ -19,7 +19,6 @@ export type PaginatedListParams = {
 };
 
 export type TaxRecordUniquenessErrors = {
-  email?: string;
   cnic?: string;
   referenceNumber?: string;
 };
@@ -41,6 +40,7 @@ const SEARCH_FIELD_MAP: Record<string, string> = {
   name: 'name',
   cnic: 'cnic',
   email: 'email',
+  phone: 'phone',
   reference: 'reference',
   status: 'status',
   notes: 'notes',
@@ -48,19 +48,20 @@ const SEARCH_FIELD_MAP: Record<string, string> = {
 
 // ─── Supabase SQL ────────────────────────────────────────────────────────────
 //
-// Initial table creation:
+// Table creation (fresh rebuild):
 //
 //   create table tax_records (
 //     id               bigint generated always as identity primary key,
 //     reference_number text not null,
 //     name             text not null,
 //     cnic             text not null,
+//     phone            text not null default '',
 //     email            text not null,
 //     password         text not null,
-//     reference        text not null default '',
-//     status           text not null check (status in ('active', 'inactive', 'late-filer')),
+//     reference        text not null default 'self',
+//     status           text not null default 'inactive' check (status in ('active', 'inactive', 'late-filer')),
 //     notes            text not null default '',
-//     user_id          uuid references auth.users(id) not null,
+//     user_id          uuid not null references auth.users(id) on delete cascade,
 //     created_at       timestamptz not null default now(),
 //     updated_at       timestamptz not null default now()
 //   );
@@ -72,16 +73,14 @@ const SEARCH_FIELD_MAP: Record<string, string> = {
 //     using  (auth.uid() = user_id)
 //     with check (auth.uid() = user_id);
 //
-// Migration — drop global unique constraints, replace with per-user uniques:
+//   alter table tax_records
+//     add constraint tax_records_user_cnic_unique unique (user_id, cnic),
+//     add constraint tax_records_user_reference_number_unique unique (user_id, reference_number);
 //
-// alter table tax_records drop constraint if exists tax_records_email_key;
-// alter table tax_records drop constraint if exists tax_records_cnic_key;
-// alter table tax_records drop constraint if exists tax_records_reference_number_key;
-//
-// alter table tax_records
-//   add constraint tax_records_user_email_unique          unique (user_id, email),
-//   add constraint tax_records_user_cnic_unique           unique (user_id, cnic),
-//   add constraint tax_records_user_reference_number_unique unique (user_id, reference_number);
+//   create index idx_tax_records_user_id on tax_records(user_id);
+//   create index idx_tax_records_status on tax_records(status);
+//   create index idx_tax_records_reference on tax_records(reference);
+//   create index idx_tax_records_created_at on tax_records(created_at desc);
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -114,8 +113,9 @@ function mapRow(row: Record<string, unknown>): TaxRecord {
     referenceNumber: r.referenceNumber as string,
     name: r.name as string,
     cnic: r.cnic as string,
-    email: r.email as string,
-    password: r.password as string,
+    phone: (r.phone as string) || '',
+    email: (r.email as string) || '',
+    password: (r.password as string) || '',
     reference: r.reference as string,
     status: r.status as TaxRecordStatus,
     notes: (r.notes as string) || '',
@@ -138,22 +138,18 @@ async function getCurrentUserId(): Promise<string> {
 
 export const taxRecordApi = {
   async getExistingUniqueValues(): Promise<{
-    emails: Set<string>;
     cnics: Set<string>;
     referenceNumbers: Set<string>;
   }> {
     const userId = await getCurrentUserId();
     const { data, error } = await supabase
       .from('tax_records')
-      .select('email, cnic, reference_number')
+      .select('cnic, reference_number')
       .eq('user_id', userId);
 
     if (error) throw mapSupabaseError(error);
 
     return {
-      emails: new Set(
-        (data ?? []).map((r) => (r.email as string).toLowerCase()),
-      ),
       cnics: new Set((data ?? []).map((r) => r.cnic as string)),
       referenceNumbers: new Set(
         (data ?? []).map((r) => (r.reference_number as string).toLowerCase()),
@@ -162,7 +158,7 @@ export const taxRecordApi = {
   },
 
   async validateUniqueness(
-    payload: Pick<CreateTaxRecordInput, 'referenceNumber' | 'cnic' | 'email'>,
+    payload: Pick<CreateTaxRecordInput, 'referenceNumber' | 'cnic'>,
     excludeId?: number,
   ): Promise<TaxRecordUniquenessErrors> {
     // Uniqueness is scoped per user — RLS handles this automatically,
@@ -170,7 +166,7 @@ export const taxRecordApi = {
     const userId = await getCurrentUserId();
 
     const checkExists = async (
-      column: 'email' | 'cnic' | 'reference_number',
+      column: 'cnic' | 'reference_number',
       value: string,
     ): Promise<boolean> => {
       let query = supabase
@@ -188,15 +184,13 @@ export const taxRecordApi = {
       return (count ?? 0) > 0;
     };
 
-    // Run all three checks in parallel and collect every error at once.
-    const [emailExists, cnicExists, refNumberExists] = await Promise.all([
-      checkExists('email', payload.email.trim()),
+    // Run checks in parallel and collect every error at once.
+    const [cnicExists, refNumberExists] = await Promise.all([
       checkExists('cnic', payload.cnic.trim()),
       checkExists('reference_number', payload.referenceNumber.trim()),
     ]);
 
     const errors: TaxRecordUniquenessErrors = {};
-    if (emailExists) errors.email = 'Email already exists.';
     if (cnicExists) errors.cnic = 'CNIC already exists.';
     if (refNumberExists)
       errors.referenceNumber = 'Reference number already exists.';
@@ -315,7 +309,7 @@ export const taxRecordApi = {
       const term = search.trim();
       if (searchField === 'all') {
         query = query.or(
-          `reference_number.ilike.%${term}%,name.ilike.%${term}%,cnic.ilike.%${term}%,email.ilike.%${term}%,reference.ilike.%${term}%,status.ilike.%${term}%,notes.ilike.%${term}%`,
+          `reference_number.ilike.%${term}%,name.ilike.%${term}%,cnic.ilike.%${term}%,email.ilike.%${term}%,phone.ilike.%${term}%,reference.ilike.%${term}%,status.ilike.%${term}%,notes.ilike.%${term}%`,
         );
       } else {
         const col = SEARCH_FIELD_MAP[searchField] ?? 'name';

@@ -13,6 +13,7 @@ export interface TaxRecord {
   referenceNumber: string;
   name: string;
   cnic: string;
+  phone: string;
   email: string;
   password: string;
   reference: string;
@@ -26,6 +27,7 @@ export interface CreateTaxRecordInput {
   referenceNumber: string;
   name: string;
   cnic: string;
+  phone: string;
   email: string;
   password: string;
   reference: string;
@@ -37,6 +39,7 @@ export interface UpdateTaxRecordInput {
   referenceNumber: string;
   name: string;
   cnic: string;
+  phone: string;
   email: string;
   password: string;
   reference: string;

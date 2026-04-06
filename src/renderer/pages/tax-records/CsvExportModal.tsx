@@ -9,6 +9,7 @@ export type CsvField =
   | 'referenceNumber'
   | 'name'
   | 'cnic'
+  | 'phone'
   | 'email'
   | 'password'
   | 'reference'
@@ -44,6 +45,13 @@ const CSV_FIELD_OPTIONS: CsvFieldOption[] = [
     id: 'cnic',
     label: 'CNIC',
     header: 'CNIC',
+    defaultChecked: true,
+    section: 'Personal Information',
+  },
+  {
+    id: 'phone',
+    label: 'Phone Number',
+    header: 'Phone',
     defaultChecked: true,
     section: 'Personal Information',
   },
@@ -129,6 +137,8 @@ function downloadCSV(records: TaxRecord[], selected: Set<CsvField>) {
             return escape(r.name);
           case 'cnic':
             return escape(r.cnic);
+          case 'phone':
+            return escape(r.phone);
           case 'email':
             return escape(r.email);
           case 'password':
