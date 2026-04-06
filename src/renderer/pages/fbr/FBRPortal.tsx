@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowPathIcon,
+  HomeIcon,
+} from '@heroicons/react/24/outline';
 import AppLayout from '@components/layout/AppLayout';
+import IconButton from '@components/ui/IconButton';
 import LoadingSpinner from '@components/common/LoadingSpinner';
 
 const FBR_WEBSITE_URL = 'https://iris.fbr.gov.pk/';
@@ -133,106 +140,46 @@ export default function FBRPage() {
     <AppLayout breadcrumbs={[{ label: 'FBR Portal' }]} fullscreen>
       <div className="relative w-full h-full flex flex-col">
         {/* Browser toolbar */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 border-b border-slate-200 shrink-0">
-          <button
+        <div className="flex items-center gap-2 px-4 py-3 bg-white border-b border-slate-200 shrink-0 shadow-sm">
+          <IconButton
+            icon={<ArrowLeftIcon className="w-4 h-4 text-slate-700" />}
             onClick={() => webviewRef.current?.goBack()}
             disabled={!canGoBack}
-            title="Back"
-            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg
-              className="w-4 h-4 text-slate-700"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </button>
+            title="Go Back"
+            size="sm"
+          />
 
-          <button
+          <IconButton
+            icon={<ArrowRightIcon className="w-4 h-4 text-slate-700" />}
             onClick={() => webviewRef.current?.goForward()}
             disabled={!canGoForward}
-            title="Forward"
-            className="p-1.5 rounded hover:bg-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg
-              className="w-4 h-4 text-slate-700"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 5l7 7-7 7"
-              />
-            </svg>
-          </button>
+            title="Go Forward"
+            size="sm"
+          />
 
-          <button
+          <div className="w-px h-6 bg-slate-200" />
+
+          <IconButton
+            icon={
+              isLoading ? (
+                <ArrowPathIcon className="w-4 h-4 text-slate-700 animate-spin" />
+              ) : (
+                <ArrowPathIcon className="w-4 h-4 text-slate-700" />
+              )
+            }
             onClick={handleReload}
             title="Reload"
-            className="p-1.5 rounded hover:bg-slate-200 transition-colors"
-          >
-            {isLoading ? (
-              <svg
-                className="w-4 h-4 text-slate-700 animate-spin"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            ) : (
-              <svg
-                className="w-4 h-4 text-slate-700"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2}
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-            )}
-          </button>
+            size="sm"
+          />
 
-          <button
+          <IconButton
+            icon={<HomeIcon className="w-4 h-4 text-slate-700" />}
             onClick={handleHome}
             title="FBR Home"
-            className="p-1.5 rounded hover:bg-slate-200 transition-colors"
-          >
-            <svg
-              className="w-4 h-4 text-slate-700"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
-          </button>
+            size="sm"
+          />
 
-          <div className="flex-1 bg-white border border-slate-300 rounded-md px-3 py-1 text-sm text-slate-500 truncate select-text">
+          <div className="flex-1 bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-500 truncate font-mono select-none">
             {currentURL}
           </div>
         </div>
