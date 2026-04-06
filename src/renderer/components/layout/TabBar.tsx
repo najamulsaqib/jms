@@ -48,7 +48,7 @@ export default function TabBar() {
 
   return (
     <div className="bg-white border-b border-slate-300 px-4 h-8">
-      <div className="flex items-center gap-1 overflow-x-auto cursor-pointer">
+      <div className="flex items-center gap-1 overflow-x-auto">
         {tabs.map((tab) => (
           <div
             key={tab.id}
@@ -69,7 +69,7 @@ export default function TabBar() {
                   e.stopPropagation();
                   closeTab(tab.id);
                 }}
-                className="p-0.5 rounded transition-colors ml-1"
+                className="p-0.5 rounded transition-colors ml-1 cursor-pointer"
                 title="Close tab"
               >
                 <XMarkIcon className="w-4 h-4" />
