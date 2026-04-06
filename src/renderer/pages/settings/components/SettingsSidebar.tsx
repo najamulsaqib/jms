@@ -20,8 +20,16 @@ export default function SettingsSidebar({
     <Card padding="none" className="overflow-hidden border-slate-200">
       <div className="border-b border-slate-200 bg-white px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-blue-100 bg-blue-50">
-            <UserCircleIcon className="h-7 w-7 text-blue-500" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-full border border-blue-100 bg-blue-50 overflow-hidden">
+            {userInfo?.avatarUrl ? (
+              <img
+                src={userInfo.avatarUrl}
+                alt="Avatar"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <UserCircleIcon className="h-7 w-7 text-blue-500" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900">
@@ -50,7 +58,9 @@ export default function SettingsSidebar({
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
-              <Icon className={`h-4 w-4 shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`} />
+              <Icon
+                className={`h-4 w-4 shrink-0 ${active ? 'text-blue-600' : 'text-slate-400'}`}
+              />
               {section.label}
             </button>
           );

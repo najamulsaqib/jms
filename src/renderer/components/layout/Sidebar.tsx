@@ -85,7 +85,22 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="p-3 border-t border-slate-200 space-y-1">
         {userInfo && (
-          <div className="px-3 py-2 mb-1">
+          <div className="flex items-center gap-2 px-3 py-2 mb-1">
+            {userInfo.avatarUrl ? (
+              <img
+                src={userInfo.avatarUrl}
+                alt="Avatar"
+                className="h-7 w-7 rounded-full shrink-0 object-cover border-slate-200 border bg-blue-50"
+              />
+            ) : (
+              <div className="h-7 w-7 shrink-0 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
+                <span className="text-xs font-semibold text-blue-500">
+                  {(userInfo.fullName ||
+                    userInfo.email ||
+                    'A')[0].toUpperCase()}
+                </span>
+              </div>
+            )}
             <p className="text-xs text-slate-400 truncate">
               {userInfo.fullName || userInfo.email || 'Account'}
             </p>

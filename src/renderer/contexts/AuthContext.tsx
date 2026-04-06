@@ -22,6 +22,7 @@ export type UserInfo = {
   address: string;
   phoneNumber: string;
   description: string;
+  avatarUrl: string;
 };
 
 interface AuthContextValue {
@@ -36,6 +37,7 @@ interface AuthContextValue {
     address: string;
     phoneNumber: string;
     description: string;
+    avatarUrl: string;
   }) => Promise<void>;
   updatePassword: (payload: { newPassword: string }) => Promise<void>;
   sendPasswordResetOtp: (email: string) => Promise<void>;
@@ -93,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       address: string;
       phoneNumber: string;
       description: string;
+      avatarUrl: string;
     }) => {
       const { error } = await supabase.auth.updateUser({
         data: toSnakeCase({
@@ -101,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           address: payload.address.trim(),
           phoneNumber: payload.phoneNumber.trim(),
           description: payload.description.trim(),
+          avatarUrl: payload.avatarUrl,
         }),
       });
 
@@ -180,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               address: (meta.address as string) ?? '',
               phoneNumber: (meta.phoneNumber as string) ?? '',
               description: (meta.description as string) ?? '',
+              avatarUrl: (meta.avatarUrl as string) ?? '',
             } satisfies UserInfo;
           })()
         : null,
