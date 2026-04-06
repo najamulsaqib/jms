@@ -8,7 +8,7 @@ interface HeaderProps {
 
 export default function Header({ title, breadcrumbs }: HeaderProps) {
   return (
-    <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 h-16 flex items-center">
+    <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 h-8 flex items-center">
       <div className="w-full">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav className="flex py-3" aria-label="Breadcrumb">

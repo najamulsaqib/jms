@@ -128,8 +128,11 @@ async function getCurrentUserId(): Promise<string> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
-  //TODO: if no session logout the user
-  if (!session?.user) throw new Error('Not authenticated');
+  if (!session?.user) {
+    // Logout the user if no session exists
+    await supabase.auth.signOut();
+    throw new Error('Not authenticated');
+  }
   return session.user.id;
 }
 
