@@ -29,6 +29,9 @@ const electronHandler = {
     checkForUpdates: () => ipcRenderer.invoke('updater:checkForUpdates'),
     getVersion: () => ipcRenderer.invoke('updater:getVersion'),
   },
+  net: {
+    isOnline: () => ipcRenderer.invoke('net:isOnline') as Promise<boolean>,
+  },
 };
 
 contextBridge.exposeInMainWorld('electron', electronHandler);

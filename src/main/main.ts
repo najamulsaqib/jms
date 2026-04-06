@@ -8,7 +8,7 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import { app, BrowserWindow, shell, ipcMain } from 'electron';
+import { app, BrowserWindow, shell, ipcMain, net } from 'electron';
 import path from 'path';
 import { registerUpdaterHandlers } from './ipc/updater.handlers';
 import MenuBuilder from './menu';
@@ -24,6 +24,9 @@ export function checkForUpdates() {
     appUpdater.checkForUpdates();
   }
 }
+
+// IPC handler for network status (more reliable than navigator.onLine on Windows)
+ipcMain.handle('net:isOnline', () => net.isOnline());
 
 // IPC handler for manual update check
 ipcMain.on('check-for-updates', () => {
