@@ -301,6 +301,13 @@ Made with ❤️ using Electron + React + TypeScript`,
       label: 'View',
       submenu: [
         {
+          label: 'Reload',
+          accelerator: 'Ctrl+R',
+          click: () => {
+            this.mainWindow.webContents.reload();
+          },
+        },
+        {
           label: 'Toggle Full Screen',
           accelerator: 'F11',
           click: () => {
