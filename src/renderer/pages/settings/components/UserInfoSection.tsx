@@ -47,6 +47,73 @@ function InfoRow({
   );
 }
 
+const AVATAR_OPTIONS = [
+  // Adventurer
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Oliver',
+  'https://api.dicebear.com/9.x/adventurer/svg?seed=Amelia',
+
+  // Bottts
+  'https://api.dicebear.com/9.x/bottts/svg?seed=Nova',
+  'https://api.dicebear.com/9.x/bottts/svg?seed=Orion',
+
+  // Lorelei
+  'https://api.dicebear.com/9.x/lorelei/svg?seed=Ethan',
+  'https://api.dicebear.com/9.x/lorelei/svg?seed=Ava',
+
+  // Pixel Art
+  'https://api.dicebear.com/9.x/pixel-art/svg?seed=Leo',
+  'https://api.dicebear.com/9.x/pixel-art/svg?seed=Chloe',
+
+  // Fun Emoji
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Sun',
+  'https://api.dicebear.com/9.x/fun-emoji/svg?seed=Cloud',
+
+  // Micah
+  'https://api.dicebear.com/9.x/micah/svg?seed=Jordan',
+  'https://api.dicebear.com/9.x/micah/svg?seed=Taylor',
+
+  // Big Smile
+  'https://api.dicebear.com/9.x/big-smile/svg?seed=Happy',
+  'https://api.dicebear.com/9.x/big-smile/svg?seed=Joy',
+
+  // Croodles
+  'https://api.dicebear.com/9.x/croodles/svg?seed=Sketch',
+  'https://api.dicebear.com/9.x/croodles/svg?seed=Doodle',
+
+  // Avataaars (classic style)
+  'https://api.dicebear.com/9.x/avataaars/svg?seed=Chris',
+  'https://api.dicebear.com/9.x/avataaars/svg?seed=Jess',
+
+  // Personas
+  'https://api.dicebear.com/9.x/personas/svg?seed=Kai',
+  'https://api.dicebear.com/9.x/personas/svg?seed=Riley',
+];
+
+function UserAvatar({
+  avatarUrl,
+  size = 'md',
+}: {
+  avatarUrl: string;
+  size?: 'sm' | 'md' | 'lg';
+}) {
+  const sizeClass =
+    size === 'sm' ? 'h-6 w-6' : size === 'lg' ? 'h-12 w-12' : 'h-8 w-8';
+
+  if (!avatarUrl) {
+    return <UserCircleIcon className={`${sizeClass} text-blue-500`} />;
+  }
+
+  return (
+    <img
+      src={avatarUrl}
+      alt="User avatar"
+      className={`${sizeClass} rounded-full object-cover`}
+    />
+  );
+}
+
+export { UserAvatar };
+
 export default function UserInfoSection() {
   const { updateProfile, updatePassword, userInfo } = useAuth();
   const currentFullName = userInfo?.fullName ?? '';
@@ -54,6 +121,7 @@ export default function UserInfoSection() {
   const currentAddress = userInfo?.address ?? '';
   const currentPhoneNumber = userInfo?.phoneNumber ?? '';
   const currentDescription = userInfo?.description ?? '';
+  const currentAvatarUrl = userInfo?.avatarUrl ?? '';
 
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(currentFullName);
@@ -61,6 +129,7 @@ export default function UserInfoSection() {
   const [address, setAddress] = useState(currentAddress);
   const [phoneNumber, setPhoneNumber] = useState(currentPhoneNumber);
   const [description, setDescription] = useState(currentDescription);
+  const [avatarUrl, setAvatarUrl] = useState(currentAvatarUrl);
   const [nameError, setNameError] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -75,6 +144,7 @@ export default function UserInfoSection() {
       setAddress(currentAddress);
       setPhoneNumber(currentPhoneNumber);
       setDescription(currentDescription);
+      setAvatarUrl(currentAvatarUrl);
       setNameError(null);
       setNewPassword('');
       setConfirmPassword('');
@@ -82,6 +152,7 @@ export default function UserInfoSection() {
     }
   }, [
     currentAddress,
+    currentAvatarUrl,
     currentCompanyName,
     currentDescription,
     currentFullName,
@@ -95,6 +166,7 @@ export default function UserInfoSection() {
     setAddress(currentAddress);
     setPhoneNumber(currentPhoneNumber);
     setDescription(currentDescription);
+    setAvatarUrl(currentAvatarUrl);
     setNameError(null);
     setNewPassword('');
     setConfirmPassword('');
@@ -109,6 +181,7 @@ export default function UserInfoSection() {
     setAddress(currentAddress);
     setPhoneNumber(currentPhoneNumber);
     setDescription(currentDescription);
+    setAvatarUrl(currentAvatarUrl);
     setNameError(null);
     setNewPassword('');
     setConfirmPassword('');
@@ -133,6 +206,7 @@ export default function UserInfoSection() {
         address,
         phoneNumber,
         description,
+        avatarUrl,
       });
       setIsEditing(false);
       toast.success('Profile updated successfully');
@@ -186,7 +260,15 @@ export default function UserInfoSection() {
     <Card padding="lg" className="border-slate-200">
       <div className="flex items-start gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50">
-          <UserCircleIcon className="h-8 w-8 text-blue-500" />
+          {currentAvatarUrl ? (
+            <img
+              src={currentAvatarUrl}
+              alt="User avatar"
+              className="h-10 w-10 rounded-xl object-cover"
+            />
+          ) : (
+            <UserCircleIcon className="h-8 w-8 text-blue-500" />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -246,6 +328,48 @@ export default function UserInfoSection() {
             <p className="text-sm font-semibold text-slate-900 mb-3">
               Profile details
             </p>
+
+            {/* Avatar picker */}
+            <div className="mb-4">
+              <p className="text-xs font-medium text-slate-700 mb-2">Avatar</p>
+              <div className="grid grid-cols-20 gap-2 sm:grid-cols-10">
+                {AVATAR_OPTIONS.map((url) => (
+                  <button
+                    key={url}
+                    type="button"
+                    onClick={() => setAvatarUrl(url)}
+                    disabled={saving || updatingPassword}
+                    className={`relative rounded-xl border-2 p-0.5 transition-all focus:outline-none ${
+                      avatarUrl === url
+                        ? 'border-blue-500 shadow-md'
+                        : 'border-slate-200 hover:border-slate-400'
+                    }`}
+                  >
+                    <img
+                      src={url}
+                      alt="Avatar option"
+                      className="rounded-lg object-cover"
+                    />
+                    {avatarUrl === url && (
+                      <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500">
+                        <CheckIcon className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAvatarUrl('')}
+                  disabled={saving || updatingPassword}
+                  className="mt-2 text-xs text-slate-500 hover:text-red-500 transition-colors"
+                >
+                  Remove avatar
+                </button>
+              )}
+            </div>
+
             <TextField
               id="fullName"
               label="Full name"
