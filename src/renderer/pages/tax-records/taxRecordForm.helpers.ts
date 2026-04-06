@@ -19,12 +19,107 @@ export const toKebabCase = (str: string): string => {
     .replace(/^-+|-+$/g, '');
 };
 
+/**
+ * Validate phone number for edit mode
+ * Accepts 10 digits (will be prefixed with 0092 automatically)
+ * Returns error message if invalid, else returns null
+ */
+export const validatePhoneEdit = (phone: string): string | null => {
+  if (!phone || !phone.trim()) return null; // Phone is optional
+  const trimmed = phone.trim();
+  if (!/^\d{10}$/.test(trimmed)) {
+    return 'Phone must be exactly 10 digits';
+  }
+  return null;
+};
+
+/**
+ * Normalize phone number for bulk import
+ * Accepts: 03123456789, 3123456789, +923123456789, or null
+ * Returns: normalized to 00923123456789 or empty string if null
+ * Throws: if format is invalid
+ */
+export const normalizePhoneBulk = (phone: string): string => {
+  if (!phone || !phone.trim()) return ''; // Null/empty is allowed in bulk
+
+  const trimmed = phone.trim();
+  const digitsOnly = trimmed.replace(/\D/g, '');
+
+  // Format 1: 03123456789 (11 digits starting with 03)
+  if (/^03\d{9}$/.test(trimmed)) {
+    return '0092' + digitsOnly.slice(1); // 0092 + 3123456789
+  }
+
+  // Format 2: 3123456789 (10 digits)
+  if (/^\d{10}$/.test(trimmed)) {
+    return '0092' + trimmed;
+  }
+
+  // Format 3: +923123456789 (12 digits, starts with +92)
+  if (/^\+92\d{10}$/.test(trimmed)) {
+    return '0092' + digitsOnly.slice(2);
+  }
+
+  // Format 4: 00923123456789 (14 digits, starts with 0092)
+  if (/^0092\d{10}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Invalid format
+  throw new Error(
+    'Phone must be in one of these formats: 03123456789, 3123456789, +923123456789, or 00923123456789',
+  );
+};
+
+/**
+ * Normalize status for bulk import and edits
+ * Accepts: ACTIVE, Active, a, 1, INACTIVE, Inactive, i, in, 0, LATEFILER, Late-Filer, lf, 2, etc.
+ * Returns: normalized status (active, inactive, late-filer)
+ * Defaults to: inactive if unrecognized or empty
+ */
+export const normalizeStatus = (val: string): TaxRecordStatus => {
+  if (!val || !val.trim()) return 'inactive'; // Default to inactive
+
+  // Normalize input: lowercase, trim, remove spaces/underscores/hyphens
+  const normalized = val
+    .toLowerCase()
+    .trim()
+    .replace(/[\s_-]/g, '');
+
+  // Map various formats to standard status
+  if (normalized === 'active' || normalized === 'a' || normalized === '1') {
+    return 'active';
+  }
+
+  if (
+    normalized === 'latefiler' ||
+    normalized === 'late' ||
+    normalized === 'lf' ||
+    normalized === '2'
+  ) {
+    return 'late-filer';
+  }
+
+  if (
+    normalized === 'inactive' ||
+    normalized === 'in' ||
+    normalized === 'i' ||
+    normalized === '0'
+  ) {
+    return 'inactive';
+  }
+
+  // Default to inactive if unrecognized
+  return 'inactive';
+};
+
 export type FieldErrors = Record<string, string | undefined>;
 
 export type FormValues = {
   referenceNumber: string;
   name: string;
   cnic: string;
+  phone: string;
   email: string;
   password: string;
   selectedReference: string;
@@ -37,6 +132,7 @@ export const EMPTY_FORM_VALUES: FormValues = {
   referenceNumber: '',
   name: '',
   cnic: '',
+  phone: '',
   email: '',
   password: '',
   selectedReference: 'self',
@@ -221,14 +317,11 @@ export const createHandleSubmit = ({
       nextFieldErrors.cnic = 'CNIC must be exactly 13 digits.';
     }
 
-    if (!formValues.email.trim()) {
-      nextFieldErrors.email = 'Email is required.';
-    } else if (!/^\S+@\S+\.\S+$/.test(formValues.email.trim())) {
+    if (
+      formValues.email.trim() &&
+      !/^\S+@\S+\.\S+$/.test(formValues.email.trim())
+    ) {
       nextFieldErrors.email = 'Email format is invalid.';
-    }
-
-    if (!formValues.password.trim()) {
-      nextFieldErrors.password = 'Password is required.';
     }
 
     if (formValues.selectedReference === CUSTOM_REFERENCE_VALUE) {
@@ -267,12 +360,11 @@ export const createHandleSubmit = ({
     setFieldErrors({});
 
     try {
-      // Check uniqueness per user — all three fields validated in parallel.
+      // Check uniqueness per user — validated in parallel.
       const uniquenessErrors = await taxRecordApi.validateUniqueness(
         {
           referenceNumber: formValues.referenceNumber,
           cnic: formValues.cnic,
-          email: formValues.email,
         },
         isEditMode && parsedId !== null ? parsedId : undefined,
       );
@@ -284,10 +376,14 @@ export const createHandleSubmit = ({
         return;
       }
 
+      // Add "0092" prefix to phone before saving
+      const phoneWithPrefix = formValues.phone ? `0092${formValues.phone}` : '';
+
       const recordPayload = {
         referenceNumber: formValues.referenceNumber,
         name: formValues.name,
         cnic: formValues.cnic,
+        phone: phoneWithPrefix,
         email: formValues.email,
         password: formValues.password,
         reference,
@@ -317,7 +413,6 @@ export const createHandleSubmit = ({
       // Safety net: map any DB-level uniqueness violations that slipped through
       // (e.g. race condition between validateUniqueness and save).
       const uniquenessFieldMap: Record<string, keyof FieldErrors> = {
-        'Email already exists': 'email',
         'CNIC already exists': 'cnic',
         'Reference number already exists': 'referenceNumber',
       };

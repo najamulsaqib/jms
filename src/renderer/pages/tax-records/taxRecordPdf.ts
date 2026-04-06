@@ -34,6 +34,7 @@ export type PdfField =
   | 'cnic'
   | 'email'
   | 'password'
+  | 'phone'
   | 'reference'
   | 'status'
   | 'notes'
@@ -83,6 +84,12 @@ export const PDF_FIELD_OPTIONS: PdfFieldOption[] = [
     label: 'Password',
     defaultChecked: false,
     section: 'Account Credentials',
+  },
+  {
+    id: 'phone',
+    label: 'Phone Number',
+    defaultChecked: true,
+    section: 'Personal Information',
   },
   {
     id: 'status',
@@ -408,6 +415,8 @@ export function generateTaxRecordPdf(
       label: 'Reference',
       value: record.reference.replace(/-/g, ' '),
     });
+  if (selectedFields.has('phone'))
+    personalFields.push({ label: 'Phone Number', value: record.phone || '' });
 
   if (personalFields.length > 0) {
     drawSectionHeader('Personal Information');
