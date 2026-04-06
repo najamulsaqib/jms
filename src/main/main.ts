@@ -85,6 +85,7 @@ const createWindow = async () => {
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
       sandbox: false,
+      webviewTag: true,
     },
   });
 
@@ -128,6 +129,20 @@ app.on('window-all-closed', () => {
   // after all windows have been closed
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+// INFO: Intercept new windows opened from webview tags (target="_blank", window.open, etc.)
+// and load them inside the same webview instead of opening a new OS window.
+app.on('web-contents-created', (_event, contents) => {
+  if (contents.getType() === 'webview') {
+    // Can't call contents.loadURL() from inside this handler (DataClone error).
+    // Instead, send an IPC message to the renderer and let it call loadURL on
+    // the webview DOM element, which works fine from the renderer process.
+    contents.setWindowOpenHandler(({ url }) => {
+      mainWindow?.webContents.send('webview-navigate', url);
+      return { action: 'deny' };
+    });
   }
 });
 

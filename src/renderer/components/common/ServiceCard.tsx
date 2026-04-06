@@ -55,7 +55,7 @@ export default function ServiceCard({
     <button
       type="button"
       onClick={() => navigate(href)}
-      className="group relative bg-white rounded-xl border border-slate-200 p-6 text-left transition-all hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      className="group relative bg-white rounded-xl border border-slate-200 p-6 text-left transition-all hover:shadow-lg hover:shadow-slate-200/50 hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 cursor-pointer"
     >
       <div className="flex items-start justify-between">
         <div

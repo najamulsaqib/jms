@@ -389,7 +389,7 @@ export default function LoginPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          JMS Tax Consultancy &copy; {new Date().getFullYear()}
+          JMS Tax App &copy; {new Date().getFullYear()}
         </p>
       </div>
     </div>

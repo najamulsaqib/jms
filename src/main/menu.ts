@@ -221,7 +221,7 @@ Made with ❤️ using Electron + React + TypeScript`,
               .showMessageBox(this.mainWindow, {
                 type: 'info',
                 title: 'About JMS Tax',
-                message: 'JMS Tax Consultancy',
+                message: 'JMS Tax App',
                 detail: `Version: ${app.getVersion()}
 Platform: ${process.platform}-${process.arch}
 Electron: ${process.versions.electron}

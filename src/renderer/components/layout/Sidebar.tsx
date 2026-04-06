@@ -1,24 +1,32 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@contexts/AuthContext';
 import {
-  HomeIcon,
-  DocumentTextIcon,
   BanknotesIcon,
   Cog6ToothIcon,
+  DocumentTextIcon,
+  HomeIcon,
+  GlobeAltIcon,
   ArrowLeftStartOnRectangleIcon as LogoutIcon,
 } from '@heroicons/react/24/outline';
-import { useAuth } from '@contexts/AuthContext';
+import { useTabNavigate } from '@hooks/useTabNavigate';
+import { useLocation } from 'react-router-dom';
 
 import logo from '../../../../assets/header-logo.png';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Tax Records', href: '/tax-records', icon: DocumentTextIcon },
+  {
+    name: 'Tax Records',
+    href: '/tax-records',
+    icon: DocumentTextIcon,
+  },
   { name: 'Sales Tax', href: '/sales-tax', icon: BanknotesIcon },
+  { name: 'FBR Portal', href: '/fbr-portal', icon: GlobeAltIcon },
 ];
 
 export default function Sidebar() {
   const location = useLocation();
   const { signOut, userInfo } = useAuth();
+  const tabNavigate = useTabNavigate();
   const isSettingsActive = location.pathname.startsWith('/settings');
 
   return (
@@ -45,11 +53,17 @@ export default function Sidebar() {
               ? location.pathname === '/'
               : location.pathname.startsWith(item.href);
           return (
-            <Link
+            <button
               key={item.name}
-              to={item.href}
+              onClick={() =>
+                tabNavigate(
+                  item.href,
+                  item.name,
+                  item.icon && <item.icon className="h-5 w-5" />,
+                )
+              }
               className={`
-                flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
+                w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer
                 ${
                   isActive
                     ? 'bg-blue-50 text-blue-700'
@@ -63,7 +77,7 @@ export default function Sidebar() {
                 }`}
               />
               {item.name}
-            </Link>
+            </button>
           );
         })}
       </nav>
@@ -77,9 +91,15 @@ export default function Sidebar() {
             </p>
           </div>
         )}
-        <Link
-          to="/settings"
-          className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+        <button
+          onClick={() =>
+            tabNavigate(
+              '/settings',
+              'Settings',
+              <Cog6ToothIcon className="h-5 w-5" />,
+            )
+          }
+          className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
             isSettingsActive
               ? 'bg-blue-50 text-blue-700'
               : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
@@ -91,10 +111,10 @@ export default function Sidebar() {
             }`}
           />
           Settings
-        </Link>
+        </button>
         <button
           type="button"
-          className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+          className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
           onClick={() => signOut()}
         >
           <LogoutIcon className="mr-3 h-5 w-5" />
