@@ -30,7 +30,7 @@ const electronHandler = {
     getVersion: () => ipcRenderer.invoke('updater:getVersion'),
   },
   net: {
-    isOnline: () => ipcRenderer.invoke('net:isOnline') as Promise<boolean>,
+    isOnline: (): Promise<boolean> => ipcRenderer.invoke('net:isOnline'),
   },
 };
 

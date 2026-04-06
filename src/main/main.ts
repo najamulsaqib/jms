@@ -82,6 +82,9 @@ const createWindow = async () => {
     width: 1024,
     height: 728,
     title: 'JMS Tax',
+    // Matches the app's bg-slate-50 background — prevents white flash while
+    // React is initializing, especially on first Windows launch (no V8 cache yet)
+    backgroundColor: '#f8fafc',
     icon: getAssetPath('icon.png'),
     webPreferences: {
       preload: app.isPackaged
@@ -100,6 +103,12 @@ const createWindow = async () => {
     }
     if (process.env.START_MINIMIZED) {
       mainWindow.minimize();
+      return;
+    }
+    // On Windows, ready-to-show can fire before React finishes its first paint
+    // (no V8 JIT cache on first install). A short delay ensures the UI is visible.
+    if (process.platform === 'win32') {
+      setTimeout(() => mainWindow?.show(), 200);
     } else {
       mainWindow.show();
     }
