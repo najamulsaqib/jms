@@ -7,41 +7,53 @@ import ConfirmDialog from '@components/ui/ConfirmDialog';
 import SelectField from '@components/ui/SelectField';
 import TextField from '@components/ui/TextField';
 import {
+  ArrowDownTrayIcon,
   ArrowLeftIcon,
-  PencilIcon,
-  TrashIcon,
-  UserIcon,
-  IdentificationIcon,
-  EnvelopeIcon,
-  KeyIcon,
-  LinkIcon,
-  DocumentTextIcon,
+  CheckIcon,
   ClipboardDocumentIcon,
+  ClipboardIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
   EyeIcon,
   EyeSlashIcon,
-  ClipboardIcon,
-  CheckIcon,
-  ArrowDownTrayIcon,
+  IdentificationIcon,
+  KeyIcon,
+  LinkIcon,
+  PencilIcon,
+  PhoneIcon,
+  TrashIcon,
+  UserIcon,
 } from '@heroicons/react/20/solid';
-import PdfExportModal from './PdfExportModal';
-import { toast } from 'sonner';
+import { useTaxRecord } from '@hooks/useTaxRecords';
+import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import PdfExportModal from './PdfExportModal';
 import {
+  buildReferenceOptions,
   createHandleChange,
   CUSTOM_REFERENCE_VALUE,
   EMPTY_FORM_VALUES,
-  buildReferenceOptions,
   type FieldErrors,
   type FormValues,
+  validatePhoneEdit,
 } from './taxRecordForm.helpers';
 
 function recordToFormValues(
   record: TaxRecord,
   referenceValues: string[],
 ): FormValues {
+  // Strip "0092" prefix from phone for editing (user only sees 10 digits)
+  let phone = '';
+  if (record.phone && record.phone.startsWith('0092')) {
+    phone = record.phone.slice(4); // Remove "0092" prefix
+  } else if (record.phone) {
+    phone = record.phone;
+  }
+
   return {
     referenceNumber: record.referenceNumber,
     name: record.name,
@@ -56,6 +68,7 @@ function recordToFormValues(
       : record.reference,
     status: record.status,
     notes: record.notes,
+    phone,
   };
 }
 
@@ -71,17 +84,22 @@ export default function TaxRecordDetailPage() {
 
   const parsedId = useMemo(() => {
     if (!taxRecordId) return null;
-    const id = Number(taxRecordId);
-    return Number.isNaN(id) ? null : id;
+    return decodeRecordId(taxRecordId);
   }, [taxRecordId]);
 
-  const [record, setRecord] = useState<TaxRecord | null>(null);
+  const {
+    record,
+    loading,
+    error: queryError,
+    updateTaxRecord,
+    deleteTaxRecord,
+    saving,
+    deleting,
+  } = useTaxRecord(parsedId);
+
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
 
@@ -96,34 +114,8 @@ export default function TaxRecordDetailPage() {
   // Visibility and copy states
   const [showPassword, setShowPassword] = useState(false);
   const [copiedField, setCopiedField] = useState<
-    'email' | 'password' | 'cnic' | null
+    'email' | 'password' | 'cnic' | 'phone' | null
   >(null);
-
-  useEffect(() => {
-    if (!parsedId) return;
-    let mounted = true;
-    setLoading(true);
-    setError(null);
-
-    taxRecordApi
-      .getById(parsedId)
-      .then((r) => {
-        if (mounted) setRecord(r);
-      })
-      .catch((err) => {
-        if (mounted)
-          setError(
-            err instanceof Error ? err.message : 'Failed to load record.',
-          );
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [parsedId]);
 
   const enterEditMode = async () => {
     if (!record) return;
@@ -133,7 +125,6 @@ export default function TaxRecordDetailPage() {
       const otherRecords = allRecords.filter((r) => r.id !== record.id);
       const options = buildReferenceOptions(otherRecords);
 
-      console.log('OPTIONS', options);
       setReferenceOptions(options);
       const referenceValues = options.map((o) => o.value);
       const values = recordToFormValues(record, referenceValues);
@@ -163,7 +154,7 @@ export default function TaxRecordDetailPage() {
     }
   };
 
-  const handleEditSubmit = async (event: React.FormEvent) => {
+  const handleEditSubmit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
     if (!parsedId) return;
 
@@ -183,6 +174,8 @@ export default function TaxRecordDetailPage() {
       nextErrors.email = 'Email format is invalid.';
     if (!formValues.password.trim())
       nextErrors.password = 'Password is required.';
+    const phoneError = validatePhoneEdit(formValues.phone);
+    if (phoneError) nextErrors.phone = phoneError;
     if (formValues.selectedReference === CUSTOM_REFERENCE_VALUE) {
       if (!formValues.customReference.trim())
         nextErrors.customReference = 'Reference is required.';
@@ -206,68 +199,99 @@ export default function TaxRecordDetailPage() {
       return;
     }
 
-    setSaving(true);
+    const uniquenessErrors = await taxRecordApi.validateUniqueness(
+      {
+        referenceNumber: formValues.referenceNumber,
+        cnic: formValues.cnic,
+      },
+      parsedId,
+    );
+
+    if (Object.keys(uniquenessErrors).length > 0) {
+      setFieldErrors((current) => ({
+        ...current,
+        ...uniquenessErrors,
+      }));
+      setError(null);
+      return;
+    }
+
     setError(null);
     setFieldErrors({});
 
-    try {
-      const updated = await taxRecordApi.update(parsedId, {
-        referenceNumber: formValues.referenceNumber,
-        name: formValues.name,
-        cnic: formValues.cnic,
-        email: formValues.email,
-        password: formValues.password,
-        reference,
-        status: formValues.status,
-        notes: formValues.notes,
-      });
-      setRecord(updated);
-      setInitialFormValues(formValues);
-      setMode('view');
-      toast.success('Record updated successfully');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to save record.';
-      if (message === 'Email already exists.')
-        setFieldErrors((c) => ({ ...c, email: message }));
-      else if (message === 'CNIC already exists.')
-        setFieldErrors((c) => ({ ...c, cnic: message }));
-      else if (message === 'Reference number already exists.')
-        setFieldErrors((c) => ({ ...c, referenceNumber: message }));
-      setError(message);
-    } finally {
-      setSaving(false);
+    // Add "0092" prefix to phone before saving
+    const phoneWithPrefix = formValues.phone ? `0092${formValues.phone}` : '';
+
+    const { data: updated, error: updateError } = await updateTaxRecord({
+      referenceNumber: formValues.referenceNumber,
+      name: formValues.name,
+      cnic: formValues.cnic,
+      email: formValues.email,
+      password: formValues.password,
+      reference,
+      status: formValues.status,
+      notes: formValues.notes,
+      phone: phoneWithPrefix,
+    });
+
+    if (!updated) {
+      const mappedErrors: FieldErrors = {};
+
+      if (updateError?.includes('Email already exists')) {
+        mappedErrors.email = 'Email already exists.';
+      }
+
+      if (updateError?.includes('CNIC already exists')) {
+        mappedErrors.cnic = 'CNIC already exists.';
+      }
+
+      if (updateError?.includes('Reference number already exists')) {
+        mappedErrors.referenceNumber = 'Reference number already exists.';
+      }
+
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors((current) => ({
+          ...current,
+          ...mappedErrors,
+        }));
+        setError(null);
+        return;
+      }
+
+      setError(updateError ?? 'Failed to save record.');
+      return;
     }
+
+    setInitialFormValues(formValues);
+    setMode('view');
+    toast.success('Record updated successfully');
   };
 
   const handleDelete = async () => {
-    if (!parsedId) return;
-    setDeleting(true);
-    try {
-      await taxRecordApi.remove(parsedId);
+    const deleted = await deleteTaxRecord();
+    if (deleted) {
       toast.success('Record deleted successfully');
       navigate('/tax-records', { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete record.');
+    } else {
       toast.error('Failed to delete record');
       setPendingDelete(false);
-      setDeleting(false);
     }
   };
 
   const handleCopy = async (
     text: string,
-    field: 'email' | 'password' | 'cnic',
+    field: 'email' | 'password' | 'cnic' | 'phone',
   ) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
       const label =
-        field === 'email'
-          ? 'Email'
-          : field === 'password'
-            ? 'Password'
-            : 'CNIC';
+        {
+          email: 'Email',
+          password: 'Password',
+          cnic: 'CNIC',
+          phone: 'Phone number',
+        }[field] || 'Value';
       toast.success(`${label} copied to clipboard`);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
@@ -397,9 +421,11 @@ export default function TaxRecordDetailPage() {
               )}
             </div>
 
-            {error && (
+            {(error || queryError) && (
               <Card className="mb-5 border-red-200 bg-red-50">
-                <p className="text-sm text-red-800">{error}</p>
+                <p className="text-sm text-red-800">
+                  {error ?? queryError ?? 'An error occurred.'}
+                </p>
               </Card>
             )}
 
@@ -479,27 +505,29 @@ export default function TaxRecordDetailPage() {
                         Account Credentials
                       </h3>
                     </div>
-                    <div className="space-y-5">
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
                       <div className="space-y-1">
                         <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
                           <EnvelopeIcon className="h-3 w-3" /> Email Address
                         </p>
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
-                            {record.email}
+                            {record.email || 'N/A'}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(record.email, 'email')}
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                            title="Copy email"
-                          >
-                            {copiedField === 'email' ? (
-                              <CheckIcon className="h-3.5 w-3.5 text-green-600" />
-                            ) : (
-                              <ClipboardIcon className="h-3.5 w-3.5" />
-                            )}
-                          </button>
+                          {record.email && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(record.email, 'email')}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                              title="Copy email"
+                            >
+                              {copiedField === 'email' ? (
+                                <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                              ) : (
+                                <ClipboardIcon className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="space-y-1">
@@ -508,36 +536,68 @@ export default function TaxRecordDetailPage() {
                         </p>
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
-                            {showPassword ? record.password : '••••••••••••'}
+                            {showPassword
+                              ? record.password || 'N/A'
+                              : '••••••••••••'}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                            title={
-                              showPassword ? 'Hide password' : 'Show password'
-                            }
-                          >
-                            {showPassword ? (
-                              <EyeSlashIcon className="h-3.5 w-3.5" />
-                            ) : (
-                              <EyeIcon className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleCopy(record.password, 'password')
-                            }
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                            title="Copy password"
-                          >
-                            {copiedField === 'password' ? (
-                              <CheckIcon className="h-3.5 w-3.5 text-green-600" />
-                            ) : (
-                              <ClipboardIcon className="h-3.5 w-3.5" />
-                            )}
-                          </button>
+                          {record.password && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                                title={
+                                  showPassword
+                                    ? 'Hide password'
+                                    : 'Show password'
+                                }
+                              >
+                                {showPassword ? (
+                                  <EyeSlashIcon className="h-3.5 w-3.5" />
+                                ) : (
+                                  <EyeIcon className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopy(record.password, 'password')
+                                }
+                                className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                                title="Copy password"
+                              >
+                                {copiedField === 'password' ? (
+                                  <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                                ) : (
+                                  <ClipboardIcon className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <PhoneIcon className="h-3 w-3" /> Phone Number
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {record.phone || 'N/A'}
+                          </span>
+                          {record.phone && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(record.phone, 'phone')}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                              title="Copy phone"
+                            >
+                              {copiedField === 'phone' ? (
+                                <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                              ) : (
+                                <ClipboardIcon className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -602,31 +662,41 @@ export default function TaxRecordDetailPage() {
                       value={formValues.cnic}
                       onChange={handleChange}
                       error={fieldErrors.cnic}
-                      placeholder="3520112345671"
+                      placeholder="XXXXXXXXXXXXX"
                     />
-                    <div className="space-y-5">
-                      <SelectField
-                        id="selectedReference"
-                        name="selectedReference"
-                        label="Reference"
-                        value={formValues.selectedReference}
+                    <TextField
+                      id="phone"
+                      name="phone"
+                      label="Phone"
+                      prefix="0092"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={formValues.phone}
+                      onChange={handleChange}
+                      error={fieldErrors.phone}
+                      placeholder="3123456789"
+                    />
+                    <SelectField
+                      id="selectedReference"
+                      name="selectedReference"
+                      label="Reference"
+                      value={formValues.selectedReference}
+                      onChange={handleChange}
+                      options={allReferenceOptions}
+                      error={fieldErrors.selectedReference}
+                    />
+                    {formValues.selectedReference ===
+                      CUSTOM_REFERENCE_VALUE && (
+                      <TextField
+                        id="customReference"
+                        name="customReference"
+                        label="Custom Reference"
+                        value={formValues.customReference}
                         onChange={handleChange}
-                        options={allReferenceOptions}
-                        error={fieldErrors.selectedReference}
+                        error={fieldErrors.customReference}
+                        placeholder="Enter custom reference"
                       />
-                      {formValues.selectedReference ===
-                        CUSTOM_REFERENCE_VALUE && (
-                        <TextField
-                          id="customReference"
-                          name="customReference"
-                          label="Custom Reference"
-                          value={formValues.customReference}
-                          onChange={handleChange}
-                          error={fieldErrors.customReference}
-                          placeholder="Enter custom reference"
-                        />
-                      )}
-                    </div>
+                    )}
                   </div>
                 </Card>
 
@@ -688,14 +758,24 @@ export default function TaxRecordDetailPage() {
                         value={formValues.notes}
                         onChange={handleChange}
                         rows={10}
+                        maxLength={5000}
                         className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
                         placeholder="Additional notes..."
                       />
-                      {fieldErrors.notes && (
-                        <p className="text-sm text-red-600">
-                          {fieldErrors.notes}
+                      <div className="flex items-center justify-between mt-1.5">
+                        {fieldErrors.notes ? (
+                          <p className="text-sm text-red-600">
+                            {fieldErrors.notes}
+                          </p>
+                        ) : (
+                          <span />
+                        )}
+                        <p
+                          className={`text-xs tabular-nums ${formValues.notes.length >= 5000 ? 'text-red-500 font-medium' : formValues.notes.length >= 4500 ? 'text-amber-500' : 'text-slate-400'}`}
+                        >
+                          {formValues.notes.length} / 5000
                         </p>
-                      )}
+                      </div>
                     </div>
                   </Card>
                 </div>

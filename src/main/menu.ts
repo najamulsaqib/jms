@@ -221,7 +221,7 @@ Made with ❤️ using Electron + React + TypeScript`,
               .showMessageBox(this.mainWindow, {
                 type: 'info',
                 title: 'About JMS Tax',
-                message: 'JMS Tax Consultancy',
+                message: 'JMS Tax App',
                 detail: `Version: ${app.getVersion()}
 Platform: ${process.platform}-${process.arch}
 Electron: ${process.versions.electron}
@@ -300,6 +300,13 @@ Made with ❤️ using Electron + React + TypeScript`,
     const subMenuViewProd: MenuItemConstructorOptions = {
       label: 'View',
       submenu: [
+        {
+          label: 'Reload',
+          accelerator: 'Ctrl+R',
+          click: () => {
+            this.mainWindow.webContents.reload();
+          },
+        },
         {
           label: 'Toggle Full Screen',
           accelerator: 'F11',

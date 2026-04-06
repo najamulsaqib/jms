@@ -1,14 +1,15 @@
-import { useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { ArrowDownTrayIcon } from '@heroicons/react/20/solid';
-import { DocumentTextIcon } from '@heroicons/react/20/solid';
-import { toast } from 'sonner';
 import Button from '@components/ui/Button';
 import CheckboxField from '@components/ui/CheckboxField';
+import { useAuth } from '@contexts/AuthContext';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
+import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/20/solid';
 import { TaxRecord } from '@shared/taxRecord.contracts';
+import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   PDF_FIELD_OPTIONS,
   type PdfField,
+  type PdfCompanyInfo,
   generateTaxRecordPdf,
 } from './taxRecordPdf';
 
@@ -36,6 +37,7 @@ export default function PdfExportModal({
   record,
   onClose,
 }: PdfExportModalProps) {
+  const { userInfo } = useAuth();
   const [selected, setSelected] = useState<Set<PdfField>>(
     new Set(DEFAULT_FIELDS),
   );
@@ -54,7 +56,16 @@ export default function PdfExportModal({
       toast.error('Select at least one field to export');
       return;
     }
-    generateTaxRecordPdf(record, selected);
+
+    const companyInfoOverrides: Partial<PdfCompanyInfo> = {
+      name: userInfo?.companyName || userInfo?.fullName,
+      tagline: userInfo?.description,
+      address: userInfo?.address,
+      phone: userInfo?.phoneNumber,
+      contactName: userInfo?.fullName || userInfo?.companyName,
+    };
+
+    generateTaxRecordPdf(record, selected, companyInfoOverrides);
     toast.success('PDF downloaded');
     onClose();
   };
@@ -166,8 +177,8 @@ export default function PdfExportModal({
               size="sm"
               onClick={handleExport}
               disabled={selected.size === 0}
+              icon={ArrowDownTrayIcon}
             >
-              <ArrowDownTrayIcon className="h-3.5 w-3.5 mr-1.5" />
               Download PDF
             </Button>
           </div>

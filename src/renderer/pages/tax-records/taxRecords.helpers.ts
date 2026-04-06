@@ -7,6 +7,7 @@ export type SearchField =
   | 'name'
   | 'cnic'
   | 'email'
+  | 'phone'
   | 'reference'
   | 'status'
   | 'notes';
@@ -17,16 +18,18 @@ export const SEARCH_FIELD_OPTIONS: { value: SearchField; label: string }[] = [
   { value: 'name', label: 'Name' },
   { value: 'cnic', label: 'CNIC' },
   { value: 'email', label: 'Email' },
+  { value: 'phone', label: 'Phone' },
   { value: 'reference', label: 'Reference' },
   { value: 'status', label: 'Status' },
 ];
 
 export const SEARCH_FIELD_PLACEHOLDER: Record<SearchField, string> = {
-  all: 'Search by reference number, name, CNIC, email, reference, status...',
+  all: 'Search by reference number, name, CNIC, email, phone, reference, status...',
   referenceNumber: 'Search by reference number...',
   name: 'Search by name...',
   cnic: 'Search by CNIC...',
   email: 'Search by email...',
+  phone: 'Search by phone...',
   reference: 'Search by reference...',
   status: 'Search by status (active, inactive, late-filer)...',
   notes: 'Search by notes...',

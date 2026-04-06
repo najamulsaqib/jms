@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeftIcon,
   UserIcon,
@@ -12,6 +13,7 @@ import Card from '@components/ui/Card';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import SelectField from '@components/ui/SelectField';
 import TextField from '@components/ui/TextField';
+import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import {
   createHandleChange,
@@ -26,14 +28,11 @@ import {
 export default function TaxRecordFormPage() {
   const { taxRecordId } = useParams<{ taxRecordId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const parsedId = useMemo(() => {
-    if (!taxRecordId) {
-      return null;
-    }
-
-    const id = Number(taxRecordId);
-    return Number.isNaN(id) ? null : id;
+    if (!taxRecordId) return null;
+    return decodeRecordId(taxRecordId);
   }, [taxRecordId]);
 
   const isEditMode = parsedId !== null;
@@ -64,30 +63,39 @@ export default function TaxRecordFormPage() {
         if (!mounted) return;
 
         if (isEditMode && parsedId !== null) {
-          const todo = await taxRecordApi.getById(parsedId);
+          const record = await taxRecordApi.getById(parsedId);
           if (!mounted) return;
 
           // Build reference options, excluding current record's name
           const options = buildReferenceOptions(
             existingEntries,
-            todo.name.trim(),
+            record.name.trim(),
           );
           setReferenceOptions(options);
 
+          // Strip \"0092\" prefix from phone for editing (user only sees 10 digits)
+          let phone = '';
+          if (record.phone && record.phone.startsWith('0092')) {
+            phone = record.phone.slice(4); // Remove \"0092\" prefix
+          } else if (record.phone) {
+            phone = record.phone;
+          }
+
           const nextFormValues: FormValues = {
-            referenceNumber: todo.referenceNumber,
-            name: todo.name,
-            cnic: todo.cnic,
-            email: todo.email,
-            password: todo.password,
-            selectedReference: options.some((o) => o.value === todo.reference)
-              ? todo.reference
+            referenceNumber: record.referenceNumber,
+            name: record.name,
+            cnic: record.cnic,
+            phone,
+            email: record.email,
+            password: record.password,
+            selectedReference: options.some((o) => o.value === record.reference)
+              ? record.reference
               : CUSTOM_REFERENCE_VALUE,
-            customReference: options.some((o) => o.value === todo.reference)
+            customReference: options.some((o) => o.value === record.reference)
               ? ''
-              : todo.reference,
-            status: todo.status,
-            notes: todo.notes,
+              : record.reference,
+            status: record.status,
+            notes: record.notes,
           };
 
           setFormValues(nextFormValues);
@@ -128,6 +136,7 @@ export default function TaxRecordFormPage() {
     setSuccess,
     setInitialFormValues,
     navigate,
+    onSaved: () => queryClient.invalidateQueries({ queryKey: ['taxRecords'] }),
   });
 
   const handleCancel = () => {
@@ -251,28 +260,38 @@ export default function TaxRecordFormPage() {
                   error={fieldErrors.cnic}
                   placeholder="3520112345671"
                 />
-                <div className="space-y-5">
-                  <SelectField
-                    id="selectedReference"
-                    name="selectedReference"
-                    label="Reference"
-                    value={formValues.selectedReference}
+                <TextField
+                  id="phone"
+                  name="phone"
+                  label="Phone"
+                  prefix="0092"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={formValues.phone}
+                  onChange={handleChange}
+                  error={fieldErrors.phone}
+                  placeholder="3123456789"
+                />
+                <SelectField
+                  id="selectedReference"
+                  name="selectedReference"
+                  label="Reference"
+                  value={formValues.selectedReference}
+                  onChange={handleChange}
+                  options={allReferenceOptions}
+                  error={fieldErrors.selectedReference}
+                />
+                {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
+                  <TextField
+                    id="customReference"
+                    name="customReference"
+                    label="Custom Reference"
+                    value={formValues.customReference}
                     onChange={handleChange}
-                    options={allReferenceOptions}
-                    error={fieldErrors.selectedReference}
+                    error={fieldErrors.customReference}
+                    placeholder="Enter custom reference"
                   />
-                  {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
-                    <TextField
-                      id="customReference"
-                      name="customReference"
-                      label="Custom Reference"
-                      value={formValues.customReference}
-                      onChange={handleChange}
-                      error={fieldErrors.customReference}
-                      placeholder="Enter custom reference"
-                    />
-                  )}
-                </div>
+                )}
               </div>
             </Card>
 
@@ -333,12 +352,22 @@ export default function TaxRecordFormPage() {
                   value={formValues.notes}
                   onChange={handleChange}
                   rows={10}
+                  maxLength={5000}
                   className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
                   placeholder="Additional notes..."
                 />
-                {fieldErrors.notes && (
-                  <p className="text-sm text-red-600">{fieldErrors.notes}</p>
-                )}
+                <div className="flex items-center justify-between mt-1.5">
+                  {fieldErrors.notes ? (
+                    <p className="text-sm text-red-600">{fieldErrors.notes}</p>
+                  ) : (
+                    <span />
+                  )}
+                  <p
+                    className={`text-xs tabular-nums ${formValues.notes.length >= 5000 ? 'text-red-500 font-medium' : formValues.notes.length >= 4500 ? 'text-amber-500' : 'text-slate-400'}`}
+                  >
+                    {formValues.notes.length} / 5000
+                  </p>
+                </div>
               </Card>
             </div>
 
