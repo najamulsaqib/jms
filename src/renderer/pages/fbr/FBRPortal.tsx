@@ -224,7 +224,8 @@ export default function FBRPage() {
             width: '100%',
             display: hasError ? 'none' : 'flex',
           }}
-          allowpopups
+          // @ts-ignore: unknown properties specific to Electron's webview
+          allowpopups="true"
           useragent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         />
         {/* eslint-enable react/no-unknown-property */}
