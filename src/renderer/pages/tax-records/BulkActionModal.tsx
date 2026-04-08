@@ -1,4 +1,5 @@
 import Button from '@components/ui/Button';
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { TaxRecordStatus } from '@shared/taxRecord.contracts';
 import { useState } from 'react';
 
@@ -24,8 +25,6 @@ export default function BulkActionModal({
   const [selectedStatus, setSelectedStatus] =
     useState<TaxRecordStatus>('active');
 
-  if (!isOpen) return null;
-
   const handleClose = () => {
     setSelectedStatus('active');
     onClose();
@@ -33,35 +32,24 @@ export default function BulkActionModal({
 
   const handleApplyToSelected = () => {
     onApplyToSelected(selectedStatus);
-    setSelectedStatus('active');
     handleClose();
   };
 
   const handleApplyToAll = () => {
     onApplyToAll(selectedStatus);
-    setSelectedStatus('active');
     handleClose();
   };
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/50 z-50 animate-in fade-in duration-200"
-        onClick={handleClose}
-      />
-
-      {/* Modal */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-        <div
-          className="bg-white rounded-xl shadow-2xl max-w-md w-full pointer-events-auto animate-in zoom-in-95 duration-200"
-          onClick={(e) => e.stopPropagation()}
-        >
+    <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
+      <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+      <div className="fixed inset-0 flex items-center justify-center p-4">
+        <DialogPanel className="bg-white rounded-xl shadow-2xl max-w-md w-full">
           {/* Header */}
           <div className="px-6 py-4 border-b border-slate-200">
-            <h2 className="text-lg font-semibold text-slate-900">
+            <DialogTitle className="text-lg font-semibold text-slate-900">
               Bulk Status Update
-            </h2>
+            </DialogTitle>
             <p className="text-sm text-slate-600 mt-1">
               Select a status to apply to your records
             </p>
@@ -71,12 +59,9 @@ export default function BulkActionModal({
           <div className="px-6 py-6 space-y-6">
             {/* Status Selection */}
             <div>
-              <label
-                htmlFor="modal-status-select"
-                className="block text-sm font-medium text-slate-700 mb-2"
-              >
+              <p className="block text-sm font-medium text-slate-700 mb-2">
                 Change status to:
-              </label>
+              </p>
               <div className="space-y-2">
                 {[
                   { value: 'active', label: 'Active', color: 'green' },
@@ -101,23 +86,21 @@ export default function BulkActionModal({
                       }
                       className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                     />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-slate-900">
-                          {option.label}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 text-xs font-medium rounded ${
-                            option.color === 'green'
-                              ? 'bg-green-100 text-green-800'
-                              : option.color === 'red'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-orange-100 text-orange-800'
-                          }`}
-                        >
-                          {option.label}
-                        </span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-slate-900">
+                        {option.label}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 text-xs font-medium rounded ${
+                          option.color === 'green'
+                            ? 'bg-green-100 text-green-800'
+                            : option.color === 'red'
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-orange-100 text-orange-800'
+                        }`}
+                      >
+                        {option.label}
+                      </span>
                     </div>
                   </label>
                 ))}
@@ -149,21 +132,11 @@ export default function BulkActionModal({
 
           {/* Footer */}
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-xl flex items-center justify-end gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={onClose}
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={handleClose}>
               Cancel
             </Button>
             {selectedCount > 0 && (
-              <Button
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={handleApplyToSelected}
-              >
+              <Button type="button" variant="primary" size="sm" onClick={handleApplyToSelected}>
                 Apply to {selectedCount} Selected
               </Button>
             )}
@@ -176,8 +149,8 @@ export default function BulkActionModal({
               Apply to {hasActiveFilters ? 'Filtered' : 'All'} ({totalCount})
             </Button>
           </div>
-        </div>
+        </DialogPanel>
       </div>
-    </>
+    </Dialog>
   );
 }

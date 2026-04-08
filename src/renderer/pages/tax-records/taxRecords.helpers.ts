@@ -1,4 +1,5 @@
 import { type SortState } from '@components/table/DataTable';
+import { triggerDownload } from '@lib/downloadManager';
 import { TaxRecord } from '@shared/taxRecord.contracts';
 
 export type SearchField =
@@ -96,11 +97,5 @@ export function downloadCSV(records: TaxRecord[]) {
       .join(','),
   );
   const csv = [headers.join(','), ...csvRows].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'tax-records.csv';
-  a.click();
-  URL.revokeObjectURL(url);
+  triggerDownload('tax-records.csv', csv, 'text/csv');
 }

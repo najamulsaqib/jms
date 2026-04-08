@@ -1,15 +1,19 @@
 import Button from '@components/ui/Button';
 import DropZone from '@components/ui/DropZone';
+import IconButton from '@components/ui/IconButton';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import {
+  ArrowDownTrayIcon,
   ArrowUpTrayIcon,
   CheckCircleIcon,
   XCircleIcon,
 } from '@heroicons/react/20/solid';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
+import { triggerDownload } from '@lib/downloadManager';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { CreateTaxRecordInput } from '@shared/taxRecord.contracts';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import {
   normalizePhoneBulk,
   normalizeStatus,
@@ -18,7 +22,12 @@ import {
 
 type Step = 'upload' | 'map' | 'results';
 
-type ImportError = { row: number; label: string; reason: string };
+type ImportError = {
+  row: number;
+  label: string;
+  reason: string;
+  data?: Record<string, string>;
+};
 type ImportSuccess = { row: number; label: string };
 type ImportResult = { added: ImportSuccess[]; errors: ImportError[] };
 
@@ -179,6 +188,18 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
       const rawStatus = getCell(row, 'status');
       const notes = getCell(row, 'notes');
 
+      const rawData: Record<string, string> = {
+        referenceNumber,
+        name,
+        cnic,
+        phone,
+        email,
+        password,
+        reference: rawReference,
+        status: rawStatus,
+        notes,
+      };
+
       const missing: string[] = [];
       if (!referenceNumber) missing.push('Reference Number');
       if (!name) missing.push('Name');
@@ -189,6 +210,7 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
           row: rowNum,
           label: name || `Row ${rowNum}`,
           reason: `Missing: ${missing.join(', ')}`,
+          data: rawData,
         });
         return;
       }
@@ -199,6 +221,7 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
           row: rowNum,
           label: name,
           reason: `CNIC must be exactly 13 digits (got ${normalizedCnic.length})`,
+          data: rawData,
         });
         return;
       }
@@ -213,6 +236,7 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
             row: rowNum,
             label: name,
             reason: `Invalid phone format: ${err instanceof Error ? err.message : String(err)}`,
+            data: rawData,
           });
           return;
         }
@@ -272,6 +296,17 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
             row: rowNum,
             label: payload.name,
             reason: dupes.join(', '),
+            data: {
+              referenceNumber: payload.referenceNumber,
+              name: payload.name,
+              cnic: payload.cnic,
+              phone: payload.phone,
+              email: payload.email ?? '',
+              password: payload.password ?? '',
+              reference: payload.reference ?? '',
+              status: payload.status ?? '',
+              notes: payload.notes ?? '',
+            },
           });
           continue;
         }
@@ -317,6 +352,17 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
                 row: rowNum,
                 label: payload.name,
                 reason: `Database error: ${reason}`,
+                data: {
+                  referenceNumber: payload.referenceNumber,
+                  name: payload.name,
+                  cnic: payload.cnic,
+                  phone: payload.phone,
+                  email: payload.email ?? '',
+                  password: payload.password ?? '',
+                  reference: payload.reference ?? '',
+                  status: payload.status ?? '',
+                  notes: payload.notes ?? '',
+                },
               });
             });
           }
@@ -339,6 +385,38 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
     setMapping({});
     setResult(null);
     onClose();
+  };
+
+  const downloadFailedRows = () => {
+    try {
+      if (!result) return;
+      const failed = result.errors.filter((e) => e.row > 0);
+      if (failed.length === 0) return;
+
+      const escapeCsv = (val: string) => {
+        if (/[",\n\r]/.test(val)) return `"${val.replace(/"/g, '""')}"`;
+        return val;
+      };
+
+      const headerRow = [...SYSTEM_FIELDS.map((f) => f.label), 'Error'].join(
+        ',',
+      );
+      const dataRows = failed.map((e) =>
+        [
+          ...SYSTEM_FIELDS.map((f) => escapeCsv(e.data?.[f.id] ?? '')),
+          escapeCsv(e.reason),
+        ].join(','),
+      );
+
+      const csv = [headerRow, ...dataRows].join('\n');
+      const base = fileName.replace(/\.csv$/i, '');
+      triggerDownload(`${base}-failed-rows.csv`, csv, 'text/csv');
+      toast.success(
+        `${failed.length} failed row${failed.length !== 1 ? 's' : ''} downloaded`,
+      );
+    } catch {
+      toast.error('Failed to download failed rows');
+    }
   };
 
   const unmappedRequired = SYSTEM_FIELDS.filter(
@@ -554,10 +632,19 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
 
                 {result.errors.length > 0 && (
                   <div className="rounded-lg border border-red-100 overflow-hidden">
-                    <div className="bg-red-50 px-3 py-2 border-b border-red-100">
+                    <div className="bg-red-50 px-3 py-2 border-b border-red-100 flex items-center justify-between">
                       <p className="text-xs font-semibold text-red-700 uppercase tracking-wider">
                         Skipped rows
                       </p>
+                      <IconButton
+                        icon={
+                          <ArrowDownTrayIcon className="h-3.5 w-3.5 text-red-600" />
+                        }
+                        onClick={downloadFailedRows}
+                        title="Download failed rows as CSV"
+                        variant="subtle"
+                        size="sm"
+                      />
                     </div>
                     <div className="divide-y divide-red-50">
                       {result.errors.map((e, i) => (

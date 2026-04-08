@@ -46,6 +46,8 @@ const SEARCH_FIELD_MAP: Record<string, string> = {
   notes: 'notes',
 };
 
+const EXPORT_BATCH_SIZE = 1000;
+
 // ─── Supabase SQL ────────────────────────────────────────────────────────────
 //
 // Table creation (fresh rebuild):
@@ -208,6 +210,30 @@ export const taxRecordApi = {
     return (data as Record<string, unknown>[]).map(mapRow);
   },
 
+  async listForExport(): Promise<TaxRecord[]> {
+    const allRows: Record<string, unknown>[] = [];
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('tax_records')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, from + EXPORT_BATCH_SIZE - 1);
+
+      if (error) throw mapSupabaseError(error);
+
+      const chunk = (data ?? []) as Record<string, unknown>[];
+      allRows.push(...chunk);
+
+      if (chunk.length < EXPORT_BATCH_SIZE) break;
+      from += EXPORT_BATCH_SIZE;
+    }
+
+    return allRows.map(mapRow);
+  },
+
   async getById(id: number): Promise<TaxRecord> {
     const userId = await getCurrentUserId();
     const { data, error } = await supabase
@@ -270,6 +296,18 @@ export const taxRecordApi = {
       .eq('user_id', userId);
 
     if (error) throw mapSupabaseError(error);
+  },
+
+  async getByIds(ids: number[]): Promise<TaxRecord[]> {
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from('tax_records')
+      .select('*')
+      .in('id', ids)
+      .eq('user_id', userId);
+
+    if (error) throw mapSupabaseError(error);
+    return (data as Record<string, unknown>[]).map(mapRow);
   },
 
   async bulkRemove(ids: number[]): Promise<void> {
