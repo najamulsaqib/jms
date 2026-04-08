@@ -1,4 +1,4 @@
-import { TrashIcon, XMarkIcon } from '@heroicons/react/20/solid';
+import { ArrowDownTrayIcon, TrashIcon, XMarkIcon } from '@heroicons/react/20/solid';
 import { CheckCircleIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { TaxRecordStatus } from '@shared/taxRecord.contracts';
 
@@ -12,6 +12,7 @@ interface FloatingActionBarProps {
   onApplyToAll: () => void;
   onClearSelection: () => void;
   onDeleteSelected: () => void;
+  onExport: () => void;
 }
 
 export default function FloatingActionBar({
@@ -24,6 +25,7 @@ export default function FloatingActionBar({
   onApplyToAll,
   onClearSelection,
   onDeleteSelected,
+  onExport,
 }: FloatingActionBarProps) {
   if (selectedCount === 0) return null;
 
@@ -70,6 +72,14 @@ export default function FloatingActionBar({
 
         {/* Action buttons */}
         <div className="flex items-center gap-1.5 pl-3 border-l border-slate-700 self-stretch">
+          <button
+            type="button"
+            onClick={onExport}
+            className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+            title="Export selected as CSV"
+          >
+            <ArrowDownTrayIcon className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={onDeleteSelected}

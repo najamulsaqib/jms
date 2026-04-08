@@ -2,7 +2,7 @@ import FloatingActionBar from '@components/common/FloatingActionBar';
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import StatCard from '@components/common/StatCard';
 import AppLayout from '@components/layout/AppLayout';
-import BulkActionModal from '@components/modals/BulkActionModal';
+import BulkActionModal from '@pages/tax-records/BulkActionModal';
 import DataTable, {
   type DataTableColumn,
   type SortState,
@@ -267,17 +267,18 @@ export default function TaxRecordsPage() {
             onClick: () => setShowBulkActionModal(true),
             badge: selectedIds.size > 0 ? selectedIds.size : undefined,
           },
+          {
+            label: 'Export CSV',
+            icon: ArrowDownTrayIcon,
+            onClick: () => setShowCsvExport(true),
+            badge: selectedIds.size > 0 ? selectedIds.size : undefined,
+          },
         ]
       : []),
     {
       label: 'Import CSV',
       icon: ArrowUpTrayIcon,
       onClick: () => setShowCsvImport(true),
-    },
-    {
-      label: 'Export CSV',
-      icon: ArrowDownTrayIcon,
-      onClick: () => setShowCsvExport(true),
     },
   ];
 
@@ -598,7 +599,7 @@ export default function TaxRecordsPage() {
         {/* CSV Export Modal */}
         <CsvExportModal
           isOpen={showCsvExport}
-          records={records}
+          ids={Array.from(selectedIds)}
           onClose={() => setShowCsvExport(false)}
         />
 
@@ -686,6 +687,7 @@ export default function TaxRecordsPage() {
             setSelectedIds(new Set());
           }}
           onDeleteSelected={() => setPendingBulkDelete(true)}
+          onExport={() => setShowCsvExport(true)}
         />
       </div>
     </AppLayout>

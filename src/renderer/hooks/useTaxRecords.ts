@@ -237,7 +237,8 @@ export function useBulkDeleteRecords() {
 
   const mutation = useMutation({
     mutationFn: (ids: number[]) => taxRecordApi.bulkRemove(ids),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
   });
 
   const bulkDelete = async (ids: number[]) => {
@@ -319,5 +320,19 @@ export function useBulkUpdateStatus() {
       (bulkUpdateAllMutation.error instanceof Error
         ? bulkUpdateAllMutation.error.message
         : null),
+  };
+}
+
+export function useExportRecords() {
+  const mutation = useMutation({
+    mutationFn: async (ids: number[]) =>
+      ids.length > 0
+        ? await taxRecordApi.getByIds(ids)
+        : await taxRecordApi.listForExport(),
+  });
+
+  return {
+    exportRecords: mutation.mutate,
+    isExporting: mutation.isPending,
   };
 }
