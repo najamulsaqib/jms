@@ -339,7 +339,7 @@ export default function UserInfoSection() {
                     type="button"
                     onClick={() => setAvatarUrl(url)}
                     disabled={saving || updatingPassword}
-                    className={`relative rounded-xl border-2 p-0.5 transition-all focus:outline-none ${
+                    className={`relative rounded-xl border-2 p-0.5 transition-all focus:outline-none cursor-pointer ${
                       avatarUrl === url
                         ? 'border-blue-500 shadow-md'
                         : 'border-slate-200 hover:border-slate-400'

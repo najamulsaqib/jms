@@ -1,6 +1,6 @@
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import Dashboard from '@pages/dashboard/Dashboard';
-import FBRPage from '@pages/fbr/FBRPortal';
+import WebPortal from '@pages/web-portals/Portal';
 import SalesTax from '@pages/sales-tax/SalesTax';
 import Settings from '@pages/settings';
 import TaxRecordDetailPage from '@pages/tax-records/TaxRecordDetail';
@@ -17,21 +17,34 @@ import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { TabProvider } from './contexts/TabContext';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { usePortalPages } from './hooks/usePortalPages';
 import { queryClient } from './lib/queryClient';
 import LoginPage from './pages/auth/Login';
 import NoInternetPage from './pages/NoInternet';
 
 import './styles.css';
 
-// INFO: Always mounted so the webview is never destroyed when switching tabs.
-// CSS display:none hides it without unmounting.
-function PersistentFBRPage() {
+// INFO: All portal webviews are always mounted so they are never destroyed when
+// switching tabs or navigating away. CSS display:none hides inactive ones.
+function PersistentPortals() {
   const location = useLocation();
-  const isActive = location.pathname === '/fbr-portal';
+  const { portalPages } = usePortalPages();
+  const activePages = portalPages.filter((p) => p.isActive);
+
   return (
-    <div style={{ display: isActive ? 'contents' : 'none' }}>
-      <FBRPage />
-    </div>
+    <>
+      {activePages.map((page) => {
+        const isActive = location.pathname === `/portal/${page.id}`;
+        return (
+          <div
+            key={page.id}
+            style={{ display: isActive ? 'contents' : 'none' }}
+          >
+            <WebPortal page={page} />
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -52,8 +65,8 @@ function AppRoutes() {
 
   return (
     <Router>
-      {/* FBRPage lives outside Routes so it is never unmounted when switching tabs */}
-      <PersistentFBRPage />
+      {/* Portal webviews live outside Routes so they are never unmounted */}
+      <PersistentPortals />
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/tax-records" element={<TaxRecordsPage />} />
@@ -68,8 +81,8 @@ function AppRoutes() {
           element={<TaxRecordFormPage />}
         />
         <Route path="/sales-tax" element={<SalesTax />} />
-        {/* Render nothing for /fbr-portal — PersistentFBRPage above handles it */}
-        <Route path="/fbr-portal" element={null} />
+        {/* Render nothing for portal routes — PersistentPortals above handles them */}
+        <Route path="/portal/:portalId" element={null} />
       </Routes>
       <Toaster position="bottom-right" richColors />
     </Router>

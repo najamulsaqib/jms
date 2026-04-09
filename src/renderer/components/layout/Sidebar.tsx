@@ -8,26 +8,25 @@ import {
   ArrowLeftStartOnRectangleIcon as LogoutIcon,
 } from '@heroicons/react/24/outline';
 import { useTabNavigate } from '@hooks/useTabNavigate';
+import { usePortalPages } from '@hooks/usePortalPages';
 import { useLocation } from 'react-router-dom';
 
 import logo from '../../../../assets/header-logo.png';
 
-const navigation = [
+const staticNavigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  {
-    name: 'Tax Records',
-    href: '/tax-records',
-    icon: DocumentTextIcon,
-  },
+  { name: 'Tax Records', href: '/tax-records', icon: DocumentTextIcon },
   { name: 'Sales Tax', href: '/sales-tax', icon: BanknotesIcon },
-  { name: 'FBR Portal', href: '/fbr-portal', icon: GlobeAltIcon },
 ];
 
 export default function Sidebar() {
   const location = useLocation();
   const { signOut, userInfo } = useAuth();
   const tabNavigate = useTabNavigate();
+  const { portalPages } = usePortalPages();
   const isSettingsActive = location.pathname.startsWith('/settings');
+
+  const activePortals = portalPages.filter((p) => p.isActive);
 
   return (
     <div className="flex flex-col w-64 bg-white border-r border-slate-200">
@@ -46,8 +45,9 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1">
-        {navigation.map((item) => {
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {/* Static nav items */}
+        {staticNavigation.map((item) => {
           const isActive =
             item.href === '/'
               ? location.pathname === '/'
@@ -80,6 +80,48 @@ export default function Sidebar() {
             </button>
           );
         })}
+
+        {/* Portal nav items */}
+        {activePortals.length > 0 && (
+          <>
+            <div className="pt-3 pb-1 px-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                Portals
+              </p>
+            </div>
+            {activePortals.map((portal) => {
+              const href = `/portal/${portal.id}`;
+              const isActive = location.pathname === href;
+              return (
+                <button
+                  key={portal.id}
+                  onClick={() =>
+                    tabNavigate(
+                      href,
+                      portal.name,
+                      <GlobeAltIcon className="h-5 w-5" />,
+                    )
+                  }
+                  className={`
+                    w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer
+                    ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                    }
+                  `}
+                >
+                  <GlobeAltIcon
+                    className={`mr-3 h-5 w-5 shrink-0 ${
+                      isActive ? 'text-blue-600' : 'text-slate-400'
+                    }`}
+                  />
+                  <span className="truncate">{portal.name}</span>
+                </button>
+              );
+            })}
+          </>
+        )}
       </nav>
 
       {/* Footer */}
