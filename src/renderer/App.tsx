@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import Dashboard from '@pages/dashboard/Dashboard';
 import WebPortal from '@pages/web-portals/Portal';
@@ -12,10 +13,11 @@ import {
   HashRouter as Router,
   Routes,
   useLocation,
+  useNavigate,
 } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TabProvider } from './contexts/TabContext';
+import { TabProvider, useTab } from './contexts/TabContext';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { usePortalPages } from './hooks/usePortalPages';
 import { queryClient } from './lib/queryClient';
@@ -28,8 +30,36 @@ import './styles.css';
 // switching tabs or navigating away. CSS display:none hides inactive ones.
 function PersistentPortals() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { portalPages } = usePortalPages();
+  const { tabs, closeTab } = useTab();
   const activePages = portalPages.filter((p) => p.isActive);
+
+  // Remove tabs whose portal has been deleted from settings.
+  useEffect(() => {
+    const existingPortalIds = new Set(portalPages.map((p) => p.id));
+    const orphanedPortalTabs = tabs.filter((tab) => {
+      if (!tab.path.startsWith('/portal/')) return false;
+      const portalId = tab.path.replace('/portal/', '');
+      return !existingPortalIds.has(portalId);
+    });
+
+    orphanedPortalTabs.forEach((tab) => closeTab(tab.id));
+  }, [portalPages, tabs, closeTab]);
+
+  // If the current route is a portal that no longer exists (deleted while tab was open),
+  // close its tab and navigate away to prevent a crash on a blank route.
+  useEffect(() => {
+    const match = location.pathname.match(/^\/portal\/(.+)$/);
+    if (!match) return;
+    const portalId = match[1];
+    const stillExists = activePages.some((p) => p.id === portalId);
+    if (!stillExists) {
+      const tab = tabs.find((t) => t.path === `/portal/${portalId}`);
+      if (tab) closeTab(tab.id);
+      navigate('/');
+    }
+  }, [activePages, location.pathname, tabs, closeTab, navigate]);
 
   return (
     <>

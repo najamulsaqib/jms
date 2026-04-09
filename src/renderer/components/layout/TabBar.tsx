@@ -1,5 +1,5 @@
 import { useTab } from '@contexts/TabContext';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
@@ -8,7 +8,6 @@ function getTitleFromPath(pathname: string): string {
   if (pathname === '/tax-records') return 'Tax Records';
   if (pathname === '/tax-records/new') return 'New Tax Record';
   if (pathname === '/sales-tax') return 'Sales Tax';
-  if (pathname === '/fbr-portal') return 'FBR Portal';
   if (pathname === '/settings') return 'Settings';
   if (/^\/tax-records\/[^/]+\/edit$/.test(pathname)) return 'Edit Tax Record';
   if (/^\/tax-records\/[^/]+$/.test(pathname)) return 'Tax Record';
@@ -16,13 +15,22 @@ function getTitleFromPath(pathname: string): string {
 }
 
 export default function TabBar() {
-  const { tabs, activeTabId, closeTab, setActiveTab, updateTabCurrentPath } =
-    useTab();
+  const {
+    tabs,
+    activeTabId,
+    closeTab,
+    setActiveTab,
+    updateTabCurrentPath,
+    reorderTabs,
+  } = useTab();
   const navigate = useNavigate();
   const location = useLocation();
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const prevActiveTabIdRef = useRef(activeTabId);
+  const draggedTabId = useRef<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // When the active tab changes (user clicked a tab), navigate to where that tab last was
   useEffect(() => {
@@ -52,11 +60,38 @@ export default function TabBar() {
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`flex items-center gap-2 px-3 py-2 mt-0.5 border cursor-pointer transition-colors rounded-t-lg ${
+            draggable
+            onDragStart={() => {
+              draggedTabId.current = tab.id;
+              setIsDragging(true);
+              // document.body.style.cursor = 'grabbing';
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOverId(tab.id);
+            }}
+            onDragLeave={() => setDragOverId(null)}
+            onDrop={() => {
+              if (draggedTabId.current)
+                reorderTabs(draggedTabId.current, tab.id);
+              draggedTabId.current = null;
+              setDragOverId(null);
+              setIsDragging(false);
+              // document.body.style.cursor = '';
+            }}
+            onDragEnd={() => {
+              draggedTabId.current = null;
+              setDragOverId(null);
+              setIsDragging(false);
+              document.body.style.cursor = '';
+            }}
+            className={`flex items-center gap-2 px-3 py-2 mt-0.5 border transition-colors rounded-t-lg select-none ${
+              isDragging ? 'cursor-grabbing' : 'cursor-grab'
+            } ${
               activeTabId === tab.id
                 ? 'border-slate-300 text-slate-900 border-b-0 bg-white'
                 : 'border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
+            } ${dragOverId === tab.id && draggedTabId.current !== tab.id ? 'border-blue-400 bg-blue-50' : ''}`}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.icon && <span className="text-sm">{tab.icon}</span>}
