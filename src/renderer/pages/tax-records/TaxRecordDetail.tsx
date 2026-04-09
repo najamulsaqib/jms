@@ -294,8 +294,7 @@ export default function TaxRecordDetailPage() {
         }[field] || 'Value';
       toast.success(`${label} copied to clipboard`);
       setTimeout(() => setCopiedField(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch {
       toast.error('Failed to copy to clipboard');
     }
   };
@@ -314,7 +313,7 @@ export default function TaxRecordDetailPage() {
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
-          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors"
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors cursor-pointer"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Tax Records

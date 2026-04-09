@@ -61,7 +61,7 @@ export default function TaxRecordsPage() {
   const [searchField, setSearchField] = useState<SearchField>('all');
   const [referenceFilter, setReferenceFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortState, setSortState] = useState<SortState>({
+  const [sortState, setSortState] = useState<SortState | null>({
     key: 'updatedAt',
     direction: 'desc',
   });
@@ -94,8 +94,8 @@ export default function TaxRecordsPage() {
   } = usePaginatedTaxRecords({
     page,
     pageSize,
-    sortKey: sortState.key,
-    sortDirection: sortState.direction,
+    sortKey: sortState?.key ?? 'updatedAt',
+    sortDirection: sortState?.direction ?? 'desc',
     search: debouncedSearch,
     searchField,
     referenceFilter,

@@ -177,7 +177,7 @@ export default function TaxRecordFormPage() {
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
-          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors"
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors cursor-pointer"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Tax Records
