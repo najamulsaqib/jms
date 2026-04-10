@@ -92,7 +92,7 @@ export default function Pagination({
               MozAppearance: 'textfield',
               appearance: 'textfield',
             }}
-            className="w-10 h-7 border border-slate-300 rounded px-2 text-center text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
+            className="w-16 h-7 border border-slate-300 rounded px-2 text-center text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
           />
           <span className="text-sm text-slate-600 font-medium">
             of {totalPages}
