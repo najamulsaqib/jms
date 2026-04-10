@@ -20,7 +20,7 @@ You are a React 19 expert for the JMS Tax Consultancy Electron application.
 - **Router:** React Router DOM 7.3.0
 - **State:** React Query for server state, hooks for local state
 - **Styling:** TailwindCSS
-- **UI:** Custom component library at `src/renderer/components/` + HeadlessUI (for DropdownMenu/ConfirmDialog only) + Heroicons
+- **UI:** Custom component library at `src/renderer/components/` + HeadlessUI (for DropdownMenu/Modal only) + Heroicons
 - **Path alias:** `@components/` → `src/renderer/components/`
 
 ---
@@ -105,28 +105,32 @@ Portal-based combobox with search filtering, single and multi-select modes, smar
 
 **Props:**
 
-| Prop | Type | Default | Notes |
-|------|------|---------|-------|
-| `value` | `string` \| `string[]` | — | String for single, string[] for multi |
-| `onChange` | `(v: string) => void` \| `(v: string[]) => void` | — | Matches value type |
-| `options` | `{ value: string; label: string }[]` | — | Required |
-| `multiple` | `boolean` | `false` | Enables multi-select with checkboxes |
-| `label` | `string` | — | Omit for inline/filter use (no wrapper rendered) |
-| `hint` | `string` | — | Helper text below label |
-| `error` | `string` | — | Red error text + red border |
-| `placeholder` | `string` | `'Select…'` | |
-| `disabled` | `boolean` | `false` | |
-| `size` | `'sm' \| 'md'` | `'md'` | `'sm'` for filter bars |
-| `variant` | `'light' \| 'dark'` | `'light'` | `'dark'` for dark toolbars |
-| `className` | `string` | `''` | Controls outer width, e.g. `"w-36 flex-1"` |
-| `id` | `string` | — | Links label `for` attribute |
+| Prop          | Type                                             | Default     | Notes                                            |
+| ------------- | ------------------------------------------------ | ----------- | ------------------------------------------------ |
+| `value`       | `string` \| `string[]`                           | —           | String for single, string[] for multi            |
+| `onChange`    | `(v: string) => void` \| `(v: string[]) => void` | —           | Matches value type                               |
+| `options`     | `{ value: string; label: string }[]`             | —           | Required                                         |
+| `multiple`    | `boolean`                                        | `false`     | Enables multi-select with checkboxes             |
+| `label`       | `string`                                         | —           | Omit for inline/filter use (no wrapper rendered) |
+| `hint`        | `string`                                         | —           | Helper text below label                          |
+| `error`       | `string`                                         | —           | Red error text + red border                      |
+| `placeholder` | `string`                                         | `'Select…'` |                                                  |
+| `disabled`    | `boolean`                                        | `false`     |                                                  |
+| `size`        | `'sm' \| 'md'`                                   | `'md'`      | `'sm'` for filter bars                           |
+| `variant`     | `'light' \| 'dark'`                              | `'light'`   | `'dark'` for dark toolbars                       |
+| `className`   | `string`                                         | `''`        | Controls outer width, e.g. `"w-36 flex-1"`       |
+| `id`          | `string`                                         | —           | Links label `for` attribute                      |
 
 **Numeric options:** Convert via `String(n)` / `Number(value)`:
+
 ```tsx
 <SelectField
   value={String(pageSize)}
   onChange={(value) => setPageSize(Number(value))}
-  options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
+  options={[10, 25, 50, 100].map((n) => ({
+    value: String(n),
+    label: String(n),
+  }))}
   size="sm"
 />
 ```
@@ -163,14 +167,14 @@ import { PlusIcon } from '@heroicons/react/20/solid';
 
 **Props:**
 
-| Prop | Type | Default | Notes |
-|------|------|---------|-------|
-| `variant` | `'primary' \| 'secondary' \| 'danger' \| 'ghost'` | `'primary'` | |
-| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | |
-| `busy` | `boolean` | `false` | Shows spinner + "Processing…", disables button |
-| `icon` | `ComponentType<{ className?: string }>` | — | Heroicon component reference |
-| `disabled` | `boolean` | — | Inherited from `ButtonHTMLAttributes` |
-| `...rest` | `ButtonHTMLAttributes<HTMLButtonElement>` | — | `type`, `onClick`, etc. |
+| Prop       | Type                                              | Default     | Notes                                          |
+| ---------- | ------------------------------------------------- | ----------- | ---------------------------------------------- |
+| `variant`  | `'primary' \| 'secondary' \| 'danger' \| 'ghost'` | `'primary'` |                                                |
+| `size`     | `'sm' \| 'md' \| 'lg'`                            | `'md'`      |                                                |
+| `busy`     | `boolean`                                         | `false`     | Shows spinner + "Processing…", disables button |
+| `icon`     | `ComponentType<{ className?: string }>`           | —           | Heroicon component reference                   |
+| `disabled` | `boolean`                                         | —           | Inherited from `ButtonHTMLAttributes`          |
+| `...rest`  | `ButtonHTMLAttributes<HTMLButtonElement>`         | —           | `type`, `onClick`, etc.                        |
 
 ---
 
@@ -199,15 +203,15 @@ import { PencilIcon, TrashIcon } from '@heroicons/react/20/solid';
 
 **Props:**
 
-| Prop | Type | Default |
-|------|------|---------|
-| `icon` | `ReactNode` | — |
-| `variant` | `'default' \| 'subtle' \| 'danger'` | `'default'` |
-| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` |
-| `onClick` | `() => void` | — |
-| `disabled` | `boolean` | `false` |
-| `title` | `string` | — |
-| `className` | `string` | `''` |
+| Prop        | Type                                | Default     |
+| ----------- | ----------------------------------- | ----------- |
+| `icon`      | `ReactNode`                         | —           |
+| `variant`   | `'default' \| 'subtle' \| 'danger'` | `'default'` |
+| `size`      | `'sm' \| 'md' \| 'lg'`              | `'md'`      |
+| `onClick`   | `() => void`                        | —           |
+| `disabled`  | `boolean`                           | `false`     |
+| `title`     | `string`                            | —           |
+| `className` | `string`                            | `''`        |
 
 ---
 
@@ -249,13 +253,13 @@ Labeled text input with optional hint, error, prefix, and suffix slots.
 
 **Props:**
 
-| Prop | Type | Notes |
-|------|------|-------|
-| `label` | `string` | Required |
-| `hint` | `string` | Helper text below label |
-| `error` | `string` | Red error text + border |
-| `prefix` | `ReactNode` | Rendered inside left edge of input |
-| `suffix` | `ReactNode` | Rendered inside right edge of input |
+| Prop      | Type                                    | Notes                                                        |
+| --------- | --------------------------------------- | ------------------------------------------------------------ |
+| `label`   | `string`                                | Required                                                     |
+| `hint`    | `string`                                | Helper text below label                                      |
+| `error`   | `string`                                | Red error text + border                                      |
+| `prefix`  | `ReactNode`                             | Rendered inside left edge of input                           |
+| `suffix`  | `ReactNode`                             | Rendered inside right edge of input                          |
 | `...rest` | `InputHTMLAttributes<HTMLInputElement>` | `type`, `value`, `onChange`, `placeholder`, `disabled`, etc. |
 
 ---
@@ -311,11 +315,11 @@ White rounded card with border and shadow.
 
 **Props:**
 
-| Prop | Type | Default |
-|------|------|---------|
-| `padding` | `'none' \| 'sm' \| 'md' \| 'lg'` | `'md'` |
-| `className` | `string` | `''` |
-| `children` | `ReactNode` | — |
+| Prop        | Type                             | Default |
+| ----------- | -------------------------------- | ------- |
+| `padding`   | `'none' \| 'sm' \| 'md' \| 'lg'` | `'md'`  |
+| `className` | `string`                         | `''`    |
+| `children`  | `ReactNode`                      | —       |
 
 ---
 
@@ -358,14 +362,14 @@ import { CheckCircleIcon } from '@heroicons/react/20/solid';
 
 **Props:**
 
-| Prop | Type | Default |
-|------|------|---------|
-| `variant` | (see above) | `'default'` |
-| `size` | `'sm' \| 'md' \| 'lg'` | `'sm'` |
-| `rounded` | `'default' \| 'full'` | `'default'` |
-| `icon` | `ReactNode` | — |
-| `onRemove` | `() => void` | — |
-| `clickable` | `boolean` | `false` |
+| Prop        | Type                   | Default     |
+| ----------- | ---------------------- | ----------- |
+| `variant`   | (see above)            | `'default'` |
+| `size`      | `'sm' \| 'md' \| 'lg'` | `'sm'`      |
+| `rounded`   | `'default' \| 'full'`  | `'default'` |
+| `icon`      | `ReactNode`            | —           |
+| `onRemove`  | `() => void`           | —           |
+| `clickable` | `boolean`              | `false`     |
 
 ---
 
@@ -390,22 +394,77 @@ const [open, setOpen] = useState(false);
     setOpen(false);
   }}
   onCancel={() => setOpen(false)}
-/>
+/>;
 ```
 
 **Props:**
 
-| Prop | Type | Default |
-|------|------|---------|
-| `isOpen` | `boolean` | — |
-| `title` | `string` | — |
-| `message` | `ReactNode` | — |
-| `confirmLabel` | `string` | — |
-| `cancelLabel` | `string` | `'Cancel'` |
+| Prop             | Type                                              | Default     |
+| ---------------- | ------------------------------------------------- | ----------- |
+| `isOpen`         | `boolean`                                         | —           |
+| `title`          | `string`                                          | —           |
+| `message`        | `ReactNode`                                       | —           |
+| `confirmLabel`   | `string`                                          | —           |
+| `cancelLabel`    | `string`                                          | `'Cancel'`  |
 | `confirmVariant` | `'primary' \| 'secondary' \| 'danger' \| 'ghost'` | `'primary'` |
-| `busy` | `boolean` | `false` |
-| `onConfirm` | `() => void \| Promise<void>` | — |
-| `onCancel` | `() => void` | — |
+| `busy`           | `boolean`                                         | `false`     |
+| `onConfirm`      | `() => void \| Promise<void>`                     | —           |
+| `onCancel`       | `() => void`                                      | —           |
+
+---
+
+### `Modal` — Reusable Dialog Shell
+
+**Import:** `import Modal from '@components/ui/Modal';`
+
+Reusable dialog wrapper used by page modals and by `ConfirmDialog`.
+
+```tsx
+<Modal
+  isOpen={open}
+  onClose={() => setOpen(false)}
+  title="Bulk Status Update"
+  description="Select a status to apply to your records"
+  size="sm"
+  footer={
+    <div className="flex justify-end gap-3">
+      <Button variant="secondary" onClick={() => setOpen(false)}>
+        Cancel
+      </Button>
+      <Button onClick={handleApply}>Apply</Button>
+    </div>
+  }
+>
+  <p className="text-sm text-slate-600">Modal body content</p>
+</Modal>
+
+// Full custom header/body layouts
+<Modal
+  isOpen={open}
+  onClose={() => setOpen(false)}
+  title="Import CSV"
+  size="lg"
+  hideHeader
+  bodyClassName="p-0"
+>
+  <CustomCsvImportWizard />
+</Modal>
+```
+
+**Props:**
+
+| Prop              | Type                           | Default       |
+| ----------------- | ------------------------------ | ------------- |
+| `isOpen`          | `boolean`                      | —             |
+| `onClose`         | `() => void`                   | —             |
+| `title`           | `ReactNode`                    | —             |
+| `description`     | `ReactNode`                    | —             |
+| `children`        | `ReactNode`                    | —             |
+| `footer`          | `ReactNode`                    | —             |
+| `size`            | `'sm' \| 'md' \| 'lg' \| 'xl'` | `'md'`        |
+| `closeOnBackdrop` | `boolean`                      | `true`        |
+| `hideHeader`      | `boolean`                      | `false`       |
+| `bodyClassName`   | `string`                       | `'px-6 py-6'` |
 
 ---
 
@@ -457,15 +516,15 @@ import { PencilIcon, TrashIcon, ArrowDownTrayIcon } from '@heroicons/react/24/ou
 
 **`DropdownMenuItem` shape:**
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `label` | `string` | — |
-| `icon` | `ComponentType<{ className?: string }>` | Heroicon component |
-| `onClick` | `() => void` | — |
-| `variant` | `'default' \| 'danger'` | `'danger'` = red styling |
-| `disabled` | `boolean` | — |
-| `badge` | `string \| number` | Blue pill counter |
-| `divider` | `boolean` | Adds line after item |
+| Field      | Type                                    | Notes                    |
+| ---------- | --------------------------------------- | ------------------------ |
+| `label`    | `string`                                | —                        |
+| `icon`     | `ComponentType<{ className?: string }>` | Heroicon component       |
+| `onClick`  | `() => void`                            | —                        |
+| `variant`  | `'default' \| 'danger'`                 | `'danger'` = red styling |
+| `disabled` | `boolean`                               | —                        |
+| `badge`    | `string \| number`                      | Blue pill counter        |
+| `divider`  | `boolean`                               | Adds line after item     |
 
 ---
 
@@ -480,7 +539,7 @@ Drag-and-drop + click-to-browse file input with accessible keyboard support.
   onFile={(file) => handleFile(file)}
   accept=".csv"
   acceptLabel="CSV files only"
-/>
+/>;
 
 // Custom icon and title
 import { TableCellsIcon } from '@heroicons/react/24/outline';
@@ -490,18 +549,18 @@ import { TableCellsIcon } from '@heroicons/react/24/outline';
   acceptLabel="CSV or Excel files"
   title="Drop your spreadsheet here, or"
   icon={TableCellsIcon}
-/>
+/>;
 ```
 
 **Props:**
 
-| Prop | Type | Default |
-|------|------|---------|
-| `onFile` | `(file: File) => void` | — |
-| `accept` | `string` | `'*'` |
-| `acceptLabel` | `string` | — |
-| `title` | `string` | `'Drop your file here, or'` |
-| `icon` | `ComponentType<{ className?: string }>` | `DocumentTextIcon` |
+| Prop          | Type                                    | Default                     |
+| ------------- | --------------------------------------- | --------------------------- |
+| `onFile`      | `(file: File) => void`                  | —                           |
+| `accept`      | `string`                                | `'*'`                       |
+| `acceptLabel` | `string`                                | —                           |
+| `title`       | `string`                                | `'Drop your file here, or'` |
+| `icon`        | `ComponentType<{ className?: string }>` | `DocumentTextIcon`          |
 
 ---
 
@@ -555,27 +614,27 @@ const columns: DataTableColumn<User>[] = [
 
 **`DataTableColumn<T>` shape:**
 
-| Field | Type | Notes |
-|-------|------|-------|
-| `id` | `string` | Column key; use `'actions'` or `'checkbox'` to disable row-click on that cell |
-| `header` | `ReactNode` | Column heading |
-| `render` | `(row: T) => ReactNode` | Cell renderer |
-| `sortable` | `boolean` | Shows sort chevrons |
-| `align` | `'left' \| 'center' \| 'right'` | `'left'` default |
-| `pinned` | `boolean` | Sticky left column with shadow border |
-| `className` | `string` | Extra classes on th/td |
+| Field       | Type                            | Notes                                                                         |
+| ----------- | ------------------------------- | ----------------------------------------------------------------------------- |
+| `id`        | `string`                        | Column key; use `'actions'` or `'checkbox'` to disable row-click on that cell |
+| `header`    | `ReactNode`                     | Column heading                                                                |
+| `render`    | `(row: T) => ReactNode`         | Cell renderer                                                                 |
+| `sortable`  | `boolean`                       | Shows sort chevrons                                                           |
+| `align`     | `'left' \| 'center' \| 'right'` | `'left'` default                                                              |
+| `pinned`    | `boolean`                       | Sticky left column with shadow border                                         |
+| `className` | `string`                        | Extra classes on th/td                                                        |
 
 **`DataTableProps<T>`:**
 
-| Prop | Type | Notes |
-|------|------|-------|
-| `rows` | `T[]` | — |
-| `getRowId` | `(row: T) => string \| number` | Unique row key |
-| `sortState` | `{ key: string; direction: 'asc' \| 'desc' } \| null` | Controlled sort |
-| `onSortChange` | `(next: SortState \| null) => void` | `null` = clear sort |
-| `onRowClick` | `(row: T) => void` | Makes rows cursor-pointer |
-| `emptyMessage` | `string` | Shown with bug icon when rows is empty |
-| `footer` | `ReactNode` | Rendered inside `<tfoot>` |
+| Prop           | Type                                                  | Notes                                  |
+| -------------- | ----------------------------------------------------- | -------------------------------------- |
+| `rows`         | `T[]`                                                 | —                                      |
+| `getRowId`     | `(row: T) => string \| number`                        | Unique row key                         |
+| `sortState`    | `{ key: string; direction: 'asc' \| 'desc' } \| null` | Controlled sort                        |
+| `onSortChange` | `(next: SortState \| null) => void`                   | `null` = clear sort                    |
+| `onRowClick`   | `(row: T) => void`                                    | Makes rows cursor-pointer              |
+| `emptyMessage` | `string`                                              | Shown with bug icon when rows is empty |
+| `footer`       | `ReactNode`                                           | Rendered inside `<tfoot>`              |
 
 ---
 
@@ -591,7 +650,10 @@ Rows-per-page selector + page window navigator. Renders as a footer row inside `
   pageSize={pageSize}
   total={totalRecords}
   onPageChange={setPage}
-  onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+  onPageSizeChange={(size) => {
+    setPageSize(size);
+    setPage(0);
+  }}
 />
 ```
 
@@ -617,7 +679,7 @@ import { DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
       Import CSV
     </Button>
   }
-/>
+/>;
 ```
 
 **Props:** `title` (required), `icon`, `description`, `action`.
@@ -658,18 +720,18 @@ import { UsersIcon } from '@heroicons/react/24/outline';
   subtext="+12 this month"
   icon={UsersIcon}
   color="blue"
-/>
+/>;
 ```
 
 **Props:**
 
-| Prop | Type | Notes |
-|------|------|-------|
-| `label` | `string` | Uppercase label |
-| `value` | `number \| string` | Large number display |
-| `subtext` | `string` | Small secondary line |
-| `icon` | `ComponentType<{ className?: string }>` | Heroicon |
-| `color` | `'green' \| 'orange' \| 'red' \| 'blue' \| 'neon'` | Left border + icon tint |
+| Prop      | Type                                               | Notes                   |
+| --------- | -------------------------------------------------- | ----------------------- |
+| `label`   | `string`                                           | Uppercase label         |
+| `value`   | `number \| string`                                 | Large number display    |
+| `subtext` | `string`                                           | Small secondary line    |
+| `icon`    | `ComponentType<{ className?: string }>`            | Heroicon                |
+| `color`   | `'green' \| 'orange' \| 'red' \| 'blue' \| 'neon'` | Left border + icon tint |
 
 ---
 
@@ -700,7 +762,10 @@ export function useTaxRecords() {
 
   const deleteRecord = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('tax_records').delete().eq('id', id);
+      const { error } = await supabase
+        .from('tax_records')
+        .delete()
+        .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
