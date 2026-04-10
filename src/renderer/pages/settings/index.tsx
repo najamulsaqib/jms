@@ -59,11 +59,13 @@ function SettingsContent() {
         </aside>
 
         <div className="space-y-6">
-          {activeSection === 'users' && <UserInfoSection />}
-
-          {activeSection === 'portals' && <PortalPagesSection />}
-
-          {activeSection === 'updates' && <UpdateChannelSection />}
+          {
+            {
+              users: <UserInfoSection />,
+              portals: <PortalPagesSection />,
+              updates: <UpdateChannelSection />,
+            }[activeSection]
+          }
         </div>
       </div>
     </div>
