@@ -24,6 +24,7 @@ interface TabContextType {
   setActiveTab: (tabId: string) => void;
   closeAllTabs: () => void;
   updateTabCurrentPath: (tabId: string, currentPath: string, title?: string) => void;
+  reorderTabs: (fromId: string, toId: string) => void;
 }
 
 const TabContext = createContext<TabContextType | undefined>(undefined);
@@ -109,6 +110,19 @@ export function TabProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const reorderTabs = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    setTabs((prevTabs) => {
+      const fromIndex = prevTabs.findIndex((t) => t.id === fromId);
+      const toIndex = prevTabs.findIndex((t) => t.id === toId);
+      if (fromIndex === -1 || toIndex === -1) return prevTabs;
+      const next = [...prevTabs];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
   const value = useMemo(
     () => ({
       tabs,
@@ -118,8 +132,9 @@ export function TabProvider({ children }: { children: ReactNode }) {
       setActiveTab,
       closeAllTabs,
       updateTabCurrentPath,
+      reorderTabs,
     }),
-    [tabs, activeTabId, openTab, closeTab, setActiveTab, closeAllTabs, updateTabCurrentPath],
+    [tabs, activeTabId, openTab, closeTab, setActiveTab, closeAllTabs, updateTabCurrentPath, reorderTabs],
   );
 
   return <TabContext.Provider value={value}>{children}</TabContext.Provider>;

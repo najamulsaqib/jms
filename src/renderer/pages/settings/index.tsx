@@ -1,10 +1,15 @@
 // src/renderer/pages/settings/index.tsx
 import AppLayout from '@components/layout/AppLayout';
-import { UserGroupIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
+import {
+  UserGroupIcon,
+  Squares2X2Icon,
+  GlobeAltIcon,
+} from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import SettingsSidebar from './components/SettingsSidebar';
 import UpdateChannelSection from './components/UpdateChannelSection';
 import UserInfoSection from './components/UserInfoSection';
+import PortalPagesSection from './components/PortalPagesSection';
 import type { SettingsSection, SectionItem } from './components/settings.types';
 
 const sections: SectionItem[] = [
@@ -13,6 +18,12 @@ const sections: SectionItem[] = [
     label: 'Users',
     description: 'Account and profile details',
     icon: UserGroupIcon,
+  },
+  {
+    id: 'portals',
+    label: 'Portals',
+    description: 'Web portals and custom pages',
+    icon: GlobeAltIcon,
   },
   {
     id: 'updates',
@@ -49,6 +60,8 @@ function SettingsContent() {
 
         <div className="space-y-6">
           {activeSection === 'users' && <UserInfoSection />}
+
+          {activeSection === 'portals' && <PortalPagesSection />}
 
           {activeSection === 'updates' && <UpdateChannelSection />}
         </div>

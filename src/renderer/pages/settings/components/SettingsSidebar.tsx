@@ -52,7 +52,7 @@ export default function SettingsSidebar({
               key={section.id}
               type="button"
               onClick={() => onSelectSection(section.id)}
-              className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-medium transition-colors cursor-pointer ${
                 active
                   ? 'bg-blue-50 text-blue-700'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'

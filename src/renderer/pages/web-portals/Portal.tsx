@@ -8,8 +8,7 @@ import {
 import AppLayout from '@components/layout/AppLayout';
 import IconButton from '@components/ui/IconButton';
 import LoadingSpinner from '@components/common/LoadingSpinner';
-
-const FBR_WEBSITE_URL = 'https://iris.fbr.gov.pk/';
+import type { PortalPage } from '@shared/portalPage.contracts';
 
 // Webview is an Electron-specific element; use a loose type
 type WebviewElement = HTMLElement & {
@@ -24,11 +23,13 @@ type WebviewElement = HTMLElement & {
   executeJavaScript: (code: string) => Promise<unknown>;
 };
 
-export default function FBRPage() {
+type Props = { page: PortalPage };
+
+export default function WebPortal({ page }: Props) {
   const webviewRef = useRef<WebviewElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [currentURL, setCurrentURL] = useState(FBR_WEBSITE_URL);
+  const [currentURL, setCurrentURL] = useState(page.url);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
 
@@ -51,7 +52,6 @@ export default function FBRPage() {
       updateNavState();
     };
     const onFailLoad = (e: any) => {
-      // Error code -3 is an aborted load (e.g. redirect), not a real failure
       if (e.errorCode !== -3) {
         setIsLoading(false);
         setHasError(true);
@@ -59,9 +59,6 @@ export default function FBRPage() {
     };
     const onNavigate = () => updateNavState();
 
-    // INFO: Intercept window.open and <a target="_blank"> to route all navigation
-    // through IPC and load URLs in the same webview (avoids Electron limitations
-    // like incomplete setWindowOpenHandler support and DataClone errors).
     const injectLinkInterceptor = () => {
       (wv as any)
         .executeJavaScript(
@@ -93,9 +90,6 @@ export default function FBRPage() {
         .catch(() => {});
     };
 
-    // IPC fallback: main process sends this when setWindowOpenHandler fires
-    // (e.g. middle-click or any popup the JS interceptor didn't catch).
-    // Preload strips the IPC event — handler receives (url) not (event, url)
     const onWebviewNavigate = (url: unknown) => {
       if (typeof url === 'string') wv.loadURL(url).catch(() => {});
     };
@@ -133,14 +127,14 @@ export default function FBRPage() {
   };
 
   const handleHome = () => {
-    webviewRef.current?.loadURL(FBR_WEBSITE_URL).catch(() => {});
+    webviewRef.current?.loadURL(page.url).catch(() => {});
   };
 
   return (
-    <AppLayout breadcrumbs={[{ label: 'FBR Portal' }]} fullscreen>
+    <AppLayout breadcrumbs={[{ label: page.name }]} fullscreen>
       <div className="relative w-full h-full flex flex-col">
         {/* Browser toolbar */}
-        <div className="flex items-center gap-2 px-4 py-3 bg-white border-b border-slate-200 shrink-0 shadow-sm">
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-white border-b border-slate-200 shrink-0">
           <IconButton
             icon={<ArrowLeftIcon className="w-4 h-4 text-slate-700" />}
             onClick={() => webviewRef.current?.goBack()}
@@ -148,7 +142,6 @@ export default function FBRPage() {
             title="Go Back"
             size="sm"
           />
-
           <IconButton
             icon={<ArrowRightIcon className="w-4 h-4 text-slate-700" />}
             onClick={() => webviewRef.current?.goForward()}
@@ -156,30 +149,24 @@ export default function FBRPage() {
             title="Go Forward"
             size="sm"
           />
-
-          <div className="w-px h-6 bg-slate-200" />
-
+          <div className="w-px h-5 bg-slate-200" />
           <IconButton
             icon={
-              isLoading ? (
-                <ArrowPathIcon className="w-4 h-4 text-slate-700 animate-spin" />
-              ) : (
-                <ArrowPathIcon className="w-4 h-4 text-slate-700" />
-              )
+              <ArrowPathIcon
+                className={`w-4 h-4 text-slate-700 ${isLoading ? 'animate-spin' : ''}`}
+              />
             }
             onClick={handleReload}
             title="Reload"
             size="sm"
           />
-
           <IconButton
             icon={<HomeIcon className="w-4 h-4 text-slate-700" />}
             onClick={handleHome}
-            title="FBR Home"
+            title="Home"
             size="sm"
           />
-
-          <div className="flex-1 bg-slate-50 border border-slate-300 rounded-md px-3 py-2 text-xs text-slate-500 truncate font-mono select-none">
+          <div className="flex-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 text-xs text-slate-500 truncate font-mono select-none">
             {currentURL}
           </div>
         </div>
@@ -189,7 +176,7 @@ export default function FBRPage() {
           <div className="absolute inset-0 top-12 flex items-center justify-center bg-white z-10">
             <div className="flex flex-col items-center gap-4">
               <LoadingSpinner size="lg" />
-              <p className="text-slate-600">Loading...</p>
+              <p className="text-slate-600">Loading…</p>
             </div>
           </div>
         )}
@@ -214,11 +201,10 @@ export default function FBRPage() {
           </div>
         )}
 
-        {/* Webview — full Chromium engine, same as Chrome */}
         {/* eslint-disable react/no-unknown-property */}
         <webview
           ref={webviewRef as any}
-          src={FBR_WEBSITE_URL}
+          src={page.url}
           style={{
             flex: 1,
             width: '100%',
