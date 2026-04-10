@@ -10,8 +10,8 @@ import {
 } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@lib/supabase';
-import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
 import { queryClient } from '@lib/queryClient';
+import { profileApi, type ProfileRow } from '@services/profile.api';
 
 export type UserInfo = {
   email: string;
@@ -49,11 +49,26 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
 
   // When true, auth state changes are suppressed so the app doesn't
   // navigate away while the user is mid-password-reset.
   const passwordResetPending = useRef(false);
+
+  const loadProfile = useCallback(async (nextSession: Session | null) => {
+    if (!nextSession?.user) {
+      setProfile(null);
+      return;
+    }
+
+    try {
+      const nextProfile = await profileApi.getCurrentProfile();
+      setProfile(nextProfile);
+    } catch {
+      setProfile(null);
+    }
+  }, []);
 
   useEffect(() => {
     let subscription: { unsubscribe(): void };
@@ -63,17 +78,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { session: s },
       } = await supabase.auth.getSession();
       setSession(s);
+      await loadProfile(s);
       setLoading(false);
 
       const { data } = supabase.auth.onAuthStateChange((_event, next) => {
         if (passwordResetPending.current) return;
         setSession(next);
+        loadProfile(next).catch(() => setProfile(null));
       });
       subscription = data.subscription;
     })();
 
     return () => subscription?.unsubscribe();
-  }, []);
+  }, [loadProfile]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -97,23 +114,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       description: string;
       avatarUrl: string;
     }) => {
-      const { error } = await supabase.auth.updateUser({
-        data: toSnakeCase({
-          fullName: payload.fullName.trim(),
-          companyName: payload.companyName.trim(),
-          address: payload.address.trim(),
-          phoneNumber: payload.phoneNumber.trim(),
-          description: payload.description.trim(),
-          avatarUrl: payload.avatarUrl,
-        }),
+      const nextProfile = await profileApi.upsertCurrentProfile({
+        fullName: payload.fullName.trim(),
+        companyName: payload.companyName.trim(),
+        address: payload.address.trim(),
+        phoneNumber: payload.phoneNumber.trim(),
+        description: payload.description.trim(),
+        avatarUrl: payload.avatarUrl,
       });
-
-      if (error) throw error;
-
-      const {
-        data: { session: refreshedSession },
-      } = await supabase.auth.getSession();
-      setSession(refreshedSession);
+      setProfile(nextProfile);
     },
     [],
   );
@@ -173,18 +182,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       userInfo: session?.user
         ? (() => {
-            const meta = toCamelCase(session.user.user_metadata ?? {});
             return {
               email: session.user.email ?? '',
               createdAt: session.user.created_at,
               provider:
                 (session.user.app_metadata?.provider as string) ?? 'unknown',
-              fullName: (meta.fullName as string) ?? '',
-              companyName: (meta.companyName as string) ?? '',
-              address: (meta.address as string) ?? '',
-              phoneNumber: (meta.phoneNumber as string) ?? '',
-              description: (meta.description as string) ?? '',
-              avatarUrl: (meta.avatarUrl as string) ?? '',
+              fullName: profile?.fullName ?? '',
+              companyName: profile?.companyName ?? '',
+              address: profile?.address ?? '',
+              phoneNumber: profile?.phoneNumber ?? '',
+              description: profile?.description ?? '',
+              avatarUrl: profile?.avatarUrl ?? '',
             } satisfies UserInfo;
           })()
         : null,
@@ -199,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       session,
+      profile,
       loading,
       signIn,
       signOut,
