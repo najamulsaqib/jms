@@ -1,4 +1,5 @@
 import { ArrowDownTrayIcon, TrashIcon, XMarkIcon } from '@heroicons/react/20/solid';
+import SelectField from '@components/ui/SelectField';
 import { CheckCircleIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { TaxRecordStatus } from '@shared/taxRecord.contracts';
 
@@ -41,16 +42,19 @@ export default function FloatingActionBar({
         {/* Status selector */}
         <div className="flex items-center gap-1.5">
           <span className="text-sm text-slate-300">Status:</span>
-          <select
+          <SelectField
             id="floating-bulk-status"
             value={status}
-            onChange={(e) => onStatusChange(e.target.value as TaxRecordStatus)}
-            className="px-2 py-1 text-sm border border-slate-600 rounded-lg bg-slate-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="late-filer">Late Filer</option>
-          </select>
+            onChange={(value) => onStatusChange(value as TaxRecordStatus)}
+            options={[
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive' },
+              { value: 'late-filer', label: 'Late Filer' },
+            ]}
+            size="sm"
+            variant="dark"
+            className="w-36"
+          />
           <button
             type="button"
             onClick={onApplyToSelected}

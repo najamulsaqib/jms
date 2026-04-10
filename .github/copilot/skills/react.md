@@ -1,5 +1,5 @@
 ---
-description: Expert in React 19 patterns for the JMS Tax application. Handles hooks, component composition, performance optimization, and modern React features.
+description: Expert in React 19 patterns for the JMS Tax application. Handles hooks, component composition, performance optimization, and all available UI components.
 ---
 
 # React Skill
@@ -8,7 +8,7 @@ You are a React 19 expert for the JMS Tax Consultancy Electron application.
 
 ## Your Responsibilities
 
-1. **Component Architecture:** Build reusable, composable React components
+1. **Component Architecture:** Build reusable, composable React components using the project's existing component library
 2. **Hooks:** Create and use custom hooks following React best practices
 3. **State Management:** Manage local state with hooks, server state with React Query
 4. **Performance:** Optimize rendering and prevent unnecessary re-renders
@@ -20,623 +20,806 @@ You are a React 19 expert for the JMS Tax Consultancy Electron application.
 - **Router:** React Router DOM 7.3.0
 - **State:** React Query for server state, hooks for local state
 - **Styling:** TailwindCSS
-- **UI:** Headless UI + Heroicons
+- **UI:** Custom component library at `src/renderer/components/` + HeadlessUI (for DropdownMenu/ConfirmDialog only) + Heroicons
+- **Path alias:** `@components/` → `src/renderer/components/`
 
-## Component Patterns
+---
 
-### 1. Basic Component Structure
+## UI Component Library
 
-```typescript
-// src/renderer/components/common/UserCard.tsx
-import { UserIcon } from '@heroicons/react/24/outline';
-import { Card } from '@/components/ui/Card';
+All components live under `src/renderer/components/`. **Always prefer these over raw HTML elements or native `<select>`, `<input>`, `<button>` tags.**
 
-interface UserCardProps {
-  name: string;
-  email: string;
-  role: string;
-  onEdit?: () => void;
-  className?: string;
-}
+---
 
-export function UserCard({ name, email, role, onEdit, className }: UserCardProps) {
-  return (
-    <Card className={className}>
-      <div className="flex items-center gap-4">
-        <div className="shrink-0">
-          <UserIcon className="h-12 w-12 text-gray-400" />
-        </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
-          <p className="text-sm text-gray-600">{email}</p>
-          <span className="text-xs text-gray-500">{role}</span>
-        </div>
-        {onEdit && (
-          <button
-            onClick={onEdit}
-            className="px-3 py-1 text-sm text-blue-600 hover:bg-blue-50 rounded transition"
-          >
-            Edit
-          </button>
-        )}
-      </div>
-    </Card>
-  );
-}
+### `SelectField` — Combobox / Dropdown
+
+**Import:** `import SelectField from '@components/ui/SelectField';`
+
+Portal-based combobox with search filtering, single and multi-select modes, smart flip (opens upward when near the bottom of the viewport), and light/dark variants. The dropdown renders into `document.body` via `createPortal` — it is never clipped by `overflow: hidden` ancestors.
+
+**Never use a native `<select>` element.** Always use `SelectField`.
+
+```tsx
+// Single select (most common)
+<SelectField
+  id="status"
+  label="Status"
+  value={status}
+  onChange={(value) => setStatus(value)}
+  options={[
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+  ]}
+/>
+
+// Compact, no label — for filter bars
+<SelectField
+  value={field}
+  onChange={(value) => setField(value)}
+  options={FIELD_OPTIONS}
+  size="sm"
+  className="w-36"
+/>
+
+// Dark variant — for dark toolbars / floating bars
+<SelectField
+  value={status}
+  onChange={(value) => onStatusChange(value as TaxRecordStatus)}
+  options={STATUS_OPTIONS}
+  size="sm"
+  variant="dark"
+  className="w-36"
+/>
+
+// Multi-select
+<SelectField
+  multiple
+  value={selectedIds}
+  onChange={(values) => setSelectedIds(values)}
+  options={options}
+  label="Assign Tags"
+/>
+
+// With label, hint, and error
+<SelectField
+  id="portal"
+  label="Portal"
+  hint="Which portal to associate this record with"
+  error={errors.portal}
+  value={portalId}
+  onChange={(value) => setPortalId(value)}
+  options={portalOptions}
+/>
+
+// Inside a modal (portal rendering escapes overflow clipping automatically)
+<SelectField
+  value={mapping[field.id] ?? ''}
+  onChange={(value) => setMapping((prev) => ({ ...prev, [field.id]: value }))}
+  options={[
+    { value: '', label: '— not mapped —' },
+    ...headers.map((h) => ({ value: h, label: h })),
+  ]}
+  size="sm"
+/>
 ```
 
-### 2. Compound Components Pattern
+**Props:**
 
-```typescript
-// src/renderer/components/ui/Card.tsx
-import { createContext, useContext, ReactNode } from 'react';
+| Prop | Type | Default | Notes |
+|------|------|---------|-------|
+| `value` | `string` \| `string[]` | — | String for single, string[] for multi |
+| `onChange` | `(v: string) => void` \| `(v: string[]) => void` | — | Matches value type |
+| `options` | `{ value: string; label: string }[]` | — | Required |
+| `multiple` | `boolean` | `false` | Enables multi-select with checkboxes |
+| `label` | `string` | — | Omit for inline/filter use (no wrapper rendered) |
+| `hint` | `string` | — | Helper text below label |
+| `error` | `string` | — | Red error text + red border |
+| `placeholder` | `string` | `'Select…'` | |
+| `disabled` | `boolean` | `false` | |
+| `size` | `'sm' \| 'md'` | `'md'` | `'sm'` for filter bars |
+| `variant` | `'light' \| 'dark'` | `'light'` | `'dark'` for dark toolbars |
+| `className` | `string` | `''` | Controls outer width, e.g. `"w-36 flex-1"` |
+| `id` | `string` | — | Links label `for` attribute |
 
-interface CardContextValue {
-  variant: 'default' | 'outlined';
-}
+**Numeric options:** Convert via `String(n)` / `Number(value)`:
+```tsx
+<SelectField
+  value={String(pageSize)}
+  onChange={(value) => setPageSize(Number(value))}
+  options={[10, 25, 50, 100].map((n) => ({ value: String(n), label: String(n) }))}
+  size="sm"
+/>
+```
 
-const CardContext = createContext<CardContextValue>({ variant: 'default' });
+---
 
-interface CardProps {
-  children: ReactNode;
-  variant?: 'default' | 'outlined';
-  className?: string;
-}
+### `Button` — Primary Action Button
 
-export function Card({ children, variant = 'default', className = '' }: CardProps) {
-  return (
-    <CardContext.Provider value={{ variant }}>
-      <div
-        className={`rounded-lg ${
-          variant === 'outlined' ? 'border border-gray-200' : 'bg-white shadow'
-        } ${className}`}
-      >
-        {children}
-      </div>
-    </CardContext.Provider>
-  );
-}
+**Import:** `import Button from '@components/ui/Button';`
 
-function CardHeader({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`p-4 border-b border-gray-200 ${className}`}>{children}</div>;
-}
+Full-width-capable button with variants, sizes, loading state, and optional leading icon. On mobile, icon-only buttons show just the icon; the text label appears at `sm:` breakpoint.
 
-function CardContent({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`p-4 ${className}`}>{children}</div>;
-}
+```tsx
+// Primary
+<Button onClick={handleSave}>Save</Button>
 
-function CardFooter({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <div className={`p-4 border-t border-gray-200 ${className}`}>{children}</div>;
-}
+// With loading state
+<Button busy={isSaving} onClick={handleSave}>Save</Button>
 
-Card.Header = CardHeader;
-Card.Content = CardContent;
-Card.Footer = CardFooter;
+// With icon (responsive: icon only on mobile, icon + label on sm+)
+import { PlusIcon } from '@heroicons/react/20/solid';
+<Button icon={PlusIcon} onClick={handleAdd}>Add Record</Button>
 
-// Usage
+// Danger
+<Button variant="danger" onClick={handleDelete}>Delete</Button>
+
+// Secondary / ghost
+<Button variant="secondary" onClick={handleCancel}>Cancel</Button>
+<Button variant="ghost" onClick={handleBack}>Back</Button>
+
+// Small size
+<Button size="sm" variant="secondary">Filter</Button>
+```
+
+**Props:**
+
+| Prop | Type | Default | Notes |
+|------|------|---------|-------|
+| `variant` | `'primary' \| 'secondary' \| 'danger' \| 'ghost'` | `'primary'` | |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` | |
+| `busy` | `boolean` | `false` | Shows spinner + "Processing…", disables button |
+| `icon` | `ComponentType<{ className?: string }>` | — | Heroicon component reference |
+| `disabled` | `boolean` | — | Inherited from `ButtonHTMLAttributes` |
+| `...rest` | `ButtonHTMLAttributes<HTMLButtonElement>` | — | `type`, `onClick`, etc. |
+
+---
+
+### `IconButton` — Icon-only Action Button
+
+**Import:** `import IconButton from '@components/ui/IconButton';`
+
+Square icon-only button for table row actions, toolbars, etc.
+
+```tsx
+import { PencilIcon, TrashIcon } from '@heroicons/react/20/solid';
+
+<IconButton
+  icon={<PencilIcon className="h-4 w-4" />}
+  onClick={() => handleEdit(row.id)}
+  title="Edit"
+/>
+
+<IconButton
+  icon={<TrashIcon className="h-4 w-4" />}
+  onClick={() => handleDelete(row.id)}
+  variant="danger"
+  title="Delete"
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default |
+|------|------|---------|
+| `icon` | `ReactNode` | — |
+| `variant` | `'default' \| 'subtle' \| 'danger'` | `'default'` |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'md'` |
+| `onClick` | `() => void` | — |
+| `disabled` | `boolean` | `false` |
+| `title` | `string` | — |
+| `className` | `string` | `''` |
+
+---
+
+### `TextField` — Text Input
+
+**Import:** `import TextField from '@components/ui/TextField';`
+
+Labeled text input with optional hint, error, prefix, and suffix slots.
+
+```tsx
+<TextField
+  id="name"
+  label="Client Name"
+  value={name}
+  onChange={(e) => setName(e.target.value)}
+/>
+
+// With hint and error
+<TextField
+  id="email"
+  label="Email"
+  type="email"
+  hint="Used for all correspondence"
+  error={errors.email}
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+/>
+
+// With prefix/suffix
+<TextField
+  id="amount"
+  label="Amount"
+  prefix="$"
+  suffix={<CurrencyDollarIcon className="h-4 w-4 text-slate-400" />}
+  value={amount}
+  onChange={(e) => setAmount(e.target.value)}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `label` | `string` | Required |
+| `hint` | `string` | Helper text below label |
+| `error` | `string` | Red error text + border |
+| `prefix` | `ReactNode` | Rendered inside left edge of input |
+| `suffix` | `ReactNode` | Rendered inside right edge of input |
+| `...rest` | `InputHTMLAttributes<HTMLInputElement>` | `type`, `value`, `onChange`, `placeholder`, `disabled`, etc. |
+
+---
+
+### `CheckboxField` — Checkbox with Label
+
+**Import:** `import CheckboxField from '@components/ui/CheckboxField';`
+
+```tsx
+<CheckboxField
+  id="consent"
+  label="I agree to the terms"
+  checked={consent}
+  onChange={(e) => setConsent(e.target.checked)}
+/>
+
+// With hint
+<CheckboxField
+  id="notify"
+  label="Email notifications"
+  hint="Receive reminders before filing deadlines"
+  checked={notify}
+  onChange={(e) => setNotify(e.target.checked)}
+/>
+```
+
+**Props:** `label` (required), `hint`, plus all `InputHTMLAttributes<HTMLInputElement>` except `type`.
+
+---
+
+### `Card` — Content Container
+
+**Import:** `import Card from '@components/ui/Card';`
+
+White rounded card with border and shadow.
+
+```tsx
+// Default (md padding)
 <Card>
-  <Card.Header>Title</Card.Header>
-  <Card.Content>Content</Card.Content>
-  <Card.Footer>Footer</Card.Footer>
+  <p>Content here</p>
+</Card>
+
+// Custom padding
+<Card padding="none" className="overflow-hidden">
+  <DataTable ... />
+</Card>
+
+// No padding + extra class
+<Card padding="sm" className="flex flex-col gap-4">
+  ...
 </Card>
 ```
 
-### 3. Render Props Pattern (for complex logic)
+**Props:**
 
-```typescript
-interface DataFetcherProps<T> {
-  queryKey: string[];
-  queryFn: () => Promise<T>;
-  children: (data: T, isLoading: boolean, error: Error | null) => ReactNode;
-}
+| Prop | Type | Default |
+|------|------|---------|
+| `padding` | `'none' \| 'sm' \| 'md' \| 'lg'` | `'md'` |
+| `className` | `string` | `''` |
+| `children` | `ReactNode` | — |
 
-function DataFetcher<T>({ queryKey, queryFn, children }: DataFetcherProps<T>) {
-  const { data, isLoading, error } = useQuery({ queryKey, queryFn });
-  return <>{children(data, isLoading, error)}</>;
-}
+---
 
-// Usage
-<DataFetcher queryKey={['users']} queryFn={fetchUsers}>
-  {(users, isLoading, error) => {
-    if (isLoading) return <LoadingSpinner />;
-    if (error) return <ErrorMessage error={error} />;
-    return <UserList users={users} />;
-  }}
-</DataFetcher>
+### `Chip` — Status Badge / Tag
+
+**Import:** `import { Chip } from '@components/ui/Chip';`
+
+Colored label chip for statuses, tags, and filters. Supports optional remove button and click interaction.
+
+```tsx
+// Status badge
+<Chip variant="green">Active</Chip>
+<Chip variant="red">Inactive</Chip>
+<Chip variant="amber">Late Filer</Chip>
+<Chip variant="primary">New</Chip>
+
+// With icon
+import { CheckCircleIcon } from '@heroicons/react/20/solid';
+<Chip variant="green" icon={<CheckCircleIcon className="h-3 w-3" />}>Verified</Chip>
+
+// Removable tag
+<Chip variant="primary" onRemove={() => removeTag(tag.id)}>
+  {tag.name}
+</Chip>
+
+// Clickable filter chip
+<Chip
+  variant={isActive ? 'primary' : 'outline'}
+  clickable
+  onClick={() => toggleFilter()}
+>
+  Show Inactive
+</Chip>
+
+// Full-rounded pill, larger size
+<Chip variant="blue" rounded="full" size="md">Processing</Chip>
 ```
+
+**Variant options:** `default` `grey` `primary` `outline` `green` `red` `amber` `purple` `blue` `teal` `cyan` `indigo` `violet` `fuchsia` `pink` `rose` `sky` `emerald` `lime` `yellow` `orange`
+
+**Props:**
+
+| Prop | Type | Default |
+|------|------|---------|
+| `variant` | (see above) | `'default'` |
+| `size` | `'sm' \| 'md' \| 'lg'` | `'sm'` |
+| `rounded` | `'default' \| 'full'` | `'default'` |
+| `icon` | `ReactNode` | — |
+| `onRemove` | `() => void` | — |
+| `clickable` | `boolean` | `false` |
+
+---
+
+### `ConfirmDialog` — Destructive Action Confirmation
+
+**Import:** `import ConfirmDialog from '@components/ui/ConfirmDialog';`
+
+Modal dialog for confirming irreversible actions (deletes, bulk operations, etc.).
+
+```tsx
+const [open, setOpen] = useState(false);
+
+<ConfirmDialog
+  isOpen={open}
+  title="Delete Record"
+  message="This action cannot be undone. The tax record will be permanently removed."
+  confirmLabel="Delete"
+  confirmVariant="danger"
+  busy={isDeleting}
+  onConfirm={async () => {
+    await deleteRecord(id);
+    setOpen(false);
+  }}
+  onCancel={() => setOpen(false)}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default |
+|------|------|---------|
+| `isOpen` | `boolean` | — |
+| `title` | `string` | — |
+| `message` | `ReactNode` | — |
+| `confirmLabel` | `string` | — |
+| `cancelLabel` | `string` | `'Cancel'` |
+| `confirmVariant` | `'primary' \| 'secondary' \| 'danger' \| 'ghost'` | `'primary'` |
+| `busy` | `boolean` | `false` |
+| `onConfirm` | `() => void \| Promise<void>` | — |
+| `onCancel` | `() => void` | — |
+
+---
+
+### `DropdownMenu` — Context / Actions Menu
+
+**Import:** `import DropdownMenu from '@components/ui/DropdownMenu';`
+
+HeadlessUI-based dropdown with icon-or-text trigger button, item icons, badge counts, danger items, and optional dividers.
+
+```tsx
+import { PencilIcon, TrashIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+
+<DropdownMenu
+  items={[
+    {
+      label: 'Edit',
+      icon: PencilIcon,
+      onClick: () => openEdit(row.id),
+    },
+    {
+      label: 'Export',
+      icon: ArrowDownTrayIcon,
+      onClick: () => exportRecord(row.id),
+      divider: true,  // adds separator after this item
+    },
+    {
+      label: 'Delete',
+      icon: TrashIcon,
+      onClick: () => confirmDelete(row.id),
+      variant: 'danger',
+    },
+  ]}
+/>
+
+// Text trigger with label
+<DropdownMenu
+  buttonVariant="text"
+  buttonLabel="Actions"
+  items={menuItems}
+/>
+
+// With badge count
+{
+  label: 'Notifications',
+  badge: 3,
+  onClick: () => openNotifications(),
+}
+```
+
+**`DropdownMenuItem` shape:**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `label` | `string` | — |
+| `icon` | `ComponentType<{ className?: string }>` | Heroicon component |
+| `onClick` | `() => void` | — |
+| `variant` | `'default' \| 'danger'` | `'danger'` = red styling |
+| `disabled` | `boolean` | — |
+| `badge` | `string \| number` | Blue pill counter |
+| `divider` | `boolean` | Adds line after item |
+
+---
+
+### `DropZone` — File Upload Area
+
+**Import:** `import DropZone from '@components/ui/DropZone';`
+
+Drag-and-drop + click-to-browse file input with accessible keyboard support.
+
+```tsx
+<DropZone
+  onFile={(file) => handleFile(file)}
+  accept=".csv"
+  acceptLabel="CSV files only"
+/>
+
+// Custom icon and title
+import { TableCellsIcon } from '@heroicons/react/24/outline';
+<DropZone
+  onFile={handleFile}
+  accept=".csv,.xlsx"
+  acceptLabel="CSV or Excel files"
+  title="Drop your spreadsheet here, or"
+  icon={TableCellsIcon}
+/>
+```
+
+**Props:**
+
+| Prop | Type | Default |
+|------|------|---------|
+| `onFile` | `(file: File) => void` | — |
+| `accept` | `string` | `'*'` |
+| `acceptLabel` | `string` | — |
+| `title` | `string` | `'Drop your file here, or'` |
+| `icon` | `ComponentType<{ className?: string }>` | `DocumentTextIcon` |
+
+---
+
+### `DataTable` — Sortable Data Table
+
+**Import:** `import DataTable, { type DataTableColumn } from '@components/table/DataTable';`
+
+Generic typed table with sortable columns, sticky pinned columns, row click, and a footer slot (used for `Pagination`).
+
+```tsx
+type User = { id: string; name: string; email: string; createdAt: string };
+
+const columns: DataTableColumn<User>[] = [
+  {
+    id: 'name',
+    header: 'Name',
+    sortable: true,
+    render: (row) => <span className="font-medium">{row.name}</span>,
+  },
+  {
+    id: 'email',
+    header: 'Email',
+    render: (row) => row.email,
+  },
+  {
+    id: 'actions',
+    header: '',
+    align: 'right',
+    render: (row) => (
+      <DropdownMenu items={buildMenuItems(row)} />
+    ),
+  },
+];
+
+<DataTable
+  columns={columns}
+  rows={users}
+  getRowId={(row) => row.id}
+  sortState={sort}
+  onSortChange={setSort}
+  onRowClick={(row) => navigate(`/users/${row.id}`)}
+  footer={
+    <tr>
+      <td colSpan={columns.length}>
+        <Pagination ... />
+      </td>
+    </tr>
+  }
+/>
+```
+
+**`DataTableColumn<T>` shape:**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | `string` | Column key; use `'actions'` or `'checkbox'` to disable row-click on that cell |
+| `header` | `ReactNode` | Column heading |
+| `render` | `(row: T) => ReactNode` | Cell renderer |
+| `sortable` | `boolean` | Shows sort chevrons |
+| `align` | `'left' \| 'center' \| 'right'` | `'left'` default |
+| `pinned` | `boolean` | Sticky left column with shadow border |
+| `className` | `string` | Extra classes on th/td |
+
+**`DataTableProps<T>`:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `rows` | `T[]` | — |
+| `getRowId` | `(row: T) => string \| number` | Unique row key |
+| `sortState` | `{ key: string; direction: 'asc' \| 'desc' } \| null` | Controlled sort |
+| `onSortChange` | `(next: SortState \| null) => void` | `null` = clear sort |
+| `onRowClick` | `(row: T) => void` | Makes rows cursor-pointer |
+| `emptyMessage` | `string` | Shown with bug icon when rows is empty |
+| `footer` | `ReactNode` | Rendered inside `<tfoot>` |
+
+---
+
+### `Pagination` — Table Pagination Controls
+
+**Import:** `import Pagination from '@components/table/Pagination';`
+
+Rows-per-page selector + page window navigator. Renders as a footer row inside `DataTable`.
+
+```tsx
+<Pagination
+  page={page}
+  pageSize={pageSize}
+  total={totalRecords}
+  onPageChange={setPage}
+  onPageSizeChange={(size) => { setPageSize(size); setPage(0); }}
+/>
+```
+
+**Props:** `page` (0-indexed), `pageSize`, `total`, `onPageChange`, `onPageSizeChange`.
+
+---
+
+### `EmptyState` — Zero-data Placeholder
+
+**Import:** `import EmptyState from '@components/common/EmptyState';`
+
+Centered empty state with optional icon, description, and action CTA.
+
+```tsx
+import { DocumentMagnifyingGlassIcon } from '@heroicons/react/24/outline';
+
+<EmptyState
+  icon={<DocumentMagnifyingGlassIcon className="h-full w-full" />}
+  title="No records found"
+  description="Try adjusting your filters or importing new records."
+  action={
+    <Button onClick={openImport} icon={PlusIcon}>
+      Import CSV
+    </Button>
+  }
+/>
+```
+
+**Props:** `title` (required), `icon`, `description`, `action`.
+
+---
+
+### `LoadingSpinner` — Activity Indicator
+
+**Import:** `import LoadingSpinner from '@components/common/LoadingSpinner';`
+
+```tsx
+// Inline, default size
+<LoadingSpinner />
+
+// Full page centered
+<div className="flex h-full items-center justify-center">
+  <LoadingSpinner size="lg" />
+</div>
+
+// Small inline
+<LoadingSpinner size="sm" className="ml-2" />
+```
+
+**Props:** `size` (`'sm' | 'md' | 'lg'`, default `'md'`), `className`.
+
+---
+
+### `StatCard` — KPI / Dashboard Metric Card
+
+**Import:** `import StatCard from '@components/common/StatCard';`
+
+```tsx
+import { UsersIcon } from '@heroicons/react/24/outline';
+
+<StatCard
+  label="Total Clients"
+  value={1234}
+  subtext="+12 this month"
+  icon={UsersIcon}
+  color="blue"
+/>
+```
+
+**Props:**
+
+| Prop | Type | Notes |
+|------|------|-------|
+| `label` | `string` | Uppercase label |
+| `value` | `number \| string` | Large number display |
+| `subtext` | `string` | Small secondary line |
+| `icon` | `ComponentType<{ className?: string }>` | Heroicon |
+| `color` | `'green' \| 'orange' \| 'red' \| 'blue' \| 'neon'` | Left border + icon tint |
+
+---
 
 ## Custom Hooks Patterns
 
-### 1. Data Fetching Hook
+### Data Fetching Hook
 
 ```typescript
-// src/renderer/hooks/useClients.ts
+// src/renderer/hooks/useTaxRecords.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
-interface Client {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  created_at: string;
-}
-
-export function useClients() {
+export function useTaxRecords() {
   const queryClient = useQueryClient();
 
-  const {
-    data: clients,
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: ['clients'],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['tax-records'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('clients')
+        .from('tax_records')
         .select('*')
-        .order('name');
-
-      if (error) throw error;
-      return data as Client[];
-    },
-  });
-
-  const createClient = useMutation({
-    mutationFn: async (client: Omit<Client, 'id' | 'created_at'>) => {
-      const { data, error } = await supabase
-        .from('clients')
-        .insert(client)
-        .select()
-        .single();
-
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
     },
+  });
+
+  const deleteRecord = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('tax_records').delete().eq('id', id);
+      if (error) throw error;
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['clients'] });
-      toast.success('Client created successfully');
+      queryClient.invalidateQueries({ queryKey: ['tax-records'] });
+      toast.success('Record deleted');
     },
-    onError: () => {
-      toast.error('Failed to create client');
-    },
+    onError: () => toast.error('Failed to delete record'),
   });
 
   return {
-    clients: clients || [],
+    records: data ?? [],
     isLoading,
     error,
-    createClient: createClient.mutate,
-    isCreating: createClient.isPending,
+    deleteRecord: deleteRecord.mutate,
+    isDeleting: deleteRecord.isPending,
   };
 }
 ```
 
-### 2. Form Hook
+### Debounce Hook
 
 ```typescript
-// src/renderer/hooks/useForm.ts
-import { useState, ChangeEvent, FormEvent } from 'react';
-
-interface UseFormOptions<T> {
-  initialValues: T;
-  onSubmit: (values: T) => void | Promise<void>;
-  validate?: (values: T) => Partial<Record<keyof T, string>>;
-}
-
-export function useForm<T extends Record<string, any>>({
-  initialValues,
-  onSubmit,
-  validate,
-}: UseFormOptions<T>) {
-  const [values, setValues] = useState<T>(initialValues);
-  const [errors, setErrors] = useState<Partial<Record<keyof T, string>>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setValues((prev) => ({ ...prev, [name]: value }));
-    // Clear error on change
-    if (errors[name as keyof T]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-
-    // Validate
-    if (validate) {
-      const validationErrors = validate(values);
-      if (Object.keys(validationErrors).length > 0) {
-        setErrors(validationErrors);
-        return;
-      }
-    }
-
-    // Submit
-    setIsSubmitting(true);
-    try {
-      await onSubmit(values);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const reset = () => {
-    setValues(initialValues);
-    setErrors({});
-  };
-
-  return {
-    values,
-    errors,
-    isSubmitting,
-    handleChange,
-    handleSubmit,
-    reset,
-    setValues,
-    setErrors,
-  };
-}
-
-// Usage
-function ClientForm() {
-  const { createClient } = useClients();
-
-  const { values, errors, handleChange, handleSubmit, isSubmitting } = useForm({
-    initialValues: { name: '', email: '', phone: '' },
-    onSubmit: async (values) => {
-      await createClient(values);
-    },
-    validate: (values) => {
-      const errors: any = {};
-      if (!values.name) errors.name = 'Name is required';
-      if (!values.email) errors.email = 'Email is required';
-      return errors;
-    },
-  });
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <input name="name" value={values.name} onChange={handleChange} />
-      {errors.name && <span className="text-red-600">{errors.name}</span>}
-      <button type="submit" disabled={isSubmitting}>Submit</button>
-    </form>
-  );
-}
-```
-
-### 3. Modal Hook
-
-```typescript
-// src/renderer/hooks/useModal.ts
-import { useState } from 'react';
-
-export function useModal(initialState = false) {
-  const [isOpen, setIsOpen] = useState(initialState);
-
-  const open = () => setIsOpen(true);
-  const close = () => setIsOpen(false);
-  const toggle = () => setIsOpen((prev) => !prev);
-
-  return { isOpen, open, close, toggle };
-}
-
-// Usage
-function MyComponent() {
-  const confirmModal = useModal();
-
-  return (
-    <>
-      <button onClick={confirmModal.open}>Delete</button>
-      <ConfirmDialog
-        isOpen={confirmModal.isOpen}
-        onClose={confirmModal.close}
-        onConfirm={() => {
-          // delete logic
-          confirmModal.close();
-        }}
-      />
-    </>
-  );
-}
-```
-
-### 4. Debounce Hook
-
-```typescript
-// src/renderer/hooks/useDebounce.ts
 import { useEffect, useState } from 'react';
 
-export function useDebounce<T>(value: T, delay: number = 500): T {
+export function useDebounce<T>(value: T, delay = 400): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
 
   return debouncedValue;
 }
 
 // Usage
-function SearchComponent() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const debouncedSearch = useDebounce(searchTerm, 300);
-
-  const { data } = useSearchClients(debouncedSearch);
-
-  return (
-    <input
-      value={searchTerm}
-      onChange={(e) => setSearchTerm(e.target.value)}
-      placeholder="Search clients..."
-    />
-  );
-}
+const debouncedQuery = useDebounce(searchQuery, 300);
+const { data } = useQuery({ queryKey: ['search', debouncedQuery], ... });
 ```
 
-### 5. Local Storage Hook
+### Modal State Hook
 
 ```typescript
-// src/renderer/hooks/useLocalStorage.ts
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
-export function useLocalStorage<T>(key: string, initialValue: T) {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    try {
-      const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
-    } catch (error) {
-      console.error('Error reading from localStorage:', error);
-      return initialValue;
-    }
-  });
-
-  const setValue = (value: T | ((val: T) => T)) => {
-    try {
-      const valueToStore = value instanceof Function ? value(storedValue) : value;
-      setStoredValue(valueToStore);
-      window.localStorage.setItem(key, JSON.stringify(valueToStore));
-    } catch (error) {
-      console.error('Error writing to localStorage:', error);
-    }
+export function useModal(initialState = false) {
+  const [isOpen, setIsOpen] = useState(initialState);
+  return {
+    isOpen,
+    open: () => setIsOpen(true),
+    close: () => setIsOpen(false),
+    toggle: () => setIsOpen((v) => !v),
   };
-
-  return [storedValue, setValue] as const;
 }
 
 // Usage
-function UserPreferences() {
-  const [theme, setTheme] = useLocalStorage('theme', 'light');
+const deleteModal = useModal();
 
-  return (
-    <select value={theme} onChange={(e) => setTheme(e.target.value)}>
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-    </select>
-  );
-}
+<>
+  <Button variant="danger" onClick={deleteModal.open}>Delete</Button>
+  <ConfirmDialog
+    isOpen={deleteModal.isOpen}
+    title="Delete Record"
+    message="This cannot be undone."
+    confirmLabel="Delete"
+    confirmVariant="danger"
+    onConfirm={async () => { await deleteRecord(id); deleteModal.close(); }}
+    onCancel={deleteModal.close}
+  />
+</>
 ```
+
+---
 
 ## React Router Patterns
 
-### 1. Route Setup
-
 ```typescript
-// src/renderer/App.tsx
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import AppLayout from './components/layout/AppLayout';
+import { useNavigate, useParams } from 'react-router-dom';
 
-export default function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<AppLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="clients" element={<ClientList />} />
-          <Route path="clients/:id" element={<ClientDetail />} />
-          <Route path="tax-records" element={<TaxRecordList />} />
-          <Route path="tax-records/new" element={<TaxRecordNew />} />
-          <Route path="tax-records/:id" element={<TaxRecordDetail />} />
-          <Route path="tax-records/:id/edit" element={<TaxRecordEdit />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="*" element={<NotFound />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
-}
+// Navigate programmatically
+const navigate = useNavigate();
+navigate(`/tax-records/${id}`);
+navigate(-1); // go back
+
+// Read route params
+const { id } = useParams<{ id: string }>();
 ```
 
-### 2. Navigation Hook
-
-```typescript
-// src/renderer/hooks/useNavigation.ts
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-
-export function useAppNavigation() {
-  const navigate = useNavigate();
-  const params = useParams();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  return {
-    navigate,
-    params,
-    searchParams,
-    setSearchParams,
-    goBack: () => navigate(-1),
-    goToDashboard: () => navigate('/dashboard'),
-    goToClient: (id: string) => navigate(`/clients/${id}`),
-    goToTaxRecord: (id: string) => navigate(`/tax-records/${id}`),
-  };
-}
-
-// Usage
-function MyComponent() {
-  const { goToClient, goBack } = useAppNavigation();
-
-  return (
-    <div>
-      <button onClick={() => goToClient('123')}>View Client</button>
-      <button onClick={goBack}>Go Back</button>
-    </div>
-  );
-}
-```
+---
 
 ## Performance Optimization
-
-### 1. Memoization
 
 ```typescript
 import { useMemo, useCallback } from 'react';
 
-function ClientList({ clients }: { clients: Client[] }) {
-  // Memoize expensive computations
-  const sortedClients = useMemo(() => {
-    return [...clients].sort((a, b) => a.name.localeCompare(b.name));
-  }, [clients]);
+// Memoize expensive derived data
+const filteredRows = useMemo(
+  () => rows.filter((r) => r.status === activeStatus),
+  [rows, activeStatus],
+);
 
-  // Memoize callbacks
-  const handleClientClick = useCallback((id: string) => {
-    console.log('Client clicked:', id);
-  }, []);
-
-  return (
-    <div>
-      {sortedClients.map((client) => (
-        <ClientCard key={client.id} client={client} onClick={handleClientClick} />
-      ))}
-    </div>
-  );
-}
+// Stable callback references (prevents child re-renders)
+const handleRowClick = useCallback(
+  (row: TaxRecord) => navigate(`/tax-records/${row.id}`),
+  [navigate],
+);
 ```
 
-### 2. Lazy Loading
-
-```typescript
-import { lazy, Suspense } from 'react';
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-
-// Lazy load heavy components
-const TaxRecordDetail = lazy(() => import('./pages/tax-records/[id]/index'));
-const ClientManagement = lazy(() => import('./pages/clients/index'));
-
-function App() {
-  return (
-    <Suspense fallback={<LoadingSpinner />}>
-      <Routes>
-        <Route path="/tax-records/:id" element={<TaxRecordDetail />} />
-        <Route path="/clients" element={<ClientManagement />} />
-      </Routes>
-    </Suspense>
-  );
-}
-```
-
-### 3. Virtualization (for long lists)
-
-```typescript
-// If needed, install: npm install @tanstack/react-virtual
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useRef } from 'react';
-
-function VirtualClientList({ clients }: { clients: Client[] }) {
-  const parentRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: clients.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 60, // Estimated row height
-  });
-
-  return (
-    <div ref={parentRef} className="h-96 overflow-auto">
-      <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}>
-        {virtualizer.getVirtualItems().map((virtualRow) => (
-          <div
-            key={virtualRow.key}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: `${virtualRow.size}px`,
-              transform: `translateY(${virtualRow.start}px)`,
-            }}
-          >
-            <ClientCard client={clients[virtualRow.index]} />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-```
+---
 
 ## Best Practices
 
-1. **Component Size:** Keep components small and focused (< 150 lines)
-2. **Prop Drilling:** Avoid deep prop drilling; use context or composition
-3. **Type Safety:** Always type props and hooks
-4. **Error Boundaries:** Wrap sections in error boundaries
-5. **Keys:** Use stable keys in lists (prefer IDs over indexes)
-6. **Side Effects:** Use useEffect correctly (proper dependencies)
-7. **Accessibility:** Use semantic HTML and ARIA attributes
-8. **Loading States:** Always show loading feedback
-9. **Error States:** Always handle and display errors
-
-## TypeScript Patterns
-
-```typescript
-// Props with children
-interface CardProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-// Props with specific element types
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary';
-  size?: 'sm' | 'md' | 'lg';
-}
-
-// Generic component
-interface SelectProps<T> {
-  options: T[];
-  value: T;
-  onChange: (value: T) => void;
-  getLabel: (option: T) => string;
-  getValue: (option: T) => string;
-}
-
-function Select<T>({
-  options,
-  value,
-  onChange,
-  getLabel,
-  getValue,
-}: SelectProps<T>) {
-  // Implementation
-}
-```
-
-## Testing Checklist
-
-- [ ] Component renders without errors
-- [ ] Props properly typed
-- [ ] Loading states handled
-- [ ] Error states handled
-- [ ] Accessibility attributes present
-- [ ] Responsive design implemented
-- [ ] Performance optimized (memoization where needed)
-- [ ] Clean up effects (return cleanup functions)
+1. **Always use project components** — never raw `<select>`, `<input>` or `<button>` tags
+2. **SelectField for all dropdowns** — portal-based, never clipped, always consistent
+3. **Button `busy` prop** — for async actions; never manually toggle `disabled` during loading
+4. **ConfirmDialog for destructive actions** — all deletes and bulk operations need confirmation
+5. **DataTable + Pagination** — standard table pattern; pass `Pagination` as the `footer` prop
+6. **EmptyState** — always show a meaningful empty state with a CTA when a list has 0 items
+7. **Chip for statuses** — never plain text for `active` / `inactive` / `late-filer` labels
+8. **useCallback/useMemo** — wrap handlers and derived data passed to memoized children
+9. **Keys:** Prefer record IDs over array indexes in lists
+10. **Type safety:** Always type column definitions with `DataTableColumn<YourType>`

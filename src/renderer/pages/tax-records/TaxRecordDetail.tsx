@@ -28,7 +28,7 @@ import { useTaxRecord } from '@hooks/useTaxRecords';
 import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import PdfExportModal from './PdfExportModal';
@@ -677,10 +677,13 @@ export default function TaxRecordDetailPage() {
                     />
                     <SelectField
                       id="selectedReference"
-                      name="selectedReference"
                       label="Reference"
                       value={formValues.selectedReference}
-                      onChange={handleChange}
+                      onChange={(value) =>
+                        handleChange({
+                          target: { name: 'selectedReference', value },
+                        } as React.ChangeEvent<HTMLSelectElement>)
+                      }
                       options={allReferenceOptions}
                       error={fieldErrors.selectedReference}
                     />
@@ -731,10 +734,13 @@ export default function TaxRecordDetailPage() {
                       />
                       <SelectField
                         id="status"
-                        name="status"
                         label="Status"
                         value={formValues.status}
-                        onChange={handleChange}
+                        onChange={(value) =>
+                          handleChange({
+                            target: { name: 'status', value },
+                          } as React.ChangeEvent<HTMLSelectElement>)
+                        }
                         options={STATUS_OPTIONS}
                         error={fieldErrors.status}
                       />

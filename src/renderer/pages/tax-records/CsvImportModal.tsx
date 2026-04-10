@@ -1,6 +1,7 @@
 import Button from '@components/ui/Button';
 import DropZone from '@components/ui/DropZone';
 import IconButton from '@components/ui/IconButton';
+import SelectField from '@components/ui/SelectField';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import {
   ArrowDownTrayIcon,
@@ -514,23 +515,21 @@ export default function CsvImportModal({ isOpen, onClose, onImported }: Props) {
                         </span>
                       )}
                     </div>
-                    <select
+                    <SelectField
                       value={mapping[field.id] ?? ''}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setMapping((prev) => ({
                           ...prev,
-                          [field.id]: e.target.value,
+                          [field.id]: value,
                         }))
                       }
-                      className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    >
-                      <option value="">— not mapped —</option>
-                      {headers.map((h) => (
-                        <option key={h} value={h}>
-                          {h}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '', label: '— not mapped —' },
+                        ...headers.map((h) => ({ value: h, label: h })),
+                      ]}
+                      size="sm"
+                      className="flex-1"
+                    />
                     {mapping[field.id] ? (
                       <CheckCircleIcon className="h-4 w-4 text-green-500 shrink-0" />
                     ) : (
