@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import {
   PlusIcon,
   PencilIcon,
@@ -9,6 +8,7 @@ import {
 import Card from '@components/ui/Card';
 import Button from '@components/ui/Button';
 import IconButton from '@components/ui/IconButton';
+import Modal from '@components/ui/Modal';
 import TextField from '@components/ui/TextField';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import { usePortalPages } from '@hooks/usePortalPages';
@@ -82,58 +82,55 @@ function PortalFormDialog({
   };
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-      <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <DialogPanel className="mx-auto w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-          <DialogTitle className="text-lg font-semibold text-slate-900 mb-4">
-            {initial.name ? 'Edit Portal' : 'Add Portal'}
-          </DialogTitle>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <TextField
-              id="portal-name"
-              label="Name"
-              placeholder="e.g. My Website"
-              value={values.name}
-              onChange={set('name')}
-              error={errors.name}
-              autoFocus
-            />
-            <TextField
-              id="portal-url"
-              label="URL"
-              placeholder="https://example.com"
-              value={values.url}
-              onChange={set('url')}
-              error={errors.url}
-            />
-            <label className="flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={values.isActive}
-                onChange={set('isActive')}
-                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-slate-700">Active</span>
-            </label>
-            <div className="flex justify-end gap-3 pt-2">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleClose}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" size="sm" busy={isSaving}>
-                Save
-              </Button>
-            </div>
-          </form>
-        </DialogPanel>
-      </div>
-    </Dialog>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={initial.name ? 'Edit Portal' : 'Add Portal'}
+      size="sm"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <TextField
+          id="portal-name"
+          label="Name"
+          placeholder="e.g. My Website"
+          value={values.name}
+          onChange={set('name')}
+          error={errors.name}
+          autoFocus
+        />
+        <TextField
+          id="portal-url"
+          label="URL"
+          placeholder="https://example.com"
+          value={values.url}
+          onChange={set('url')}
+          error={errors.url}
+        />
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={values.isActive}
+            onChange={set('isActive')}
+            className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span className="text-sm font-medium text-slate-700">Active</span>
+        </label>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={handleClose}
+            disabled={isSaving}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" busy={isSaving}>
+            Save
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
