@@ -28,7 +28,7 @@ These apply to every file touched in `src/renderer/` and `src/main/`.
 
 - Always use existing components from `src/renderer/components/` — never create one-off components inside a page file
 - Component categories:
-  - `ui/` — Button, TextField, SelectField, CheckboxField, Card, Chip, IconButton, DropdownMenu, DropZone, ConfirmDialog
+  - `ui/` — Button, TextField, SelectField, CheckboxField, Card, Chip, IconButton, DropdownMenu, DropZone, Modal, ConfirmDialog
   - `common/` — EmptyState, ServiceCard, LoadingSpinner, StatCard, FloatingActionBar
   - `layout/` — Sidebar, Header, AppLayout, TabBar
   - `table/` — DataTable, Pagination
@@ -58,7 +58,7 @@ Not `pages/tax-records/TaxRecords.tsx` ❌
 - **No native `<select>`** — always use `SelectField` (portal-based, never clipped)
 - **No raw `<button>` for actions** — use `Button`, `IconButton`, or `DropdownMenu`
 - **All components are default exports** — `import Button from '@components/ui/Button'`
-- **HeadlessUI is internal only** — used inside `DropdownMenu` and `ConfirmDialog`; do not import it directly
+- **HeadlessUI is internal only** — used inside `DropdownMenu` and `Modal`; do not import it directly
 - **Icons only from `@heroicons/react`** — `/20/solid` for compact, `/24/outline|solid` for standard
 - **Styling:** TailwindCSS only — no CSS modules, no styled-components
 - **Notifications:** `sonner` (`toast.success`, `toast.error`)
@@ -71,13 +71,13 @@ Not `pages/tax-records/TaxRecords.tsx` ❌
 
 ### Naming
 
-| Type | Convention | Example |
-|------|-----------|---------|
-| Components | PascalCase | `StatCard.tsx` |
-| Hooks | camelCase | `useTaxRecords.ts` |
-| Page folders | kebab-case | `tax-records/` |
-| Constants | UPPER_SNAKE_CASE | `MAX_FILE_SIZE` |
-| Types | PascalCase | `TaxRecord` |
+| Type         | Convention       | Example            |
+| ------------ | ---------------- | ------------------ |
+| Components   | PascalCase       | `StatCard.tsx`     |
+| Hooks        | camelCase        | `useTaxRecords.ts` |
+| Page folders | kebab-case       | `tax-records/`     |
+| Constants    | UPPER_SNAKE_CASE | `MAX_FILE_SIZE`    |
+| Types        | PascalCase       | `TaxRecord`        |
 
 ---
 
@@ -135,19 +135,19 @@ Tailwind conventions used in this project, responsive breakpoints, common layout
 
 ## Tech Stack
 
-| Layer | Package | Version |
-|-------|---------|---------|
-| Runtime | Electron | 35.0.2 |
-| UI | React | 19.0.0 |
-| Language | TypeScript | 5.8.2 |
-| Server state | @tanstack/react-query | 5.96.2 |
-| Routing | react-router-dom | 7.3.0 |
-| Database | @supabase/supabase-js | 2.101.1 |
-| Styling | TailwindCSS | 4.2.2 |
-| UI primitives | @headlessui/react | 2.2.9 |
-| Icons | @heroicons/react | 2.2.0 |
-| Notifications | sonner | 2.0.7 |
-| PDF export | jspdf | 4.2.1 |
+| Layer         | Package               | Version |
+| ------------- | --------------------- | ------- |
+| Runtime       | Electron              | 35.0.2  |
+| UI            | React                 | 19.0.0  |
+| Language      | TypeScript            | 5.8.2   |
+| Server state  | @tanstack/react-query | 5.96.2  |
+| Routing       | react-router-dom      | 7.3.0   |
+| Database      | @supabase/supabase-js | 2.101.1 |
+| Styling       | TailwindCSS           | 4.2.2   |
+| UI primitives | @headlessui/react     | 2.2.9   |
+| Icons         | @heroicons/react      | 2.2.0   |
+| Notifications | sonner                | 2.0.7   |
+| PDF export    | jspdf                 | 4.2.1   |
 
 ---
 
