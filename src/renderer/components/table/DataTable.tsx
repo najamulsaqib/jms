@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { type CSSProperties, type ReactNode } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
 import { BugAntIcon } from '@heroicons/react/24/outline';
 
@@ -14,6 +14,7 @@ export type DataTableColumn<T> = {
   header: ReactNode;
   sortable?: boolean;
   align?: 'left' | 'center' | 'right';
+  size?: string | number;
   pinned?: boolean;
   className?: string;
   render: (row: T) => ReactNode;
@@ -36,17 +37,52 @@ const alignClasses = {
   right: 'text-right',
 };
 
-function SortIcon({ active, direction }: { active: boolean; direction?: SortDirection }) {
+function getColumnSizeStyle<T>({
+  size,
+}: DataTableColumn<T>): CSSProperties | undefined {
+  if (size === undefined) {
+    return undefined;
+  }
+
+  const resolvedSize = typeof size === 'number' ? `${size}px` : size;
+
+  return {
+    width: resolvedSize,
+    minWidth: resolvedSize,
+    maxWidth: resolvedSize,
+  };
+}
+
+function getCellContent(content: ReactNode, hasSize: boolean): ReactNode {
+  if (!hasSize) return content;
+  return (
+    <div className="overflow-hidden text-ellipsis whitespace-nowrap">
+      {content}
+    </div>
+  );
+}
+
+function SortIcon({
+  active,
+  direction,
+}: {
+  active: boolean;
+  direction?: SortDirection;
+}) {
   return (
     <span className="flex flex-col -space-y-1.5 ml-0.5">
       <ChevronUpIcon
         className={`h-3 w-3 transition-colors ${
-          active && direction === 'asc' ? 'text-blue-500' : 'text-slate-300 group-hover:text-slate-400'
+          active && direction === 'asc'
+            ? 'text-blue-500'
+            : 'text-slate-300 group-hover:text-slate-400'
         }`}
       />
       <ChevronDownIcon
         className={`h-3 w-3 transition-colors ${
-          active && direction === 'desc' ? 'text-blue-500' : 'text-slate-300 group-hover:text-slate-400'
+          active && direction === 'desc'
+            ? 'text-blue-500'
+            : 'text-slate-300 group-hover:text-slate-400'
         }`}
       />
     </span>
@@ -89,6 +125,7 @@ export default function DataTable<T>({
             {columns.map((column) => {
               const isSorted = sortState?.key === column.id;
               const align = column.align || 'left';
+              const sizeStyle = getColumnSizeStyle(column);
               const pinnedClasses = column.pinned
                 ? 'sticky left-0 z-10 bg-slate-50 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200'
                 : '';
@@ -97,6 +134,7 @@ export default function DataTable<T>({
                 <th
                   key={column.id}
                   scope="col"
+                  style={sizeStyle}
                   className={`px-6 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${alignClasses[align]} ${isSorted ? 'text-blue-700' : 'text-slate-700'} ${pinnedClasses} ${column.className || ''}`}
                 >
                   {column.sortable ? (
@@ -106,7 +144,10 @@ export default function DataTable<T>({
                       className="group flex items-center justify-between w-full hover:text-slate-900 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       {column.header}
-                      <SortIcon active={isSorted} direction={sortState?.direction} />
+                      <SortIcon
+                        active={isSorted}
+                        direction={sortState?.direction}
+                      />
                     </button>
                   ) : (
                     column.header
@@ -127,17 +168,19 @@ export default function DataTable<T>({
               >
                 {columns.map((column) => {
                   const align = column.align || 'left';
+                  const sizeStyle = getColumnSizeStyle(column);
                   return (
                     <td
                       key={`${getRowId(row)}-${column.id}`}
-                      className={`px-6 py-4 whitespace-nowrap text-sm ${alignClasses[align]} ${column.pinned ? 'sticky left-0 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200' : ''} ${column.className || ''}`}
+                      style={sizeStyle}
+                      className={`px-6 py-4 text-sm ${alignClasses[align]} ${column.pinned ? 'sticky left-0 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200' : ''} ${column.className || ''}`}
                       onClick={
                         column.id === 'actions' || column.id === 'checkbox'
                           ? (e) => e.stopPropagation()
                           : undefined
                       }
                     >
-                      {column.render(row)}
+                      {getCellContent(column.render(row), !!column.size)}
                     </td>
                   );
                 })}

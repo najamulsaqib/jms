@@ -325,6 +325,7 @@ export default function TaxRecordsPage() {
     {
       id: 'name',
       header: 'Name',
+      size: '200px',
       sortable: true,
       render: (record) => (
         <span className="font-medium text-slate-900">{record.name}</span>
@@ -333,12 +334,14 @@ export default function TaxRecordsPage() {
     {
       id: 'cnic',
       header: 'CNIC',
+      size: '200px',
       sortable: true,
       render: (record) => <span className="text-slate-600">{record.cnic}</span>,
     },
     {
       id: 'email',
       header: 'Email',
+      size: '200px',
       sortable: true,
       render: (record) => (
         <span className="text-slate-600">{record.email || 'N/A'}</span>
@@ -348,6 +351,7 @@ export default function TaxRecordsPage() {
       id: 'phone',
       header: 'Phone',
       sortable: true,
+      size: '200px',
       render: (record) => (
         <span className="text-slate-600">{record.phone || 'N/A'}</span>
       ),
@@ -356,6 +360,7 @@ export default function TaxRecordsPage() {
       id: 'reference',
       header: 'Reference',
       sortable: true,
+      size: '230px',
       render: (record) => (
         <Chip variant="grey">{record.reference.replace(/-/g, ' ')}</Chip>
       ),
@@ -364,6 +369,7 @@ export default function TaxRecordsPage() {
       id: 'status',
       header: 'Status',
       sortable: true,
+      size: '120px',
       align: 'center',
       render: (record) => (
         <Chip
@@ -383,7 +389,7 @@ export default function TaxRecordsPage() {
       id: 'createdAt',
       header: 'Created',
       sortable: true,
-      align: 'right',
+      align: 'center',
       render: (record) => (
         <span className="text-sm text-slate-500">
           {new Date(record.createdAt).toLocaleDateString()}
@@ -394,7 +400,7 @@ export default function TaxRecordsPage() {
       id: 'updatedAt',
       header: 'Updated',
       sortable: true,
-      align: 'right',
+      align: 'center',
       render: (record) => (
         <span className="text-sm text-slate-500">
           {new Date(record.updatedAt).toLocaleDateString()}
@@ -404,6 +410,7 @@ export default function TaxRecordsPage() {
     {
       id: 'actions',
       header: 'Actions',
+      size: '100px',
       align: 'right',
       render: (record) => (
         <div className="flex items-center justify-center gap-2">
