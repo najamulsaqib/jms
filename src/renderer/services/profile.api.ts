@@ -11,6 +11,8 @@ export type ProfileRow = {
   avatarUrl: string;
   createdAt: string;
   updatedAt: string;
+  role: 'admin' | 'user';
+  managedBy: string | null;
 };
 
 export type UpdateProfileInput = {
@@ -23,7 +25,7 @@ export type UpdateProfileInput = {
 };
 
 const PROFILE_SELECT =
-  'user_id, full_name, company_name, address, phone_number, description, avatar_url, created_at, updated_at';
+  'user_id, full_name, company_name, address, phone_number, description, avatar_url, created_at, updated_at, role, managed_by';
 
 type SupabaseErrorLike = {
   code?: string | null;
@@ -48,6 +50,8 @@ function mapRow(row: Record<string, unknown>): ProfileRow {
     avatarUrl: (r.avatarUrl as string) ?? '',
     createdAt: (r.createdAt as string) ?? '',
     updatedAt: (r.updatedAt as string) ?? '',
+    role: ((r.role as string) ?? 'user') as 'admin' | 'user',
+    managedBy: (r.managedBy as string | null) ?? null,
   };
 }
 

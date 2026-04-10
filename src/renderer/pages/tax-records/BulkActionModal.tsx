@@ -132,11 +132,21 @@ export default function BulkActionModal({
 
           {/* Footer */}
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 rounded-b-xl flex items-center justify-end gap-3">
-            <Button type="button" variant="secondary" size="sm" onClick={handleClose}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={handleClose}
+            >
               Cancel
             </Button>
             {selectedCount > 0 && (
-              <Button type="button" variant="primary" size="sm" onClick={handleApplyToSelected}>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handleApplyToSelected}
+              >
                 Apply to {selectedCount} Selected
               </Button>
             )}

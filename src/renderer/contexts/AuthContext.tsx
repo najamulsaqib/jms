@@ -23,6 +23,8 @@ export type UserInfo = {
   phoneNumber: string;
   description: string;
   avatarUrl: string;
+  role: 'admin' | 'user';
+  isAdmin: boolean;
 };
 
 interface AuthContextValue {
@@ -182,6 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       userInfo: session?.user
         ? (() => {
+            const role = profile?.role ?? 'user';
             return {
               email: session.user.email ?? '',
               createdAt: session.user.created_at,
@@ -193,6 +196,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               phoneNumber: profile?.phoneNumber ?? '',
               description: profile?.description ?? '',
               avatarUrl: profile?.avatarUrl ?? '',
+              role: role as 'admin' | 'user',
+              isAdmin: role === 'admin',
             } satisfies UserInfo;
           })()
         : null,
