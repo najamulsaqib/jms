@@ -1,5 +1,6 @@
 import DataTable, { type DataTableColumn } from '@components/table/DataTable';
 import Card from '@components/ui/Card';
+import SelectField from '@components/ui/SelectField';
 import { CheckCircleIcon } from '@heroicons/react/20/solid';
 import { useMemo } from 'react';
 import { REQUIRED_FIELDS } from './types';
@@ -81,29 +82,20 @@ export default function MapStep({
                     <CheckCircleIcon className="h-4 w-4 text-green-500" />
                   )}
                 </div>
-                <select
+                <SelectField
                   value={mapping[field.id] ?? ''}
-                  onChange={(e) =>
+                  onChange={(value) =>
                     onMappingChange({
                       ...mapping,
-                      [field.id]: e.target.value,
+                      [field.id]: value,
                     })
                   }
-                  className={`w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 transition-all
-                    focus:outline-none focus:ring-2
-                    ${
-                      mapped
-                        ? 'border-green-300 bg-green-50/30 focus:border-green-500 focus:ring-green-500/20'
-                        : 'border-slate-300 focus:border-blue-500 focus:ring-blue-500/20'
-                    }`}
-                >
-                  <option value="">Select column...</option>
-                  {headers.map((h) => (
-                    <option key={h} value={h}>
-                      {h}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: 'Select column...' },
+                    ...headers.map((h) => ({ value: h, label: h })),
+                  ]}
+                  placeholder="Select column..."
+                />
               </div>
             );
           })}

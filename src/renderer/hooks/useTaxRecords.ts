@@ -275,8 +275,8 @@ export function useBulkUpdateStatus() {
       filters?: {
         search?: string;
         searchField?: string;
-        referenceFilter?: string;
-        statusFilter?: string;
+        referenceFilter?: string[];
+        statusFilter?: string[];
       };
     }) => taxRecordApi.bulkUpdateAllStatus(status, filters),
     onSuccess: () =>
@@ -297,8 +297,8 @@ export function useBulkUpdateStatus() {
     filters?: {
       search?: string;
       searchField?: string;
-      referenceFilter?: string;
-      statusFilter?: string;
+      referenceFilter?: string[];
+      statusFilter?: string[];
     },
   ) => {
     try {

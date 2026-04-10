@@ -1,4 +1,5 @@
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/20/solid';
+import SelectField from '@components/ui/SelectField';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500, 1000];
 
@@ -49,19 +50,13 @@ export default function Pagination({
       {/* Left: per-page + summary */}
       <div className="flex items-center gap-3 text-sm text-slate-600">
         <span>Rows per page:</span>
-        <select
-          value={pageSize}
-          onChange={(e) => {
-            onPageSizeChange(Number(e.target.value));
-          }}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          {PAGE_SIZE_OPTIONS.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
+        <SelectField
+          value={String(pageSize)}
+          onChange={(value) => onPageSizeChange(Number(value))}
+          options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
+          size="sm"
+          className="w-20"
+        />
         <span className="text-slate-400">
           {total === 0 ? '0 records' : `${from}–${to} of ${total}`}
         </span>
