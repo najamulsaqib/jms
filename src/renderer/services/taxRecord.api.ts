@@ -14,8 +14,8 @@ export type PaginatedListParams = {
   sortDirection: 'asc' | 'desc';
   search: string;
   searchField: string;
-  referenceFilter: string;
-  statusFilter: string;
+  referenceFilter: string[];
+  statusFilter: string[];
 };
 
 export type TaxRecordUniquenessErrors = {
@@ -45,6 +45,8 @@ const SEARCH_FIELD_MAP: Record<string, string> = {
   status: 'status',
   notes: 'notes',
 };
+
+const BATCH_SIZE = 1000;
 
 // ─── Supabase SQL ────────────────────────────────────────────────────────────
 //
@@ -208,6 +210,30 @@ export const taxRecordApi = {
     return (data as Record<string, unknown>[]).map(mapRow);
   },
 
+  async listForExport(): Promise<TaxRecord[]> {
+    const allRows: Record<string, unknown>[] = [];
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('tax_records')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, from + BATCH_SIZE - 1);
+
+      if (error) throw mapSupabaseError(error);
+
+      const chunk = (data ?? []) as Record<string, unknown>[];
+      allRows.push(...chunk);
+
+      if (chunk.length < BATCH_SIZE) break;
+      from += BATCH_SIZE;
+    }
+
+    return allRows.map(mapRow);
+  },
+
   async getById(id: number): Promise<TaxRecord> {
     const userId = await getCurrentUserId();
     const { data, error } = await supabase
@@ -272,6 +298,18 @@ export const taxRecordApi = {
     if (error) throw mapSupabaseError(error);
   },
 
+  async getByIds(ids: number[]): Promise<TaxRecord[]> {
+    const userId = await getCurrentUserId();
+    const { data, error } = await supabase
+      .from('tax_records')
+      .select('*')
+      .in('id', ids)
+      .eq('user_id', userId);
+
+    if (error) throw mapSupabaseError(error);
+    return (data as Record<string, unknown>[]).map(mapRow);
+  },
+
   async bulkRemove(ids: number[]): Promise<void> {
     const userId = await getCurrentUserId();
     const { error } = await supabase
@@ -299,11 +337,11 @@ export const taxRecordApi = {
 
     let query = supabase.from('tax_records').select('*', { count: 'exact' });
 
-    if (referenceFilter !== 'all') {
-      query = query.eq('reference', referenceFilter);
+    if (referenceFilter.length > 0) {
+      query = query.in('reference', referenceFilter);
     }
-    if (statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
+    if (statusFilter.length > 0) {
+      query = query.in('status', statusFilter);
     }
     if (search.trim()) {
       const term = search.trim();
@@ -358,14 +396,28 @@ export const taxRecordApi = {
   },
 
   async listDistinctReferences(): Promise<string[]> {
-    const { data, error } = await supabase
-      .from('tax_records')
-      .select('reference')
-      .order('reference');
-    if (error) throw mapSupabaseError(error);
-    return [
-      ...new Set((data as { reference: string }[]).map((r) => r.reference)),
-    ];
+    const references = new Set<string>();
+    let from = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('tax_records')
+        .select('reference')
+        .order('reference')
+        .range(from, from + BATCH_SIZE - 1);
+
+      if (error) throw mapSupabaseError(error);
+
+      const chunk = (data ?? []) as { reference: string | null }[];
+      chunk.forEach((row) => {
+        if (row.reference) references.add(row.reference);
+      });
+
+      if (chunk.length < BATCH_SIZE) break;
+      from += BATCH_SIZE;
+    }
+
+    return Array.from(references).sort((a, b) => a.localeCompare(b));
   },
 
   async getTotalCount(): Promise<number> {
@@ -394,8 +446,8 @@ export const taxRecordApi = {
     filters?: {
       search?: string;
       searchField?: string;
-      referenceFilter?: string;
-      statusFilter?: string;
+      referenceFilter?: string[];
+      statusFilter?: string[];
     },
   ): Promise<void> {
     const userId = await getCurrentUserId();
@@ -406,11 +458,11 @@ export const taxRecordApi = {
       .eq('user_id', userId);
 
     if (filters) {
-      if (filters.referenceFilter && filters.referenceFilter !== 'all') {
-        query = query.eq('reference', filters.referenceFilter);
+      if (filters.referenceFilter && filters.referenceFilter.length > 0) {
+        query = query.in('reference', filters.referenceFilter);
       }
-      if (filters.statusFilter && filters.statusFilter !== 'all') {
-        query = query.eq('status', filters.statusFilter);
+      if (filters.statusFilter && filters.statusFilter.length > 0) {
+        query = query.in('status', filters.statusFilter);
       }
       if (filters.search && filters.search.trim()) {
         const term = filters.search.trim();

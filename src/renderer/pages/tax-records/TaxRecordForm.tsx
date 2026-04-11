@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -177,7 +177,7 @@ export default function TaxRecordFormPage() {
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
-          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors"
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors cursor-pointer"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Tax Records
@@ -274,10 +274,13 @@ export default function TaxRecordFormPage() {
                 />
                 <SelectField
                   id="selectedReference"
-                  name="selectedReference"
                   label="Reference"
                   value={formValues.selectedReference}
-                  onChange={handleChange}
+                  onChange={(value) =>
+                    handleChange({
+                      target: { name: 'selectedReference', value },
+                    } as React.ChangeEvent<HTMLSelectElement>)
+                  }
                   options={allReferenceOptions}
                   error={fieldErrors.selectedReference}
                 />
@@ -327,10 +330,13 @@ export default function TaxRecordFormPage() {
                   />
                   <SelectField
                     id="status"
-                    name="status"
                     label="Status"
                     value={formValues.status}
-                    onChange={handleChange}
+                    onChange={(value) =>
+                      handleChange({
+                        target: { name: 'status', value },
+                      } as React.ChangeEvent<HTMLSelectElement>)
+                    }
                     options={statusOptions}
                     error={fieldErrors.status}
                   />

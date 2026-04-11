@@ -2,7 +2,7 @@ import FloatingActionBar from '@components/common/FloatingActionBar';
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import StatCard from '@components/common/StatCard';
 import AppLayout from '@components/layout/AppLayout';
-import BulkActionModal from '@components/modals/BulkActionModal';
+import BulkActionModal from '@pages/tax-records/BulkActionModal';
 import DataTable, {
   type DataTableColumn,
   type SortState,
@@ -10,6 +10,7 @@ import DataTable, {
 import Pagination from '@components/table/Pagination';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
+import SelectField from '@components/ui/SelectField';
 import { Chip } from '@components/ui/Chip';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import DropdownMenu, {
@@ -59,9 +60,9 @@ export default function TaxRecordsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [searchField, setSearchField] = useState<SearchField>('all');
-  const [referenceFilter, setReferenceFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [sortState, setSortState] = useState<SortState>({
+  const [referenceFilter, setReferenceFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [sortState, setSortState] = useState<SortState | null>({
     key: 'updatedAt',
     direction: 'desc',
   });
@@ -94,8 +95,8 @@ export default function TaxRecordsPage() {
   } = usePaginatedTaxRecords({
     page,
     pageSize,
-    sortKey: sortState.key,
-    sortDirection: sortState.direction,
+    sortKey: sortState?.key ?? 'updatedAt',
+    sortDirection: sortState?.direction ?? 'desc',
     search: debouncedSearch,
     searchField,
     referenceFilter,
@@ -240,22 +241,25 @@ export default function TaxRecordsPage() {
   };
 
   const clearFilters = () => {
-    setReferenceFilter('all');
-    setStatusFilter('all');
+    setReferenceFilter([]);
+    setStatusFilter([]);
     setSearchQuery('');
     setSearchField('all');
     setPage(0);
   };
 
   const hasActiveFilters =
-    referenceFilter !== 'all' ||
-    statusFilter !== 'all' ||
+    referenceFilter.length > 0 ||
+    statusFilter.length > 0 ||
     searchQuery.trim() !== '';
 
-  const referenceOptions = distinctReferences.map((ref) => ({
-    value: ref,
-    label: ref.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-  }));
+  const referenceOptions = [
+    { value: '', label: 'All References' },
+    ...distinctReferences.map((ref) => ({
+      value: ref,
+      label: ref.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+    })),
+  ];
 
   // Dropdown menu items
   const dropdownMenuItems: DropdownMenuItem[] = [
@@ -267,17 +271,18 @@ export default function TaxRecordsPage() {
             onClick: () => setShowBulkActionModal(true),
             badge: selectedIds.size > 0 ? selectedIds.size : undefined,
           },
+          {
+            label: 'Export CSV',
+            icon: ArrowDownTrayIcon,
+            onClick: () => setShowCsvExport(true),
+            badge: selectedIds.size > 0 ? selectedIds.size : undefined,
+          },
         ]
       : []),
     {
       label: 'Import CSV',
       icon: ArrowUpTrayIcon,
       onClick: () => setShowCsvImport(true),
-    },
-    {
-      label: 'Export CSV',
-      icon: ArrowDownTrayIcon,
-      onClick: () => setShowCsvExport(true),
     },
   ];
 
@@ -320,6 +325,7 @@ export default function TaxRecordsPage() {
     {
       id: 'name',
       header: 'Name',
+      size: '200px',
       sortable: true,
       render: (record) => (
         <span className="font-medium text-slate-900">{record.name}</span>
@@ -328,12 +334,14 @@ export default function TaxRecordsPage() {
     {
       id: 'cnic',
       header: 'CNIC',
+      size: '200px',
       sortable: true,
       render: (record) => <span className="text-slate-600">{record.cnic}</span>,
     },
     {
       id: 'email',
       header: 'Email',
+      size: '200px',
       sortable: true,
       render: (record) => (
         <span className="text-slate-600">{record.email || 'N/A'}</span>
@@ -343,6 +351,7 @@ export default function TaxRecordsPage() {
       id: 'phone',
       header: 'Phone',
       sortable: true,
+      size: '200px',
       render: (record) => (
         <span className="text-slate-600">{record.phone || 'N/A'}</span>
       ),
@@ -351,6 +360,7 @@ export default function TaxRecordsPage() {
       id: 'reference',
       header: 'Reference',
       sortable: true,
+      size: '230px',
       render: (record) => (
         <Chip variant="grey">{record.reference.replace(/-/g, ' ')}</Chip>
       ),
@@ -359,6 +369,7 @@ export default function TaxRecordsPage() {
       id: 'status',
       header: 'Status',
       sortable: true,
+      size: '120px',
       align: 'center',
       render: (record) => (
         <Chip
@@ -378,7 +389,7 @@ export default function TaxRecordsPage() {
       id: 'createdAt',
       header: 'Created',
       sortable: true,
-      align: 'right',
+      align: 'center',
       render: (record) => (
         <span className="text-sm text-slate-500">
           {new Date(record.createdAt).toLocaleDateString()}
@@ -389,7 +400,7 @@ export default function TaxRecordsPage() {
       id: 'updatedAt',
       header: 'Updated',
       sortable: true,
-      align: 'right',
+      align: 'center',
       render: (record) => (
         <span className="text-sm text-slate-500">
           {new Date(record.updatedAt).toLocaleDateString()}
@@ -399,6 +410,7 @@ export default function TaxRecordsPage() {
     {
       id: 'actions',
       header: 'Actions',
+      size: '100px',
       align: 'right',
       render: (record) => (
         <div className="flex items-center justify-center gap-2">
@@ -480,24 +492,20 @@ export default function TaxRecordsPage() {
         <Card padding="none" className="mb-20">
           {/* Filters Bar */}
           <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-2">
-            {/* Row 1: Unified search bar */}
-            <div className="flex items-stretch rounded-lg border border-slate-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500 transition-all">
-              <select
+            {/* Row 1: Search */}
+            <div className="flex items-center gap-2">
+              <SelectField
                 id="searchField"
                 value={searchField}
-                onChange={(e) => {
-                  setSearchField(e.target.value as SearchField);
+                onChange={(value) => {
+                  setSearchField(value as SearchField);
                   setSearchQuery('');
                   resetPage();
                 }}
-                className="shrink-0 border-r border-slate-200 bg-slate-50 pl-3 pr-7 text-xs font-medium text-slate-600 focus:outline-none cursor-pointer"
-              >
-                {SEARCH_FIELD_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                options={SEARCH_FIELD_OPTIONS}
+                size="sm"
+                className="shrink-0 w-36"
+              />
               <div className="relative flex-1 min-w-0">
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                   <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
@@ -508,52 +516,55 @@ export default function TaxRecordsPage() {
                   placeholder={SEARCH_FIELD_PLACEHOLDER[searchField]}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full py-2 pl-9 pr-3 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
+                  className="block w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
                 />
               </div>
             </div>
 
             {/* Row 2: Filters */}
             <div className="flex items-center gap-2 flex-wrap">
-              <select
+              <SelectField
                 id="referenceFilter"
+                multiple
                 value={referenceFilter}
-                onChange={(e) => {
-                  setReferenceFilter(e.target.value);
+                onChange={(values) => {
+                  // Empty string is the "All References" sentinel — clicking it clears all selections
+                  setReferenceFilter(values.includes('') ? [] : values);
                   resetPage();
                 }}
-                className="flex-1 min-w-32.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-              >
-                <option value="all">All References</option>
-                {referenceOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-              <select
+                options={referenceOptions}
+                placeholder="All References"
+                size="sm"
+                className="flex-1 min-w-32"
+              />
+              <SelectField
                 id="statusFilter"
+                multiple
                 value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
+                onChange={(values) => {
+                  setStatusFilter(values.includes('') ? [] : values);
                   resetPage();
                 }}
-                className="flex-1 min-w-30 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-              >
-                <option value="all">All Statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="late-filer">Late Filer</option>
-              </select>
+                options={[
+                  { value: '', label: 'All Statuses' },
+                  { value: 'active', label: 'Active' },
+                  { value: 'inactive', label: 'Inactive' },
+                  { value: 'late-filer', label: 'Late Filer' },
+                ]}
+                placeholder="All Statuses"
+                size="sm"
+                className="flex-1 min-w-28"
+              />
               {hasActiveFilters && (
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={XMarkIcon}
                   onClick={clearFilters}
-                  className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-300 hover:border-red-200 transition-colors whitespace-nowrap"
                 >
-                  <XMarkIcon className="h-3.5 w-3.5" />
                   Clear
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -598,7 +609,7 @@ export default function TaxRecordsPage() {
         {/* CSV Export Modal */}
         <CsvExportModal
           isOpen={showCsvExport}
-          records={records}
+          ids={Array.from(selectedIds)}
           onClose={() => setShowCsvExport(false)}
         />
 
@@ -686,6 +697,7 @@ export default function TaxRecordsPage() {
             setSelectedIds(new Set());
           }}
           onDeleteSelected={() => setPendingBulkDelete(true)}
+          onExport={() => setShowCsvExport(true)}
         />
       </div>
     </AppLayout>

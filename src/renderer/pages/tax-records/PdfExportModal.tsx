@@ -1,7 +1,7 @@
 import Button from '@components/ui/Button';
 import CheckboxField from '@components/ui/CheckboxField';
+import Modal from '@components/ui/Modal';
 import { useAuth } from '@contexts/AuthContext';
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
 import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/20/solid';
 import { TaxRecord } from '@shared/taxRecord.contracts';
 import { useState } from 'react';
@@ -76,114 +76,101 @@ export default function PdfExportModal({
   };
 
   return (
-    <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-      {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
-
-      {/* Panel */}
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <DialogPanel className="mx-auto w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
-          {/* Header */}
-          <div className="bg-blue-600 px-6 py-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 shrink-0">
-                <DocumentTextIcon className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-base font-semibold text-white leading-tight">
-                  Export as PDF
-                </DialogTitle>
-                <p className="text-sm text-blue-200 mt-0.5">
-                  Choose which fields to include
-                </p>
-              </div>
-            </div>
-
-            {/* Record name badge */}
-            <div className="mt-4 rounded-lg bg-white/15 px-3 py-2">
-              <p className="text-xs text-blue-200 leading-none mb-1">Record</p>
-              <p className="text-sm font-semibold text-white leading-tight truncate">
-                {record.name}
-              </p>
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 shrink-0">
+            <DocumentTextIcon className="h-5 w-5 text-blue-600" />
           </div>
+          <div>
+            <p className="text-base font-semibold text-slate-900 leading-tight">
+              Export as PDF
+            </p>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Choose which fields to include
+            </p>
+          </div>
+        </div>
+      }
+      size="md"
+      footer={
+        <div className="flex gap-3 justify-end">
+          <Button
+            variant="secondary"
+            type="button"
+            size="sm"
+            onClick={handleClose}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleExport}
+            disabled={selected.size === 0}
+            icon={ArrowDownTrayIcon}
+          >
+            Download PDF
+          </Button>
+        </div>
+      }
+      bodyClassName="px-3 pt-4 pb-2"
+    >
+      <div className="rounded-lg bg-slate-50 px-3 py-2 mb-4 border border-slate-200">
+        <p className="text-xs text-slate-500 leading-none mb-1">Record</p>
+        <p className="text-sm font-semibold text-slate-800 leading-tight truncate">
+          {record.name}
+        </p>
+      </div>
 
-          {/* Field selection */}
-          <div className="px-3 pt-4 pb-2">
-            {/* Select all / clear */}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">
-                  {selected.size}
-                </span>{' '}
-                of {PDF_FIELD_OPTIONS.length} fields selected
-              </span>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setSelected(new Set(PDF_FIELD_OPTIONS.map((f) => f.id)))
-                  }
-                  className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
-                >
-                  Select all
-                </button>
-                <span className="text-slate-300 text-xs">|</span>
-                <button
-                  type="button"
-                  onClick={() => setSelected(new Set())}
-                  className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-xs text-slate-500">
+          <span className="font-semibold text-slate-700">{selected.size}</span>{' '}
+          of {PDF_FIELD_OPTIONS.length} fields selected
+        </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() =>
+              setSelected(new Set(PDF_FIELD_OPTIONS.map((f) => f.id)))
+            }
+            className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+          >
+            Select all
+          </button>
+          <span className="text-slate-300 text-xs">|</span>
+          <button
+            type="button"
+            onClick={() => setSelected(new Set())}
+            className="text-xs font-medium text-slate-500 hover:text-slate-700 transition-colors"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
 
-            {/* Sections */}
-            <div className="space-y-4 max-h-64 overflow-y-auto pr-1 -mr-1">
-              {Object.entries(SECTIONS).map(([section, fields]) => (
-                <div key={section}>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
-                    {section}
-                  </p>
-                  <div className="space-y-1.5 pl-0.5">
-                    {fields.map((field) => (
-                      <CheckboxField
-                        key={field.id}
-                        id={`pdf-${field.id}`}
-                        label={field.label}
-                        checked={selected.has(field.id)}
-                        onChange={() => toggle(field.id)}
-                      />
-                    ))}
-                  </div>
-                </div>
+      <div className="space-y-4 max-h-64 overflow-y-auto pr-1 -mr-1">
+        {Object.entries(SECTIONS).map(([section, fields]) => (
+          <div key={section}>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+              {section}
+            </p>
+            <div className="space-y-1.5 pl-0.5">
+              {fields.map((field) => (
+                <CheckboxField
+                  key={field.id}
+                  id={`pdf-${field.id}`}
+                  label={field.label}
+                  checked={selected.has(field.id)}
+                  onChange={() => toggle(field.id)}
+                />
               ))}
             </div>
           </div>
-
-          {/* Actions */}
-          <div className="px-6 py-4 flex gap-3 justify-end border-t border-slate-100 mt-3">
-            <Button
-              variant="secondary"
-              type="button"
-              size="sm"
-              onClick={handleClose}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleExport}
-              disabled={selected.size === 0}
-              icon={ArrowDownTrayIcon}
-            >
-              Download PDF
-            </Button>
-          </div>
-        </DialogPanel>
+        ))}
       </div>
-    </Dialog>
+    </Modal>
   );
 }

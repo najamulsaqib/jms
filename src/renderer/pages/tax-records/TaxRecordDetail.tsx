@@ -28,7 +28,7 @@ import { useTaxRecord } from '@hooks/useTaxRecords';
 import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import PdfExportModal from './PdfExportModal';
@@ -294,8 +294,7 @@ export default function TaxRecordDetailPage() {
         }[field] || 'Value';
       toast.success(`${label} copied to clipboard`);
       setTimeout(() => setCopiedField(null), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+    } catch {
       toast.error('Failed to copy to clipboard');
     }
   };
@@ -314,7 +313,7 @@ export default function TaxRecordDetailPage() {
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
-          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors"
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors cursor-pointer"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Tax Records
@@ -678,10 +677,13 @@ export default function TaxRecordDetailPage() {
                     />
                     <SelectField
                       id="selectedReference"
-                      name="selectedReference"
                       label="Reference"
                       value={formValues.selectedReference}
-                      onChange={handleChange}
+                      onChange={(value) =>
+                        handleChange({
+                          target: { name: 'selectedReference', value },
+                        } as React.ChangeEvent<HTMLSelectElement>)
+                      }
                       options={allReferenceOptions}
                       error={fieldErrors.selectedReference}
                     />
@@ -732,10 +734,13 @@ export default function TaxRecordDetailPage() {
                       />
                       <SelectField
                         id="status"
-                        name="status"
                         label="Status"
                         value={formValues.status}
-                        onChange={handleChange}
+                        onChange={(value) =>
+                          handleChange({
+                            target: { name: 'status', value },
+                          } as React.ChangeEvent<HTMLSelectElement>)
+                        }
                         options={STATUS_OPTIONS}
                         error={fieldErrors.status}
                       />

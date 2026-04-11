@@ -184,17 +184,17 @@ export const buildReferenceOptions = (
     seen.delete('self');
   }
 
-  // 2. Rest sorted alphabetically by label
-  const rest = [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  for (const [value, label] of rest) {
-    options.push({ value, label });
-  }
-
-  // 3. Add Custom at end
+  // 2. Add "Add Custom Reference" option
   options.push({
     value: CUSTOM_REFERENCE_VALUE,
     label: '+ Add Custom Reference',
   });
+
+  // 3. Add remaining options sorted alphabetically by label
+  const rest = [...seen.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  for (const [value, label] of rest) {
+    options.push({ value, label });
+  }
 
   return options;
 };

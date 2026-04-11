@@ -1,4 +1,5 @@
-import { TrashIcon, XMarkIcon } from '@heroicons/react/20/solid';
+import { ArrowDownTrayIcon, TrashIcon, XMarkIcon } from '@heroicons/react/20/solid';
+import SelectField from '@components/ui/SelectField';
 import { CheckCircleIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { TaxRecordStatus } from '@shared/taxRecord.contracts';
 
@@ -12,6 +13,7 @@ interface FloatingActionBarProps {
   onApplyToAll: () => void;
   onClearSelection: () => void;
   onDeleteSelected: () => void;
+  onExport: () => void;
 }
 
 export default function FloatingActionBar({
@@ -24,6 +26,7 @@ export default function FloatingActionBar({
   onApplyToAll,
   onClearSelection,
   onDeleteSelected,
+  onExport,
 }: FloatingActionBarProps) {
   if (selectedCount === 0) return null;
 
@@ -39,16 +42,19 @@ export default function FloatingActionBar({
         {/* Status selector */}
         <div className="flex items-center gap-1.5">
           <span className="text-sm text-slate-300">Status:</span>
-          <select
+          <SelectField
             id="floating-bulk-status"
             value={status}
-            onChange={(e) => onStatusChange(e.target.value as TaxRecordStatus)}
-            className="px-2 py-1 text-sm border border-slate-600 rounded-lg bg-slate-800 text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-          >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-            <option value="late-filer">Late Filer</option>
-          </select>
+            onChange={(value) => onStatusChange(value as TaxRecordStatus)}
+            options={[
+              { value: 'active', label: 'Active' },
+              { value: 'inactive', label: 'Inactive' },
+              { value: 'late-filer', label: 'Late Filer' },
+            ]}
+            size="sm"
+            variant="dark"
+            className="w-36"
+          />
           <button
             type="button"
             onClick={onApplyToSelected}
@@ -70,6 +76,14 @@ export default function FloatingActionBar({
 
         {/* Action buttons */}
         <div className="flex items-center gap-1.5 pl-3 border-l border-slate-700 self-stretch">
+          <button
+            type="button"
+            onClick={onExport}
+            className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+            title="Export selected as CSV"
+          >
+            <ArrowDownTrayIcon className="w-4 h-4" />
+          </button>
           <button
             type="button"
             onClick={onDeleteSelected}

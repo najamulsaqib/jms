@@ -6,7 +6,7 @@ interface IconButtonProps {
   disabled?: boolean;
   title?: string;
   className?: string;
-  variant?: 'default' | 'subtle';
+  variant?: 'default' | 'subtle' | 'danger';
   size?: 'sm' | 'md' | 'lg';
 }
 
@@ -20,6 +20,7 @@ const variantClasses = {
   default:
     'hover:bg-slate-200 active:bg-slate-300 transition-colors rounded-md',
   subtle: 'hover:bg-slate-100 active:bg-slate-200 transition-colors rounded-md',
+  danger: 'text-slate-400 hover:bg-red-50 hover:text-red-600 active:bg-red-100 transition-colors rounded-md',
 };
 
 export default function IconButton({

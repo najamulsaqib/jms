@@ -1,4 +1,8 @@
-import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/20/solid';
+import {
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
+} from '@heroicons/react/20/solid';
+import SelectField from '@components/ui/SelectField';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500, 1000];
 
@@ -9,27 +13,6 @@ type PaginationProps = {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
 };
-
-function buildPageWindows(
-  current: number,
-  totalPages: number,
-): (number | '...')[] {
-  if (totalPages <= 7) {
-    return Array.from({ length: totalPages }, (_, i) => i);
-  }
-  const pages: (number | '...')[] = [];
-  // Always show first 2
-  pages.push(0, 1);
-  if (current > 3) pages.push('...');
-  // Middle window around current
-  const start = Math.max(2, current - 1);
-  const end = Math.min(totalPages - 3, current + 1);
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (current < totalPages - 4) pages.push('...');
-  // Always show last 2
-  pages.push(totalPages - 2, totalPages - 1);
-  return [...new Set(pages)];
-}
 
 export default function Pagination({
   page,
@@ -42,77 +25,101 @@ export default function Pagination({
   const from = total === 0 ? 0 : page * pageSize + 1;
   const to = Math.min((page + 1) * pageSize, total);
 
-  const pages = buildPageWindows(page, totalPages);
-
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-white">
-      {/* Left: per-page + summary */}
-      <div className="flex items-center gap-3 text-sm text-slate-600">
-        <span>Rows per page:</span>
-        <select
-          value={pageSize}
-          onChange={(e) => {
-            onPageSizeChange(Number(e.target.value));
-          }}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        >
-          {PAGE_SIZE_OPTIONS.map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-        <span className="text-slate-400">
-          {total === 0 ? '0 records' : `${from}–${to} of ${total}`}
+    <div className="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-white">
+      {/* Left: summary and page size */}
+      <div className="flex items-center gap-4 text-sm">
+        <span className="text-slate-600">
+          {total === 0
+            ? 'No records'
+            : `${from}–${to} of ${total.toLocaleString()}`}
         </span>
+        <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+          <span className="text-slate-600">Rows:</span>
+          <SelectField
+            value={String(pageSize)}
+            onChange={(value) => onPageSizeChange(Number(value))}
+            options={PAGE_SIZE_OPTIONS.map((n) => ({
+              value: String(n),
+              label: String(n),
+            }))}
+            size="sm"
+            className="shrink-0 w-22"
+          />
+        </div>
       </div>
 
-      {/* Right: page controls */}
-      <div className="flex items-center gap-1">
+      {/* Right: page navigation */}
+      <div className="flex items-center gap-2">
+        {/* First page */}
+        <button
+          type="button"
+          onClick={() => onPageChange(0)}
+          disabled={page === 0}
+          className="text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          aria-label="First page"
+          title="First page"
+        >
+          <ChevronDoubleLeftIcon className="h-5 w-5" />
+        </button>
+
+        {/* Previous text link */}
         <button
           type="button"
           onClick={() => onPageChange(page - 1)}
           disabled={page === 0}
-          className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="text-blue-600 hover:text-blue-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-medium text-sm"
           aria-label="Previous page"
         >
-          <ChevronLeftIcon className="h-4 w-4" />
+          Previous
         </button>
 
-        {pages.map((p, i) =>
-          p === '...' ? (
-            <span
-              // eslint-disable-next-line react/no-array-index-key
-              key={`ellipsis-${i}`}
-              className="inline-flex items-center justify-center h-8 w-8 text-sm text-slate-400 select-none"
-            >
-              …
-            </span>
-          ) : (
-            <button
-              key={p}
-              type="button"
-              onClick={() => onPageChange(p as number)}
-              className={`inline-flex items-center justify-center h-8 w-8 rounded-md text-sm font-medium transition-colors ${
-                p === page
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
-              aria-current={p === page ? 'page' : undefined}
-            >
-              {(p as number) + 1}
-            </button>
-          ),
-        )}
+        {/* Page number input */}
+        <div className="flex items-center gap-1 mx-2">
+          <input
+            type="number"
+            min="1"
+            max={totalPages}
+            value={page + 1}
+            onChange={(e) => {
+              const val = parseInt(e.target.value, 10);
+              if (!Number.isNaN(val) && val >= 1 && val <= totalPages) {
+                onPageChange(val - 1);
+              }
+            }}
+            style={{
+              WebkitAppearance: 'none',
+              MozAppearance: 'textfield',
+              appearance: 'textfield',
+            }}
+            className="w-16 h-7 border border-slate-300 rounded px-2 text-center text-sm font-medium text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0"
+          />
+          <span className="text-sm text-slate-600 font-medium">
+            of {totalPages}
+          </span>
+        </div>
 
+        {/* Next text link */}
         <button
           type="button"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages - 1}
-          className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="text-blue-600 hover:text-blue-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-medium text-sm"
           aria-label="Next page"
         >
-          <ChevronRightIcon className="h-4 w-4" />
+          Next
+        </button>
+
+        {/* Last page */}
+        <button
+          type="button"
+          onClick={() => onPageChange(totalPages - 1)}
+          disabled={page >= totalPages - 1}
+          className="text-slate-400 hover:text-slate-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          aria-label="Last page"
+          title="Last page"
+        >
+          <ChevronDoubleRightIcon className="h-5 w-5" />
         </button>
       </div>
     </div>
