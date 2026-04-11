@@ -12,9 +12,6 @@ function isKnownIncompatibleRuntime() {
 }
 
 export async function enablePortalAdBlocking() {
-  console.warn('Portal ad blocker is temporarily disabled.');
-  return;
-
   if (adblockInitPromise) {
     return adblockInitPromise;
   }

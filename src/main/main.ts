@@ -13,7 +13,6 @@ import log from 'electron-log';
 import path from 'path';
 import { registerUpdaterHandlers } from './ipc/updater.handlers';
 import MenuBuilder from './menu';
-import { enablePortalAdBlocking } from './portalAdblocker';
 import { AppUpdater } from './updater';
 import { resolveHtmlPath } from './util';
 
@@ -89,7 +88,7 @@ const createWindow = async () => {
     await installExtensions();
   }
 
-  await enablePortalAdBlocking();
+  // await enablePortalAdBlocking();
 
   const RESOURCES_PATH = app.isPackaged
     ? path.join(process.resourcesPath, 'assets')
