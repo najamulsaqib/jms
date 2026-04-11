@@ -179,6 +179,28 @@ app.on('window-all-closed', () => {
 // INFO: Intercept new windows opened from webview tags (target="_blank", window.open, etc.)
 // and load them inside the same webview instead of opening a new OS window.
 app.on('web-contents-created', (_event, contents) => {
+  contents.on('render-process-gone', (_goneEvent, details) => {
+    log.error(
+      'WebContents render-process-gone',
+      JSON.stringify({
+        type: contents.getType(),
+        url: contents.getURL(),
+        reason: details.reason,
+        exitCode: details.exitCode,
+      }),
+    );
+  });
+
+  contents.on('unresponsive', () => {
+    log.error(
+      'WebContents became unresponsive',
+      JSON.stringify({
+        type: contents.getType(),
+        url: contents.getURL(),
+      }),
+    );
+  });
+
   if (contents.getType() === 'webview') {
     // Can't call contents.loadURL() from inside this handler (DataClone error).
     // Instead, send an IPC message to the renderer and let it call loadURL on
