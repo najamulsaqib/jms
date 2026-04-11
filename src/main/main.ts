@@ -9,6 +9,7 @@
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
 import { app, BrowserWindow, shell, ipcMain, net } from 'electron';
+import log from 'electron-log';
 import path from 'path';
 import { registerUpdaterHandlers } from './ipc/updater.handlers';
 import MenuBuilder from './menu';
@@ -18,6 +19,24 @@ import { resolveHtmlPath } from './util';
 
 let mainWindow: BrowserWindow | null = null;
 let appUpdater: AppUpdater | null = null;
+
+log.transports.file.level = 'info';
+
+const getErrorDetails = (error: unknown) => {
+  if (error instanceof Error) {
+    return `${error.name}: ${error.message}\n${error.stack ?? ''}`;
+  }
+
+  return String(error);
+};
+
+process.on('uncaughtException', (error) => {
+  log.error('Main process uncaughtException', getErrorDetails(error));
+});
+
+process.on('unhandledRejection', (reason) => {
+  log.error('Main process unhandledRejection', getErrorDetails(reason));
+});
 
 // Export function to check for updates
 export function checkForUpdates() {
@@ -98,7 +117,17 @@ const createWindow = async () => {
     },
   });
 
+  log.info('Main window created');
+
   mainWindow.loadURL(resolveHtmlPath('index.html'));
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    log.error('Renderer process gone', JSON.stringify(details));
+  });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    log.error('Renderer became unresponsive');
+  });
 
   mainWindow.on('ready-to-show', () => {
     if (!mainWindow) {
@@ -163,8 +192,8 @@ app.on('web-contents-created', (_event, contents) => {
 
 app
   .whenReady()
-  .then(() => {
-    createWindow();
+  .then(async () => {
+    await createWindow();
 
     // Initialize updater and register IPC handlers
     appUpdater = new AppUpdater();
@@ -173,7 +202,16 @@ app
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
-      if (mainWindow === null) createWindow();
+      if (mainWindow === null) {
+        createWindow().catch((error) => {
+          log.error(
+            'Failed to re-create main window on activate:',
+            getErrorDetails(error),
+          );
+        });
+      }
     });
   })
-  .catch(console.log);
+  .catch((error) => {
+    log.error('Failed to initialize app:', getErrorDetails(error));
+  });
