@@ -35,7 +35,7 @@ export function useNetworkStatus() {
     // Check immediately on mount
     checkConnection();
     // Then keep polling on the interval
-    intervalRef.current = setInterval(checkConnection, INTERVALS.NETWORK_CHECK);
+    intervalRef.current = setInterval(checkConnection, INTERVALS.FIVE_SECONDS);
 
     // Also re-check whenever the browser fires online/offline events
     // so status updates quickly when the network changes rather than

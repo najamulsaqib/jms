@@ -5,7 +5,13 @@ import { CheckCircleIcon } from '@heroicons/react/20/solid';
 import { ArrowDownTrayIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { autoDetectMapping, cleanNumber, parseCSV } from './csvUtils';
+import { useAdminProfile } from '@hooks/useTeamManagement';
+import {
+  autoDetectMapping,
+  cleanNumber,
+  extractHsCode,
+  parseCSV,
+} from './csvUtils';
 import MapStep from './MapStep';
 import ResultsStep from './ResultsStep';
 import { generateSalesTaxPdf } from './salesTaxPdf';
@@ -16,6 +22,8 @@ import UploadStep from './UploadStep';
 
 export default function SalesTaxPage() {
   const { userInfo } = useAuth();
+
+  const { adminProfile: companySource } = useAdminProfile();
   const [step, setStep] = useState<Step>('upload');
   const [headers, setHeaders] = useState<string[]>([]);
   const [rows, setRows] = useState<string[][]>([]);
@@ -67,7 +75,7 @@ export default function SalesTaxPage() {
 
     rows.forEach((row, i) => {
       const rowNum = i + 1;
-      const hsCode = getCell(row, 'hsCode').replace(/[="]/g, '').trim();
+      const hsCode = extractHsCode(getCell(row, 'hsCode'));
       const rawQty = getCell(row, 'quantity');
       const rawValue = getCell(row, 'value');
       const rawTax = getCell(row, 'salesTax');
@@ -223,15 +231,17 @@ export default function SalesTaxPage() {
                   generateSalesTaxPdf(
                     summary,
                     revenuePercentage,
-                    userInfo
+                    companySource
                       ? {
-                          name: userInfo.companyName || userInfo.fullName,
-                          phone: userInfo.phoneNumber,
-                          address: userInfo.address,
-                          contactName: userInfo.fullName,
-                          tagline: userInfo.description,
+                          name:
+                            companySource.companyName || companySource.fullName,
+                          phone: companySource.phoneNumber,
+                          address: companySource.address,
+                          contactName: companySource.fullName,
+                          tagline: companySource.description,
                         }
                       : undefined,
+                    userInfo?.fullName,
                   );
                   toast.success('PDF downloaded successfully');
                 } catch {

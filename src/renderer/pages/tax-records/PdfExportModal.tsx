@@ -1,6 +1,7 @@
 import Button from '@components/ui/Button';
 import CheckboxField from '@components/ui/CheckboxField';
 import Modal from '@components/ui/Modal';
+import { useAdminProfile } from '@hooks/useTeamManagement';
 import { useAuth } from '@contexts/AuthContext';
 import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/20/solid';
 import { TaxRecord } from '@shared/taxRecord.contracts';
@@ -44,6 +45,7 @@ export default function PdfExportModal({
   onExported,
 }: PdfExportModalProps) {
   const { userInfo } = useAuth();
+  const { adminProfile } = useAdminProfile();
   const [selected, setSelected] = useState<Set<PdfField>>(
     new Set(DEFAULT_FIELDS),
   );
@@ -64,14 +66,19 @@ export default function PdfExportModal({
     }
 
     const companyInfoOverrides: Partial<PdfCompanyInfo> = {
-      name: userInfo?.companyName || userInfo?.fullName,
-      tagline: userInfo?.description,
-      address: userInfo?.address,
-      phone: userInfo?.phoneNumber,
-      contactName: userInfo?.fullName || userInfo?.companyName,
+      name: adminProfile?.companyName || adminProfile?.fullName,
+      tagline: adminProfile?.description,
+      address: adminProfile?.address,
+      phone: adminProfile?.phoneNumber,
+      contactName: adminProfile?.fullName || adminProfile?.companyName,
     };
 
-    generateTaxRecordPdf(record, selected, companyInfoOverrides);
+    generateTaxRecordPdf(
+      record,
+      selected,
+      companyInfoOverrides,
+      userInfo?.fullName,
+    );
     await onExported?.({
       selectedFields: Array.from(selected),
       selectedCount: selected.size,

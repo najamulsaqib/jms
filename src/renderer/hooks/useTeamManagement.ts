@@ -1,11 +1,13 @@
 import { refreshAuthSession } from '@lib/authSession';
-import { PAGE_KEYS, PAGE_SIZE } from '@lib/enums';
+import { INTERVALS, PAGE_KEYS, PAGE_SIZE } from '@lib/enums';
 import {
   teamManagementApi,
   type CreateManagedUserInput,
   type ManagedUsersPaginationInput,
   type UpdateManagedUserInput,
 } from '@services/teamManagement.api';
+import { profileApi, type ProfileRow } from '@services/profile.api';
+import { useAuth, type UserInfo } from '@contexts/AuthContext';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
@@ -132,4 +134,30 @@ export function useTeamManagement(
     deleteUserAsync: deleteUserMutation.mutateAsync,
     isDeletingUser: deleteUserMutation.isPending,
   };
+}
+
+/**
+ * Resolves the admin's profile for the current session.
+ * - If the current user is an admin, their own `userInfo` is returned directly.
+ * - If the current user is a managed user, the owning admin's profile is fetched
+ *   via `managedBy` and returned as a `ProfileRow`.
+ */
+export function useAdminProfile(): {
+  adminProfile: ProfileRow | UserInfo | null;
+  isLoading: boolean;
+} {
+  const { userInfo } = useAuth();
+
+  const { data, isLoading } = useQuery({
+    queryKey: [PAGE_KEYS.PROFILE, 'admin'],
+    queryFn: () => profileApi.getAdminProfile(),
+    enabled: !!userInfo && !userInfo.isAdmin,
+    staleTime: INTERVALS.FIVE_MINUTES,
+  });
+
+  if (userInfo?.isAdmin) {
+    return { adminProfile: userInfo, isLoading: false };
+  }
+
+  return { adminProfile: data ?? null, isLoading };
 }

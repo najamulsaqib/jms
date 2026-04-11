@@ -1,5 +1,6 @@
+import { getAccessToken } from '@lib/authSession';
 import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
-import { TABLES } from '@lib/enums/tables';
+import { EDGE_FUNCTIONS, TABLES } from '@lib/enums';
 import { supabase } from '@lib/supabase';
 
 export type ProfileRow = {
@@ -79,6 +80,35 @@ export const profileApi = {
       .maybeSingle();
 
     if (error) throw mapSupabaseError(error);
+    if (!data) return null;
+    return mapRow(data as Record<string, unknown>);
+  },
+
+  async getProfileById(userId: string): Promise<ProfileRow | null> {
+    const { data, error } = await supabase
+      .from(TABLES.PROFILES)
+      .select(PROFILE_SELECT)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw mapSupabaseError(error);
+    if (!data) return null;
+    return mapRow(data as Record<string, unknown>);
+  },
+
+  /**
+   * Fetches the admin profile for the current session via a service-role Edge Function.
+   * Direct table queries are blocked by RLS for managed users reading the admin's row,
+   * so this goes through the Edge Function which bypasses RLS.
+   */
+  async getAdminProfile(): Promise<ProfileRow | null> {
+    const accessToken = await getAccessToken();
+    const { data, error } = await supabase.functions.invoke(
+      EDGE_FUNCTIONS.GET_ADMIN_PROFILE,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+
+    if (error) throw new Error(error.message);
     if (!data) return null;
     return mapRow(data as Record<string, unknown>);
   },

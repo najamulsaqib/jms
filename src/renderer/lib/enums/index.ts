@@ -45,9 +45,15 @@ export type PageSize = (typeof PAGE_SIZE)[keyof typeof PAGE_SIZE];
 
 /* Interval constants in milliseconds for various polling or refresh operations. */
 export const INTERVALS = {
-  NETWORK_CHECK: 1500,
-  REFRESH: 1500,
-  QUERY_STALE: 300000, // 5 minutes
+  ONE_SECOND: 1000,
+  FIVE_SECONDS: 5000,
+  THIRTY_SECONDS: 30000,
+  ONE_MINUTE: 60000,
+  FIVE_MINUTES: 300000,
+  TEN_MINUTES: 600000,
+  FIFTEEN_MINUTES: 900000,
+  THIRTY_MINUTES: 1800000,
+  ONE_HOUR: 3600000,
 };
 
 export type IntervalName = (typeof INTERVALS)[keyof typeof INTERVALS];
@@ -59,6 +65,7 @@ export const PAGE_KEYS = {
   AUDIT_LOGS: 'audit-logs',
   TEAM_MANAGEMENT: 'team-management',
   MANAGED_USERS: 'managed-users',
+  PROFILE: 'profile',
 };
 
 export type PageKey = (typeof PAGE_KEYS)[keyof typeof PAGE_KEYS];
