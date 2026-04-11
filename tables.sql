@@ -40,14 +40,12 @@ create table if not exists public.profiles (
   phone_number text not null default '',
   description text not null default '',
   avatar_url text not null default '',
+  is_banned boolean not null default false,
   role text not null default 'user' check (role in ('admin', 'user')),
   managed_by uuid references auth.users(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
-alter table public.profiles
-add column if not exists email text not null default '';
 
 update public.profiles p
 set email = coalesce(u.email, '')
@@ -122,3 +120,12 @@ create trigger on_auth_user_created
 after insert on auth.users
 for each row
 execute function public.handle_new_auth_user();
+
+-- Allow users to read their own profile OR profiles they manage
+CREATE POLICY "Users can view own and managed profiles"
+ON public.profiles
+FOR SELECT
+USING (
+  user_id = auth.uid()
+  OR managed_by = auth.uid()
+);

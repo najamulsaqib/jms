@@ -5,6 +5,7 @@ import {
   type UpdateManagedUserInput,
   type ManagedUser,
 } from '@services/teamManagement.api';
+import { refreshAuthSession } from '@lib/authSession';
 import { toast } from 'sonner';
 
 const MANAGED_USERS_QUERY_KEY = ['teamManagement', 'managedUsers'];
@@ -27,12 +28,13 @@ export function useTeamManagement() {
   const createUserMutation = useMutation({
     mutationFn: (payload: CreateManagedUserInput) =>
       teamManagementApi.createManagedUser(payload),
-    onSuccess: (newUser) => {
+    onSuccess: async (newUser) => {
       queryClient.setQueryData(
         MANAGED_USERS_QUERY_KEY,
         (prev: ManagedUser[] = []) => [...prev, newUser],
       );
       toast.success(`User ${newUser.email} created successfully`);
+      await refreshAuthSession();
     },
     onError: (err) => {
       const message =
@@ -51,7 +53,7 @@ export function useTeamManagement() {
       userId: string;
       payload: UpdateManagedUserInput;
     }) => teamManagementApi.updateManagedUser(userId, payload),
-    onSuccess: (updatedUser) => {
+    onSuccess: async (updatedUser) => {
       queryClient.setQueryData(
         MANAGED_USERS_QUERY_KEY,
         (prev: ManagedUser[] = []) =>
@@ -69,16 +71,44 @@ export function useTeamManagement() {
     },
   });
 
+  // Ban / unban managed user mutation
+  const banUserMutation = useMutation({
+    mutationFn: ({ userId, ban }: { userId: string; ban: boolean }) =>
+      teamManagementApi.banManagedUser(userId, ban),
+    onSuccess: async (updatedUser) => {
+      queryClient.setQueryData(
+        MANAGED_USERS_QUERY_KEY,
+        (prev: ManagedUser[] = []) =>
+          prev.map((user) =>
+            user.userId === updatedUser.userId ? updatedUser : user,
+          ),
+      );
+      toast.success(
+        updatedUser.isBanned
+          ? `${updatedUser.email} has been banned`
+          : `${updatedUser.email} has been unbanned`,
+      );
+      await refreshAuthSession();
+    },
+    onError: (err) => {
+      const message =
+        err instanceof Error ? err.message : 'Failed to update user status';
+      toast.error(message);
+      throw err;
+    },
+  });
+
   // Delete managed user mutation
   const deleteUserMutation = useMutation({
     mutationFn: (userId: string) => teamManagementApi.deleteManagedUser(userId),
-    onSuccess: (_, userId) => {
+    onSuccess: async (_, userId) => {
       queryClient.setQueryData(
         MANAGED_USERS_QUERY_KEY,
         (prev: ManagedUser[] = []) =>
           prev.filter((user) => user.userId !== userId),
       );
       toast.success('User deleted successfully');
+      await refreshAuthSession();
     },
     onError: (err) => {
       const message =
@@ -98,6 +128,8 @@ export function useTeamManagement() {
     updateUser: updateUserMutation.mutate,
     updateUserAsync: updateUserMutation.mutateAsync,
     isUpdatingUser: updateUserMutation.isPending,
+    banUser: banUserMutation.mutate,
+    isBanningUser: banUserMutation.isPending,
     deleteUser: deleteUserMutation.mutate,
     deleteUserAsync: deleteUserMutation.mutateAsync,
     isDeletingUser: deleteUserMutation.isPending,

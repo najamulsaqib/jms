@@ -121,6 +121,7 @@ export { UserAvatar };
 
 export default function UserInfoSection() {
   const { updateProfile, updatePassword, userInfo } = useAuth();
+  const isAdmin = userInfo?.isAdmin ?? false;
 
   const [profileDraft, setProfileDraft] = useState<ProfileDraft>(() =>
     createProfileDraft(userInfo),
@@ -295,8 +296,8 @@ export default function UserInfoSection() {
             )}
           </div>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Keep your profile details clean and current. These values are stored
-            in your Supabase auth metadata.
+            Keep your profile details clean and current so your account stays up
+            to date.
           </p>
         </div>
       </div>
@@ -310,7 +311,7 @@ export default function UserInfoSection() {
                   Profile details
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Update the information saved in your auth profile.
+                  Update the information shown on your account profile.
                 </p>
               </div>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
@@ -379,19 +380,21 @@ export default function UserInfoSection() {
                 error={formErrors.profile ?? undefined}
                 disabled={uiState.saving || uiState.updatingPassword}
               />
-              <TextField
-                id="companyName"
-                label="Company name"
-                value={profileDraft.companyName}
-                onChange={(event) =>
-                  setProfileDraft((prev) => ({
-                    ...prev,
-                    companyName: event.target.value,
-                  }))
-                }
-                placeholder="Enter your company name"
-                disabled={uiState.saving || uiState.updatingPassword}
-              />
+              {isAdmin && (
+                <TextField
+                  id="companyName"
+                  label="Company name"
+                  value={profileDraft.companyName}
+                  onChange={(event) =>
+                    setProfileDraft((prev) => ({
+                      ...prev,
+                      companyName: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter your company name"
+                  disabled={uiState.saving || uiState.updatingPassword}
+                />
+              )}
               <TextField
                 id="phoneNumber"
                 label="Phone number"
@@ -447,10 +450,12 @@ export default function UserInfoSection() {
 
             <dl className="mt-4 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-slate-50 px-4">
               <ProfileRow label="Full name" value={profileDraft.fullName} />
-              <ProfileRow
-                label="Company name"
-                value={profileDraft.companyName}
-              />
+              {isAdmin && (
+                <ProfileRow
+                  label="Company name"
+                  value={profileDraft.companyName}
+                />
+              )}
               <ProfileRow
                 label="Phone number"
                 value={profileDraft.phoneNumber}
@@ -485,7 +490,7 @@ export default function UserInfoSection() {
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
                   <CloudArrowUpIcon className="h-4 w-4 text-blue-500" />
-                  Auth metadata
+                  Profile sync
                 </span>
               </div>
             </div>
@@ -506,10 +511,12 @@ export default function UserInfoSection() {
                 label="Full name"
                 value={userInfo?.fullName ?? 'Not set'}
               />
-              <ProfileRow
-                label="Company name"
-                value={userInfo?.companyName ?? 'Not set'}
-              />
+              {isAdmin && (
+                <ProfileRow
+                  label="Company name"
+                  value={userInfo?.companyName ?? 'Not set'}
+                />
+              )}
               <ProfileRow
                 label="Phone number"
                 value={userInfo?.phoneNumber ?? 'Not set'}
@@ -562,12 +569,20 @@ export default function UserInfoSection() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50/70 p-4">
               <p className="text-sm font-semibold text-slate-900">
-                Want to edit this profile?
+                How to update your profile
               </p>
-              <p className="mt-1 text-sm text-slate-600">
-                Click Edit to update the values stored in your auth metadata.
+              <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-slate-600">
+                <li>Click the Edit button at the top of this card.</li>
+                <li>
+                  Update your name, avatar, phone, address, and description.
+                </li>
+                <li>Click Save to apply your changes.</li>
+              </ol>
+              <p className="mt-2 text-xs text-slate-500">
+                Tip: you can use Change password below to update account
+                security.
               </p>
             </div>
           </div>

@@ -2,67 +2,112 @@ import LoadingSpinner from '@components/common/LoadingSpinner';
 import DataTable, { DataTableColumn } from '@components/table/DataTable';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
+import { Chip } from '@components/ui/Chip';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
+import DropdownMenu from '@components/ui/DropdownMenu';
 import {
+  NoSymbolIcon,
   PencilSquareIcon,
   PlusIcon,
   TrashIcon,
+  UserIcon,
 } from '@heroicons/react/20/solid';
+import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { useTeamManagement } from '@hooks/useTeamManagement';
 import type { ManagedUser } from '@services/teamManagement.api';
 import { useState } from 'react';
-import AddUserModal from './AddUserModal';
-import EditUserModal from './EditUserModal';
+import UserModal from './UserModal';
+
+type ModalState =
+  | { mode: 'add' }
+  | { mode: 'edit'; user: ManagedUser }
+  | { mode: 'view'; user: ManagedUser }
+  | null;
 
 export default function TeamManagementSection() {
-  const { managedUsers, isLoading, error, deleteUser, isDeletingUser } =
-    useTeamManagement();
+  const {
+    managedUsers,
+    isLoading,
+    error,
+    banUser,
+    isBanningUser,
+    deleteUser,
+    isDeletingUser,
+  } = useTeamManagement();
 
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
+  const [modal, setModal] = useState<ModalState>(null);
   const [deleteConfirmUser, setDeleteConfirmUser] =
     useState<ManagedUser | null>(null);
-
-  const handleEditClick = (user: ManagedUser) => {
-    setSelectedUser(user);
-    setShowEditModal(true);
-  };
-
-  const handleDeleteClick = (user: ManagedUser) => {
-    setDeleteConfirmUser(user);
-  };
+  const [banConfirmUser, setBanConfirmUser] = useState<ManagedUser | null>(
+    null,
+  );
 
   const handleConfirmDelete = () => {
-    if (deleteConfirmUser) {
-      deleteUser(deleteConfirmUser.userId, {
-        onSuccess: () => {
-          setDeleteConfirmUser(null);
-        },
-      });
-    }
+    if (!deleteConfirmUser) return;
+    deleteUser(deleteConfirmUser.userId, {
+      onSuccess: () => setDeleteConfirmUser(null),
+    });
+  };
+
+  const handleConfirmBan = () => {
+    if (!banConfirmUser) return;
+    banUser(
+      { userId: banConfirmUser.userId, ban: !banConfirmUser.isBanned },
+      { onSuccess: () => setBanConfirmUser(null) },
+    );
   };
 
   const columns: DataTableColumn<ManagedUser>[] = [
     {
+      id: 'status',
+      header: 'Status',
+      render: (user) =>
+        user.isBanned ? (
+          <Chip variant="red" size="sm">
+            Banned
+          </Chip>
+        ) : (
+          <Chip variant="green" size="sm">
+            Active
+          </Chip>
+        ),
+    },
+    {
       id: 'email',
       header: 'Email',
-      render: (user: ManagedUser) => user.email,
+      render: (user) => user.email,
     },
     {
       id: 'fullName',
       header: 'Full Name',
-      render: (user: ManagedUser) => user.fullName || '—',
+      render: (user) => (
+        <div className="flex items-center gap-2">
+          <div className="items-center justify-center rounded-full border border-blue-100 bg-blue-50 overflow-hidden">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName || user.email}
+                className="h-7 w-7 rounded-full object-cover"
+              />
+            ) : (
+              <span className="h-7 w-7 text-blue-400">
+                <UserCircleIcon className="h-7 w-7" />
+              </span>
+            )}
+          </div>
+          <span>{user.fullName || '—'}</span>
+        </div>
+      ),
     },
     {
       id: 'companyName',
       header: 'Company',
-      render: (user: ManagedUser) => user.companyName || '—',
+      render: (user) => user.companyName || '—',
     },
     {
       id: 'createdAt',
       header: 'Created',
-      render: (user: ManagedUser) =>
+      render: (user) =>
         new Date(user.createdAt).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -72,24 +117,33 @@ export default function TeamManagementSection() {
     {
       id: 'actions',
       header: '',
-      size: '80px',
-      render: (user: ManagedUser) => (
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleEditClick(user)}
-            className="text-slate-600 hover:text-slate-900 rounded p-1"
-            title="Edit user"
-          >
-            <PencilSquareIcon className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleDeleteClick(user)}
-            className="text-red-600 hover:text-red-900 rounded p-1"
-            title="Delete user"
-          >
-            <TrashIcon className="w-4 h-4" />
-          </button>
-        </div>
+      render: (user) => (
+        <DropdownMenu
+          items={[
+            {
+              label: 'View Profile',
+              icon: UserIcon,
+              onClick: () => setModal({ mode: 'view', user }),
+            },
+            {
+              label: 'Edit',
+              icon: PencilSquareIcon,
+              onClick: () => setModal({ mode: 'edit', user }),
+              divider: true,
+            },
+            {
+              label: user.isBanned ? 'Unban User' : 'Ban User',
+              icon: NoSymbolIcon,
+              onClick: () => setBanConfirmUser(user),
+            },
+            {
+              label: 'Delete User',
+              icon: TrashIcon,
+              variant: 'danger',
+              onClick: () => setDeleteConfirmUser(user),
+            },
+          ]}
+        />
       ),
     },
   ];
@@ -126,7 +180,7 @@ export default function TeamManagementSection() {
               Manage users that access your account
             </p>
           </div>
-          <Button icon={PlusIcon} onClick={() => setShowAddModal(true)}>
+          <Button icon={PlusIcon} onClick={() => setModal({ mode: 'add' })}>
             Add User
           </Button>
         </div>
@@ -146,31 +200,42 @@ export default function TeamManagementSection() {
         )}
       </Card>
 
-      <AddUserModal
-        open={showAddModal}
-        onClose={() => setShowAddModal(false)}
+      <UserModal
+        open={modal !== null}
+        user={modal && modal.mode !== 'add' ? modal.user : null}
+        mode={modal?.mode ?? 'add'}
+        onClose={() => setModal(null)}
+        onEdit={
+          modal?.mode === 'view'
+            ? () => setModal({ mode: 'edit', user: modal.user })
+            : undefined
+        }
       />
-
-      {selectedUser && (
-        <EditUserModal
-          open={showEditModal}
-          user={selectedUser}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedUser(null);
-          }}
-        />
-      )}
 
       <ConfirmDialog
         title="Delete User"
-        message={`Are you sure you want to delete ${deleteConfirmUser?.email}? This action cannot be undone.`}
+        message={`Are you sure you want to permanently delete ${deleteConfirmUser?.email}? This cannot be undone.`}
         isOpen={!!deleteConfirmUser}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmUser(null)}
         busy={isDeletingUser}
         confirmLabel="Delete"
         confirmVariant="danger"
+      />
+
+      <ConfirmDialog
+        title={banConfirmUser?.isBanned ? 'Unban User' : 'Ban User'}
+        message={
+          banConfirmUser?.isBanned
+            ? `Unban ${banConfirmUser?.email}? They will be able to sign in again.`
+            : `Ban ${banConfirmUser?.email}? They will be immediately signed out and unable to log in.`
+        }
+        isOpen={!!banConfirmUser}
+        onConfirm={handleConfirmBan}
+        onCancel={() => setBanConfirmUser(null)}
+        busy={isBanningUser}
+        confirmLabel={banConfirmUser?.isBanned ? 'Unban' : 'Ban'}
+        confirmVariant={banConfirmUser?.isBanned ? 'primary' : 'danger'}
       />
     </>
   );

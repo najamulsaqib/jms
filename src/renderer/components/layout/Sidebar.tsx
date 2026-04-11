@@ -6,6 +6,7 @@ import {
   HomeIcon,
   GlobeAltIcon,
   ArrowLeftStartOnRectangleIcon as LogoutIcon,
+  UserCircleIcon,
 } from '@heroicons/react/24/outline';
 import { useTabNavigate } from '@hooks/useTabNavigate';
 import { usePortalPages } from '@hooks/usePortalPages';
@@ -136,11 +137,7 @@ export default function Sidebar() {
               />
             ) : (
               <div className="h-7 w-7 shrink-0 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
-                <span className="text-xs font-semibold text-blue-500">
-                  {(userInfo.fullName ||
-                    userInfo.email ||
-                    'A')[0].toUpperCase()}
-                </span>
+                <UserCircleIcon className="h-5 w-5 text-blue-500" />
               </div>
             )}
             <p className="text-xs text-slate-400 truncate">

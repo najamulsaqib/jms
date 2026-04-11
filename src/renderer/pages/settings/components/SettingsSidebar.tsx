@@ -28,7 +28,7 @@ export default function SettingsSidebar({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <UserCircleIcon className="h-7 w-7 text-blue-500" />
+              <UserCircleIcon className="h-9 w-9 text-blue-500" />
             )}
           </div>
           <div className="min-w-0">

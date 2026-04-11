@@ -1,12 +1,15 @@
 import { supabase } from '@lib/supabase';
 import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
+import { getAccessToken, getCurrentUserId } from '@lib/authSession';
 
 export type ManagedUser = {
   userId: string;
   email: string;
   fullName: string;
   companyName: string;
+  avatarUrl: string;
   role: 'admin' | 'user';
+  isBanned: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -15,12 +18,11 @@ export type CreateManagedUserInput = {
   email: string;
   password: string;
   fullName: string;
-  companyName: string;
+  companyName?: string;
 };
 
 export type UpdateManagedUserInput = {
   fullName: string;
-  companyName: string;
 };
 
 type SupabaseErrorLike = {
@@ -34,18 +36,6 @@ function mapSupabaseError(error: SupabaseErrorLike): Error {
   return new Error(error.message);
 }
 
-async function getCurrentAdminId(): Promise<string> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  if (!session?.user) {
-    throw new Error('Not authenticated');
-  }
-
-  return session.user.id;
-}
-
 function mapUserRow(row: Record<string, unknown>): ManagedUser {
   const r = toCamelCase(row);
   return {
@@ -53,7 +43,9 @@ function mapUserRow(row: Record<string, unknown>): ManagedUser {
     email: (r.email as string) ?? '',
     fullName: (r.fullName as string) ?? '',
     companyName: (r.companyName as string) ?? '',
+    avatarUrl: (r.avatarUrl as string) ?? '',
     role: ((r.role as string) ?? 'user') as 'admin' | 'user',
+    isBanned: (r.isBanned as boolean) ?? false,
     createdAt: (r.createdAt as string) ?? '',
     updatedAt: (r.updatedAt as string) ?? '',
   };
@@ -64,12 +56,12 @@ export const teamManagementApi = {
    * List all users managed by the current admin
    */
   async getManagedUsers(): Promise<ManagedUser[]> {
-    const adminId = await getCurrentAdminId();
+    const adminId = await getCurrentUserId();
 
     const { data, error } = await supabase
       .from('profiles')
       .select(
-        'user_id, created_at, updated_at, role, full_name, company_name, email',
+        'user_id, created_at, updated_at, role, full_name, company_name, avatar_url, email, is_banned',
       )
       .eq('managed_by', adminId)
       .returns<any[]>();
@@ -83,6 +75,8 @@ export const teamManagementApi = {
         userId: row.user_id,
         fullName: row.full_name,
         companyName: row.company_name,
+        avatarUrl: row.avatar_url,
+        isBanned: row.is_banned,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       }),
@@ -96,23 +90,31 @@ export const teamManagementApi = {
   async createManagedUser(
     payload: CreateManagedUserInput,
   ): Promise<ManagedUser> {
-    const adminId = await getCurrentAdminId();
+    const adminId = await getCurrentUserId();
+    const accessToken = await getAccessToken();
 
-    // Call edge function to create user (requires backend implementation)
     const { data, error } = await supabase.functions.invoke(
       'create-managed-user',
       {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: {
           email: payload.email,
           password: payload.password,
           fullName: payload.fullName,
-          companyName: payload.companyName,
+          companyName: payload.companyName ?? '',
           managedBy: adminId,
         },
       },
     );
 
-    if (error) throw mapSupabaseError(error as SupabaseErrorLike);
+    if (error) {
+      // FunctionsHttpError wraps the actual response — read the body for the real message
+      const body = await (error as any).context?.json?.().catch(() => null);
+      const message = body?.message ?? error.message;
+      throw new Error(message);
+    }
 
     return mapUserRow(data as Record<string, unknown>);
   },
@@ -124,7 +126,7 @@ export const teamManagementApi = {
     userId: string,
     payload: UpdateManagedUserInput,
   ): Promise<ManagedUser> {
-    const adminId = await getCurrentAdminId();
+    const adminId = await getCurrentUserId();
 
     // Verify this user is managed by the current admin
     const { data: existing, error: fetchError } = await supabase
@@ -144,13 +146,12 @@ export const teamManagementApi = {
       .update(
         toSnakeCase({
           fullName: payload.fullName,
-          companyName: payload.companyName,
           updatedAt: new Date().toISOString(),
         }),
       )
       .eq('user_id', userId)
       .select(
-        'user_id, created_at, updated_at, role, full_name, company_name, email',
+        'user_id, created_at, updated_at, role, full_name, company_name, avatar_url, email, is_banned',
       )
       .single();
 
@@ -162,6 +163,8 @@ export const teamManagementApi = {
       userId: data.user_id,
       fullName: data.full_name,
       companyName: data.company_name,
+      avatarUrl: data.avatar_url,
+      isBanned: data.is_banned,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     });
@@ -172,7 +175,8 @@ export const teamManagementApi = {
    * This is a soft delete - the user account is disabled but data is retained
    */
   async deleteManagedUser(userId: string): Promise<void> {
-    const adminId = await getCurrentAdminId();
+    const adminId = await getCurrentUserId();
+    const accessToken = await getAccessToken();
 
     // Verify this user is managed by the current admin
     const { data: existing, error: fetchError } = await supabase
@@ -188,9 +192,39 @@ export const teamManagementApi = {
 
     // Call edge function to delete user
     const { error } = await supabase.functions.invoke('delete-managed-user', {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: { userId },
     });
 
-    if (error) throw mapSupabaseError(error as SupabaseErrorLike);
+    if (error) {
+      const body = await (error as any).context?.json?.().catch(() => null);
+      throw new Error(body?.message ?? error.message);
+    }
+  },
+
+  /**
+   * Ban or unban a managed user
+   */
+  async banManagedUser(userId: string, ban: boolean): Promise<ManagedUser> {
+    const adminId = await getCurrentUserId(); // ensures session is loaded before invoke
+    const accessToken = await getAccessToken();
+    const { data, error } = await supabase.functions.invoke(
+      'ban-managed-user',
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: { userId, ban, managedBy: adminId },
+      },
+    );
+
+    if (error) {
+      const body = await (error as any).context?.json?.().catch(() => null);
+      throw new Error(body?.message ?? error.message);
+    }
+
+    return mapUserRow(data as Record<string, unknown>);
   },
 };
