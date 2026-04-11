@@ -128,6 +128,7 @@ const configuration: webpack.Configuration = {
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: path.join(webpackPaths.srcRendererPath, 'index.ejs'),
+      favicon: path.join(webpackPaths.rootPath, 'assets', 'icons', 'icon.ico'),
       minify: {
         collapseWhitespace: true,
         removeAttributeQuotes: true,

@@ -32,17 +32,12 @@ export default function Sidebar() {
   return (
     <div className="flex flex-col w-64 bg-white border-r border-slate-200">
       {/* Logo/Brand */}
-      <div className="flex items-center h-16 px-6 border-b border-slate-200">
-        <div className="flex items-center">
-          <img
-            src={logo}
-            alt="JMS Tax Consultancy"
-            className="w-16 h-16 object-contain"
-          />
-          <span className="ml-3 text-lg font-semibold text-slate-900">
-            JMS Tax
-          </span>
-        </div>
+      <div className="flex h-16 items-center border-b border-slate-200 px-4">
+        <img
+          src={logo}
+          alt="JMS Tax Consultancy"
+          className="h-full w-auto object-contain"
+        />
       </div>
 
       {/* Navigation */}
