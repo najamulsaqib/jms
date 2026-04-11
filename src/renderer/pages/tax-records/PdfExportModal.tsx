@@ -1,6 +1,7 @@
 import Button from '@components/ui/Button';
 import CheckboxField from '@components/ui/CheckboxField';
 import Modal from '@components/ui/Modal';
+import { useAdminProfile } from '@hooks/useTeamManagement';
 import { useAuth } from '@contexts/AuthContext';
 import { ArrowDownTrayIcon, DocumentTextIcon } from '@heroicons/react/20/solid';
 import { TaxRecord } from '@shared/taxRecord.contracts';
@@ -17,6 +18,11 @@ type PdfExportModalProps = {
   isOpen: boolean;
   record: TaxRecord;
   onClose: () => void;
+  onExported?: (details: {
+    selectedFields: string[];
+    selectedCount: number;
+    totalFields: number;
+  }) => Promise<void> | void;
 };
 
 const DEFAULT_FIELDS = new Set(
@@ -36,8 +42,10 @@ export default function PdfExportModal({
   isOpen,
   record,
   onClose,
+  onExported,
 }: PdfExportModalProps) {
   const { userInfo } = useAuth();
+  const { adminProfile } = useAdminProfile();
   const [selected, setSelected] = useState<Set<PdfField>>(
     new Set(DEFAULT_FIELDS),
   );
@@ -51,21 +59,31 @@ export default function PdfExportModal({
     });
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (selected.size === 0) {
       toast.error('Select at least one field to export');
       return;
     }
 
     const companyInfoOverrides: Partial<PdfCompanyInfo> = {
-      name: userInfo?.companyName || userInfo?.fullName,
-      tagline: userInfo?.description,
-      address: userInfo?.address,
-      phone: userInfo?.phoneNumber,
-      contactName: userInfo?.fullName || userInfo?.companyName,
+      name: adminProfile?.companyName || adminProfile?.fullName,
+      tagline: adminProfile?.description,
+      address: adminProfile?.address,
+      phone: adminProfile?.phoneNumber,
+      contactName: adminProfile?.fullName || adminProfile?.companyName,
     };
 
-    generateTaxRecordPdf(record, selected, companyInfoOverrides);
+    generateTaxRecordPdf(
+      record,
+      selected,
+      companyInfoOverrides,
+      userInfo?.fullName,
+    );
+    await onExported?.({
+      selectedFields: Array.from(selected),
+      selectedCount: selected.size,
+      totalFields: PDF_FIELD_OPTIONS.length,
+    });
     toast.success('PDF downloaded');
     onClose();
   };

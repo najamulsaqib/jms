@@ -1,16 +1,18 @@
 // src/renderer/hooks/useUpdater.ts
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 type UpdateChannel = 'latest' | 'beta';
+
+const UPDATE_CHANNEL_KEY = ['update-channel'] as const;
+const APP_VERSION_KEY = ['app-version'] as const;
 
 export function useUpdater() {
   const queryClient = useQueryClient();
 
   // Get current channel
   const { data: currentChannel, isLoading } = useQuery({
-    queryKey: ['update-channel'],
+    queryKey: UPDATE_CHANNEL_KEY,
     queryFn: async () => {
       const channel = await window.electron.updater.getChannel();
       return channel as UpdateChannel;
@@ -19,7 +21,7 @@ export function useUpdater() {
 
   // Get app version
   const { data: appVersion } = useQuery({
-    queryKey: ['app-version'],
+    queryKey: APP_VERSION_KEY,
     queryFn: () => window.electron.updater.getVersion(),
   });
 
@@ -30,7 +32,7 @@ export function useUpdater() {
       return channel;
     },
     onSuccess: (channel) => {
-      queryClient.invalidateQueries({ queryKey: ['update-channel'] });
+      queryClient.invalidateQueries({ queryKey: UPDATE_CHANNEL_KEY });
       toast.success(
         `Switched to ${channel === 'beta' ? 'Beta' : 'Stable'} channel`,
         {

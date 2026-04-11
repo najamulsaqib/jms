@@ -4,8 +4,9 @@ import {
   CreatePortalPageInput,
   UpdatePortalPageInput,
 } from '@shared/portalPage.contracts';
+import { PAGE_KEYS } from '@lib/enums';
 
-const PORTAL_PAGES_KEY = ['portalPages'];
+const PORTAL_PAGES_KEY = [PAGE_KEYS.PORTAL_PAGES];
 
 export function usePortalPages() {
   const queryClient = useQueryClient();
@@ -55,7 +56,10 @@ export function usePortalPages() {
     }
   };
 
-  const updatePortalPage = async (id: string, payload: UpdatePortalPageInput) => {
+  const updatePortalPage = async (
+    id: string,
+    payload: UpdatePortalPageInput,
+  ) => {
     try {
       await updateMutation.mutateAsync({ id, payload });
       return true;

@@ -1,29 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  ArrowLeftIcon,
-  UserIcon,
-  KeyIcon,
-  ClipboardDocumentIcon,
-} from '@heroicons/react/20/solid';
+import { ArrowLeftIcon, UserIcon } from '@heroicons/react/20/solid';
 import AppLayout from '@components/layout/AppLayout';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
-import SelectField from '@components/ui/SelectField';
-import TextField from '@components/ui/TextField';
 import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import {
+  buildReferenceOptions,
   createHandleChange,
   createHandleSubmit,
-  CUSTOM_REFERENCE_VALUE,
   EMPTY_FORM_VALUES,
-  buildReferenceOptions,
   type FieldErrors,
   type FormValues,
 } from './taxRecordForm.helpers';
+import TaxRecordFormFields from './TaxRecordFormFields';
 
 export default function TaxRecordFormPage() {
   const { taxRecordId } = useParams<{ taxRecordId: string }>();
@@ -66,17 +59,15 @@ export default function TaxRecordFormPage() {
           const record = await taxRecordApi.getById(parsedId);
           if (!mounted) return;
 
-          // Build reference options, excluding current record's name
           const options = buildReferenceOptions(
             existingEntries,
             record.name.trim(),
           );
           setReferenceOptions(options);
 
-          // Strip \"0092\" prefix from phone for editing (user only sees 10 digits)
           let phone = '';
           if (record.phone && record.phone.startsWith('0092')) {
-            phone = record.phone.slice(4); // Remove \"0092\" prefix
+            phone = record.phone.slice(4);
           } else if (record.phone) {
             phone = record.phone;
           }
@@ -90,7 +81,7 @@ export default function TaxRecordFormPage() {
             password: record.password,
             selectedReference: options.some((o) => o.value === record.reference)
               ? record.reference
-              : CUSTOM_REFERENCE_VALUE,
+              : '__custom_reference__',
             customReference: options.some((o) => o.value === record.reference)
               ? ''
               : record.reference,
@@ -156,14 +147,6 @@ export default function TaxRecordFormPage() {
     navigate('/tax-records');
   };
 
-  const statusOptions = [
-    { value: 'active', label: 'Active' },
-    { value: 'inactive', label: 'Inactive' },
-    { value: 'late-filer', label: 'Late Filer' },
-  ];
-
-  const allReferenceOptions = referenceOptions;
-
   return (
     <AppLayout
       breadcrumbs={[
@@ -222,160 +205,12 @@ export default function TaxRecordFormPage() {
           </Card>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Personal Information */}
-            <Card>
-              <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
-                  <UserIcon className="h-4 w-4 text-blue-600" />
-                </div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Personal Information
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                <TextField
-                  id="referenceNumber"
-                  name="referenceNumber"
-                  label="Reference Number"
-                  value={formValues.referenceNumber}
-                  onChange={handleChange}
-                  error={fieldErrors.referenceNumber}
-                  placeholder="REF-001"
-                />
-                <TextField
-                  id="name"
-                  name="name"
-                  label="Name"
-                  value={formValues.name}
-                  onChange={handleChange}
-                  error={fieldErrors.name}
-                  placeholder="John Doe"
-                />
-                <TextField
-                  id="cnic"
-                  name="cnic"
-                  label="CNIC"
-                  value={formValues.cnic}
-                  onChange={handleChange}
-                  error={fieldErrors.cnic}
-                  placeholder="3520112345671"
-                />
-                <TextField
-                  id="phone"
-                  name="phone"
-                  label="Phone"
-                  prefix="0092"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={formValues.phone}
-                  onChange={handleChange}
-                  error={fieldErrors.phone}
-                  placeholder="3123456789"
-                />
-                <SelectField
-                  id="selectedReference"
-                  label="Reference"
-                  value={formValues.selectedReference}
-                  onChange={(value) =>
-                    handleChange({
-                      target: { name: 'selectedReference', value },
-                    } as React.ChangeEvent<HTMLSelectElement>)
-                  }
-                  options={allReferenceOptions}
-                  error={fieldErrors.selectedReference}
-                />
-                {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
-                  <TextField
-                    id="customReference"
-                    name="customReference"
-                    label="Custom Reference"
-                    value={formValues.customReference}
-                    onChange={handleChange}
-                    error={fieldErrors.customReference}
-                    placeholder="Enter custom reference"
-                  />
-                )}
-              </div>
-            </Card>
-
-            {/* Credentials + Status & Notes */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-              <Card>
-                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                  <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
-                    <KeyIcon className="h-4 w-4 text-emerald-600" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Account Credentials & Status
-                  </h3>
-                </div>
-                <div className="space-y-5">
-                  <TextField
-                    id="email"
-                    name="email"
-                    label="Email"
-                    value={formValues.email}
-                    onChange={handleChange}
-                    error={fieldErrors.email}
-                    placeholder="john@example.com"
-                  />
-                  <TextField
-                    id="password"
-                    name="password"
-                    label="Password"
-                    value={formValues.password}
-                    onChange={handleChange}
-                    error={fieldErrors.password}
-                    placeholder="Enter password"
-                  />
-                  <SelectField
-                    id="status"
-                    label="Status"
-                    value={formValues.status}
-                    onChange={(value) =>
-                      handleChange({
-                        target: { name: 'status', value },
-                      } as React.ChangeEvent<HTMLSelectElement>)
-                    }
-                    options={statusOptions}
-                    error={fieldErrors.status}
-                  />
-                </div>
-              </Card>
-
-              <Card>
-                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                  <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
-                    <ClipboardDocumentIcon className="h-4 w-4 text-slate-600" />
-                  </div>
-                  <h3 className="text-sm font-semibold text-slate-900">
-                    Notes
-                  </h3>
-                </div>
-                <textarea
-                  id="notes"
-                  name="notes"
-                  value={formValues.notes}
-                  onChange={handleChange}
-                  rows={10}
-                  maxLength={5000}
-                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                  placeholder="Additional notes..."
-                />
-                <div className="flex items-center justify-between mt-1.5">
-                  {fieldErrors.notes ? (
-                    <p className="text-sm text-red-600">{fieldErrors.notes}</p>
-                  ) : (
-                    <span />
-                  )}
-                  <p
-                    className={`text-xs tabular-nums ${formValues.notes.length >= 5000 ? 'text-red-500 font-medium' : formValues.notes.length >= 4500 ? 'text-amber-500' : 'text-slate-400'}`}
-                  >
-                    {formValues.notes.length} / 5000
-                  </p>
-                </div>
-              </Card>
-            </div>
+            <TaxRecordFormFields
+              formValues={formValues}
+              referenceOptions={referenceOptions}
+              fieldErrors={fieldErrors}
+              onChange={handleChange}
+            />
 
             <div className="flex gap-3 pt-1 justify-end">
               <Button

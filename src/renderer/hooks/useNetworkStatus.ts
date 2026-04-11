@@ -1,3 +1,4 @@
+import { INTERVALS } from '@lib/enums';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 // INFO: We originally used electron's `net.isOnline()` via IPC, but it was unreliable
@@ -8,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 // The current solution actively pings a lightweight endpoint every 15 seconds to
 // verify real internet connectivity, which works consistently across all platforms.
 const PING_URL = 'https://www.google.com/generate_204'; // 204 No Content — lightweight, no response body
-const POLL_INTERVAL = 15000; // poll every 15 seconds
 
 export function useNetworkStatus() {
   const [isOnline, setIsOnline] = useState(true);
@@ -35,7 +35,7 @@ export function useNetworkStatus() {
     // Check immediately on mount
     checkConnection();
     // Then keep polling on the interval
-    intervalRef.current = setInterval(checkConnection, POLL_INTERVAL);
+    intervalRef.current = setInterval(checkConnection, INTERVALS.FIVE_SECONDS);
 
     // Also re-check whenever the browser fires online/offline events
     // so status updates quickly when the network changes rather than

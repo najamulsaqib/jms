@@ -2,6 +2,7 @@ import Button from '@components/ui/Button';
 import TextField from '@components/ui/TextField';
 import Card from '@components/ui/Card';
 import { useAuth, type UserInfo } from '@contexts/AuthContext';
+import { useAdminProfile } from '@hooks/useTeamManagement';
 import {
   CheckIcon,
   CheckCircleIcon,
@@ -85,7 +86,7 @@ function createProfileDraft(userInfo: UserInfo | null): ProfileDraft {
 
 function ProfileRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-slate-200 py-3 last:border-b-0 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-slate-200 py-3 last:border-b-0">
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
       <dd className="text-sm font-medium text-slate-900 wrap-break-word">
         {value || 'Not set'}
@@ -121,6 +122,8 @@ export { UserAvatar };
 
 export default function UserInfoSection() {
   const { updateProfile, updatePassword, userInfo } = useAuth();
+  const isAdmin = userInfo?.isAdmin ?? false;
+  const { adminProfile } = useAdminProfile();
 
   const [profileDraft, setProfileDraft] = useState<ProfileDraft>(() =>
     createProfileDraft(userInfo),
@@ -295,14 +298,14 @@ export default function UserInfoSection() {
             )}
           </div>
           <p className="mt-1 max-w-2xl text-sm text-slate-600">
-            Keep your profile details clean and current. These values are stored
-            in your Supabase auth metadata.
+            Keep your profile details clean and current so your account stays up
+            to date.
           </p>
         </div>
       </div>
 
       {uiState.isEditing ? (
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div className="mt-6 grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
@@ -310,7 +313,7 @@ export default function UserInfoSection() {
                   Profile details
                 </p>
                 <p className="mt-1 text-xs text-slate-500">
-                  Update the information saved in your auth profile.
+                  Update the information shown on your account profile.
                 </p>
               </div>
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
@@ -379,65 +382,73 @@ export default function UserInfoSection() {
                 error={formErrors.profile ?? undefined}
                 disabled={uiState.saving || uiState.updatingPassword}
               />
-              <TextField
-                id="companyName"
-                label="Company name"
-                value={profileDraft.companyName}
-                onChange={(event) =>
-                  setProfileDraft((prev) => ({
-                    ...prev,
-                    companyName: event.target.value,
-                  }))
-                }
-                placeholder="Enter your company name"
-                disabled={uiState.saving || uiState.updatingPassword}
-              />
-              <TextField
-                id="phoneNumber"
-                label="Phone number"
-                value={profileDraft.phoneNumber}
-                onChange={(event) =>
-                  setProfileDraft((prev) => ({
-                    ...prev,
-                    phoneNumber: event.target.value,
-                  }))
-                }
-                placeholder="Enter your phone number"
-                disabled={uiState.saving || uiState.updatingPassword}
-              />
-              <TextField
-                id="address"
-                label="Address"
-                value={profileDraft.address}
-                onChange={(event) =>
-                  setProfileDraft((prev) => ({
-                    ...prev,
-                    address: event.target.value,
-                  }))
-                }
-                placeholder="Enter your address"
-                disabled={uiState.saving || uiState.updatingPassword}
-              />
+              {isAdmin && (
+                <TextField
+                  id="companyName"
+                  label="Company name"
+                  value={profileDraft.companyName}
+                  onChange={(event) =>
+                    setProfileDraft((prev) => ({
+                      ...prev,
+                      companyName: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter your company name"
+                  disabled={uiState.saving || uiState.updatingPassword}
+                />
+              )}
+              {isAdmin && (
+                <TextField
+                  id="phoneNumber"
+                  label="Phone number"
+                  value={profileDraft.phoneNumber}
+                  onChange={(event) =>
+                    setProfileDraft((prev) => ({
+                      ...prev,
+                      phoneNumber: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter your phone number"
+                  disabled={uiState.saving || uiState.updatingPassword}
+                />
+              )}
+              {isAdmin && (
+                <TextField
+                  id="address"
+                  label="Address"
+                  value={profileDraft.address}
+                  onChange={(event) =>
+                    setProfileDraft((prev) => ({
+                      ...prev,
+                      address: event.target.value,
+                    }))
+                  }
+                  placeholder="Enter your address"
+                  disabled={uiState.saving || uiState.updatingPassword}
+                />
+              )}
             </div>
 
-            <div className="mt-3">
-              <TextField
-                id="description"
-                label="Description"
-                value={profileDraft.description}
-                onChange={(event) =>
-                  setProfileDraft((prev) => ({
-                    ...prev,
-                    description: event.target.value,
-                  }))
-                }
-                placeholder="Short bio or notes"
-                disabled={uiState.saving || uiState.updatingPassword}
-              />
-            </div>
+            {isAdmin && (
+              <div className="mt-3">
+                <TextField
+                  id="description"
+                  label="Description"
+                  value={profileDraft.description}
+                  onChange={(event) =>
+                    setProfileDraft((prev) => ({
+                      ...prev,
+                      description: event.target.value,
+                    }))
+                  }
+                  placeholder="Short bio or notes"
+                  disabled={uiState.saving || uiState.updatingPassword}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hidden 2xl:block">
             <p className="text-sm font-semibold text-slate-900">
               Profile preview
             </p>
@@ -447,19 +458,27 @@ export default function UserInfoSection() {
 
             <dl className="mt-4 divide-y divide-slate-200 rounded-xl border border-slate-200 bg-slate-50 px-4">
               <ProfileRow label="Full name" value={profileDraft.fullName} />
-              <ProfileRow
-                label="Company name"
-                value={profileDraft.companyName}
-              />
-              <ProfileRow
-                label="Phone number"
-                value={profileDraft.phoneNumber}
-              />
-              <ProfileRow label="Address" value={profileDraft.address} />
-              <ProfileRow
-                label="Description"
-                value={profileDraft.description}
-              />
+              {isAdmin && (
+                <ProfileRow
+                  label="Company name"
+                  value={profileDraft.companyName}
+                />
+              )}
+              {isAdmin && (
+                <ProfileRow
+                  label="Phone number"
+                  value={profileDraft.phoneNumber}
+                />
+              )}
+              {isAdmin && (
+                <ProfileRow label="Address" value={profileDraft.address} />
+              )}
+              {isAdmin && (
+                <ProfileRow
+                  label="Description"
+                  value={profileDraft.description}
+                />
+              )}
               <ProfileRow
                 label="Email address"
                 value={userInfo?.email ?? 'Not signed in'}
@@ -485,14 +504,14 @@ export default function UserInfoSection() {
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600 shadow-sm">
                   <CloudArrowUpIcon className="h-4 w-4 text-blue-500" />
-                  Auth metadata
+                  Profile sync
                 </span>
               </div>
             </div>
           </div>
         </div>
       ) : (
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="mt-6 grid gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-slate-900">
               Profile table
@@ -506,22 +525,30 @@ export default function UserInfoSection() {
                 label="Full name"
                 value={userInfo?.fullName ?? 'Not set'}
               />
-              <ProfileRow
-                label="Company name"
-                value={userInfo?.companyName ?? 'Not set'}
-              />
-              <ProfileRow
-                label="Phone number"
-                value={userInfo?.phoneNumber ?? 'Not set'}
-              />
-              <ProfileRow
-                label="Address"
-                value={userInfo?.address ?? 'Not set'}
-              />
-              <ProfileRow
-                label="Description"
-                value={userInfo?.description ?? 'Not set'}
-              />
+              {isAdmin && (
+                <ProfileRow
+                  label="Company name"
+                  value={userInfo?.companyName ?? 'Not set'}
+                />
+              )}
+              {isAdmin && (
+                <ProfileRow
+                  label="Phone number"
+                  value={userInfo?.phoneNumber ?? 'Not set'}
+                />
+              )}
+              {isAdmin && (
+                <ProfileRow
+                  label="Address"
+                  value={userInfo?.address ?? 'Not set'}
+                />
+              )}
+              {isAdmin && (
+                <ProfileRow
+                  label="Description"
+                  value={userInfo?.description ?? 'Not set'}
+                />
+              )}
               <ProfileRow
                 label="Email address"
                 value={userInfo?.email ?? 'Not signed in'}
@@ -535,9 +562,34 @@ export default function UserInfoSection() {
                 value={userInfo?.provider ?? 'unknown'}
               />
             </dl>
+
+            {!isAdmin && adminProfile && (
+              <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 mb-3">
+                  Company
+                </p>
+                <dl className="divide-y divide-blue-100">
+                  {adminProfile.fullName && (
+                    <ProfileRow label="Admin name" value={adminProfile.fullName} />
+                  )}
+                  {adminProfile.companyName && (
+                    <ProfileRow label="Company name" value={adminProfile.companyName} />
+                  )}
+                  {adminProfile.phoneNumber && (
+                    <ProfileRow label="Phone" value={adminProfile.phoneNumber} />
+                  )}
+                  {adminProfile.address && (
+                    <ProfileRow label="Address" value={adminProfile.address} />
+                  )}
+                  {adminProfile.description && (
+                    <ProfileRow label="Description" value={adminProfile.description} />
+                  )}
+                </dl>
+              </div>
+            )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hidden 2xl:block">
             <div className="flex items-start gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
                 <UserAvatar avatarUrl={userInfo?.avatarUrl ?? ''} size="lg" />
@@ -547,7 +599,9 @@ export default function UserInfoSection() {
                   {userInfo?.fullName || 'Profile not completed'}
                 </p>
                 <p className="mt-1 text-sm text-slate-600">
-                  {userInfo?.companyName || 'No company name added yet'}
+                  {isAdmin
+                    ? userInfo?.companyName || 'No company name added yet'
+                    : adminProfile?.companyName || 'No company name added yet'}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
@@ -562,12 +616,28 @@ export default function UserInfoSection() {
               </div>
             </div>
 
-            <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="mt-6 rounded-xl border border-blue-100 bg-blue-50/70 p-4">
               <p className="text-sm font-semibold text-slate-900">
-                Want to edit this profile?
+                How to update your profile
               </p>
-              <p className="mt-1 text-sm text-slate-600">
-                Click Edit to update the values stored in your auth metadata.
+              {isAdmin ? (
+                <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-slate-600">
+                  <li>Click the Edit button at the top of this card.</li>
+                  <li>
+                    Update your name, avatar, phone, address, and description.
+                  </li>
+                  <li>Click Save to apply your changes.</li>
+                </ol>
+              ) : (
+                <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-slate-600">
+                  <li>Click the Edit button at the top of this card.</li>
+                  <li>Update your display name or choose a new avatar.</li>
+                  <li>Click Save to apply your changes.</li>
+                </ol>
+              )}
+              <p className="mt-2 text-xs text-slate-500">
+                Tip: you can use Change password below to update account
+                security.
               </p>
             </div>
           </div>

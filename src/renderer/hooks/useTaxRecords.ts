@@ -1,13 +1,14 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { taxRecordApi, PaginatedListParams } from '@services/taxRecord.api';
+import { PAGE_KEYS } from '@lib/enums';
+import { PaginatedListParams, taxRecordApi } from '@services/taxRecord.api';
 import {
   CreateTaxRecordInput,
   TaxRecord,
   TaxRecordStatus,
   UpdateTaxRecordInput,
 } from '@shared/taxRecord.contracts';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-const TAX_RECORDS_KEY = ['taxRecords'];
+const TAX_RECORDS_KEY = [PAGE_KEYS.TAX_RECORDS];
 
 export function useTaxRecords() {
   const queryClient = useQueryClient();
@@ -41,8 +42,12 @@ export function useTaxRecords() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => taxRecordApi.remove(id),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
+    },
   });
 
   const addTaxRecord = async (payload: CreateTaxRecordInput) => {
@@ -99,7 +104,7 @@ export function useTaxRecords() {
 
 export function usePaginatedTaxRecords(params: PaginatedListParams) {
   const queryClient = useQueryClient();
-  const queryKey = ['taxRecords', 'paginated', params];
+  const queryKey = [PAGE_KEYS.TAX_RECORDS, 'paginated', params];
 
   const { data, isLoading, error } = useQuery({
     queryKey,
@@ -109,8 +114,12 @@ export function usePaginatedTaxRecords(params: PaginatedListParams) {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => taxRecordApi.remove(id),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
+    },
   });
 
   const deleteTaxRecord = async (id: number) => {
@@ -137,7 +146,7 @@ export function usePaginatedTaxRecords(params: PaginatedListParams) {
 
 export function useStatusCounts() {
   return useQuery({
-    queryKey: ['taxRecords', 'statusCounts'],
+    queryKey: [PAGE_KEYS.TAX_RECORDS, 'statusCounts'],
     queryFn: () => taxRecordApi.listStatusCounts(),
     staleTime: 30_000,
   });
@@ -145,7 +154,7 @@ export function useStatusCounts() {
 
 export function useDistinctReferences() {
   return useQuery({
-    queryKey: ['taxRecords', 'references'],
+    queryKey: [PAGE_KEYS.TAX_RECORDS, 'references'],
     queryFn: () => taxRecordApi.listDistinctReferences(),
     staleTime: 60_000,
   });
@@ -153,7 +162,7 @@ export function useDistinctReferences() {
 
 export function useTotalCount() {
   return useQuery({
-    queryKey: ['taxRecords', 'totalCount'],
+    queryKey: [PAGE_KEYS.TAX_RECORDS, 'totalCount'],
     queryFn: () => taxRecordApi.getTotalCount(),
     staleTime: 30_000,
   });
@@ -161,7 +170,7 @@ export function useTotalCount() {
 
 export function useTaxRecord(id: number | null) {
   const queryClient = useQueryClient();
-  const detailKey = ['taxRecords', 'detail', id];
+  const detailKey = [PAGE_KEYS.TAX_RECORDS, 'detail', id];
 
   const {
     data: record,
@@ -179,6 +188,9 @@ export function useTaxRecord(id: number | null) {
     onSuccess: (updated: TaxRecord) => {
       queryClient.setQueryData(detailKey, updated);
       queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
     },
   });
 
@@ -186,6 +198,9 @@ export function useTaxRecord(id: number | null) {
     mutationFn: () => taxRecordApi.remove(id!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
     },
   });
 
@@ -213,12 +228,40 @@ export function useTaxRecord(id: number | null) {
     }
   };
 
+  const logPdfExport = async (details: {
+    selectedFields: string[];
+    selectedCount: number;
+    totalFields: number;
+  }) => {
+    if (id === null || !record?.referenceNumber) return;
+    try {
+      await taxRecordApi.logPdfExport(record.referenceNumber, {
+        ...details,
+        name: record.name,
+        cnic: record.cnic,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: [
+          PAGE_KEYS.AUDIT_LOGS,
+          PAGE_KEYS.TAX_RECORDS,
+          record.referenceNumber,
+        ],
+      });
+      await queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
+    } catch {
+      // Keep export flow non-blocking if audit logging fails.
+    }
+  };
+
   return {
     record,
     loading,
     error: queryError instanceof Error ? queryError.message : null,
     updateTaxRecord,
     deleteTaxRecord,
+    logPdfExport,
     saving: updateMutation.isPending,
     deleting: deleteMutation.isPending,
     updateError:
@@ -237,8 +280,12 @@ export function useBulkDeleteRecords() {
 
   const mutation = useMutation({
     mutationFn: (ids: number[]) => taxRecordApi.bulkRemove(ids),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
+    },
   });
 
   const bulkDelete = async (ids: number[]) => {
@@ -262,8 +309,12 @@ export function useBulkUpdateStatus() {
   const bulkUpdateMutation = useMutation({
     mutationFn: ({ ids, status }: { ids: number[]; status: TaxRecordStatus }) =>
       taxRecordApi.bulkUpdateStatus(ids, status),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
+    },
   });
 
   const bulkUpdateAllMutation = useMutation({
@@ -279,8 +330,12 @@ export function useBulkUpdateStatus() {
         statusFilter?: string[];
       };
     }) => taxRecordApi.bulkUpdateAllStatus(status, filters),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
+    },
   });
 
   const bulkUpdateStatus = async (ids: number[], status: TaxRecordStatus) => {

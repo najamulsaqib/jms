@@ -1,0 +1,306 @@
+import { getAccessToken, getCurrentUserId } from '@lib/authSession';
+import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
+import { EDGE_FUNCTIONS, TABLES } from '@lib/enums';
+import { supabase } from '@lib/supabase';
+import { userPermissionsApi } from './userPermissions.api';
+
+export type ManagedUser = {
+  userId: string;
+  email: string;
+  fullName: string;
+  companyName: string;
+  avatarUrl: string;
+  role: 'admin' | 'user';
+  isBanned: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateManagedUserInput = {
+  email: string;
+  password: string;
+  fullName: string;
+  companyName?: string;
+};
+
+export type UpdateManagedUserInput = {
+  fullName: string;
+};
+
+export type ManagedUsersPaginationInput = {
+  page: number;
+  pageSize: number;
+};
+
+export type ManagedUsersPage = {
+  data: ManagedUser[];
+  total: number;
+};
+
+export type ManagedUsersSummary = {
+  total: number;
+  active: number;
+  banned: number;
+};
+
+type SupabaseErrorLike = {
+  code?: string | null;
+  message: string;
+  details?: string | null;
+  hint?: string | null;
+};
+
+function mapSupabaseError(error: SupabaseErrorLike): Error {
+  return new Error(error.message);
+}
+
+function mapUserRow(row: Record<string, unknown>): ManagedUser {
+  const r = toCamelCase(row);
+  return {
+    userId: (r.userId as string) ?? '',
+    email: (r.email as string) ?? '',
+    fullName: (r.fullName as string) ?? '',
+    companyName: (r.companyName as string) ?? '',
+    avatarUrl: (r.avatarUrl as string) ?? '',
+    role: ((r.role as string) ?? 'user') as 'admin' | 'user',
+    isBanned: (r.isBanned as boolean) ?? false,
+    createdAt: (r.createdAt as string) ?? '',
+    updatedAt: (r.updatedAt as string) ?? '',
+  };
+}
+
+export const teamManagementApi = {
+  /**
+   * List all users managed by the current admin
+   */
+  async getManagedUsers(
+    pagination: ManagedUsersPaginationInput,
+  ): Promise<ManagedUsersPage> {
+    const adminId = await getCurrentUserId();
+    const from = pagination.page * pagination.pageSize;
+    const to = from + pagination.pageSize - 1;
+
+    const { data, error, count } = await supabase
+      .from(TABLES.PROFILES)
+      .select(
+        'user_id, created_at, updated_at, role, full_name, company_name, avatar_url, email, is_banned',
+        { count: 'exact' },
+      )
+      .eq('managed_by', adminId)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+      .returns<any[]>();
+
+    if (error) throw mapSupabaseError(error);
+
+    return {
+      data: (data || []).map((row) =>
+        mapUserRow({
+          ...row,
+          email: row.email,
+          userId: row.user_id,
+          fullName: row.full_name,
+          companyName: row.company_name,
+          avatarUrl: row.avatar_url,
+          isBanned: row.is_banned,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }),
+      ),
+      total: count ?? 0,
+    };
+  },
+
+  /**
+   * Return summary counts for all managed users (independent of pagination)
+   */
+  async getManagedUsersSummary(): Promise<ManagedUsersSummary> {
+    const adminId = await getCurrentUserId();
+
+    const [
+      { count: totalCount, error: totalError },
+      { count: bannedCount, error: bannedError },
+    ] = await Promise.all([
+      supabase
+        .from(TABLES.PROFILES)
+        .select('user_id', { count: 'exact', head: true })
+        .eq('managed_by', adminId),
+      supabase
+        .from(TABLES.PROFILES)
+        .select('user_id', { count: 'exact', head: true })
+        .eq('managed_by', adminId)
+        .eq('is_banned', true),
+    ]);
+
+    if (totalError) throw mapSupabaseError(totalError);
+    if (bannedError) throw mapSupabaseError(bannedError);
+
+    const total = totalCount ?? 0;
+    const banned = bannedCount ?? 0;
+
+    return {
+      total,
+      banned,
+      active: Math.max(total - banned, 0),
+    };
+  },
+
+  /**
+   * Create a new user managed by the current admin
+   * This requires admin privileges and creates both auth user and profile
+   */
+  async createManagedUser(
+    payload: CreateManagedUserInput,
+  ): Promise<ManagedUser> {
+    const adminId = await getCurrentUserId();
+    const accessToken = await getAccessToken();
+
+    const { data, error } = await supabase.functions.invoke(
+      EDGE_FUNCTIONS.CREATE_MANAGED_USER,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: {
+          email: payload.email,
+          password: payload.password,
+          fullName: payload.fullName,
+          companyName: payload.companyName ?? '',
+          managedBy: adminId,
+        },
+      },
+    );
+
+    if (error) {
+      // FunctionsHttpError wraps the actual response — read the body for the real message
+      const body = await (error as any).context?.json?.().catch(() => null);
+      const message = body?.message ?? error.message;
+      throw new Error(message);
+    }
+
+    const newUser = mapUserRow(data as Record<string, unknown>);
+
+    // Seed default permissions for the new managed user (non-blocking)
+    userPermissionsApi.createDefaults(newUser.userId).catch((err) => {
+      console.warn('[teamManagement] Failed to seed permissions:', err);
+    });
+
+    return newUser;
+  },
+
+  /**
+   * Update a managed user's profile information
+   */
+  async updateManagedUser(
+    userId: string,
+    payload: UpdateManagedUserInput,
+  ): Promise<ManagedUser> {
+    const adminId = await getCurrentUserId();
+
+    // Verify this user is managed by the current admin
+    const { data: existing, error: fetchError } = await supabase
+      .from(TABLES.PROFILES)
+      .select('user_id, managed_by')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) throw mapSupabaseError(fetchError);
+    if (existing?.managed_by !== adminId) {
+      throw new Error('You do not have permission to modify this user');
+    }
+
+    // Update the profile
+    const { data, error } = await supabase
+      .from(TABLES.PROFILES)
+      .update(
+        toSnakeCase({
+          fullName: payload.fullName,
+          updatedAt: new Date().toISOString(),
+        }),
+      )
+      .eq('user_id', userId)
+      .select(
+        'user_id, created_at, updated_at, role, full_name, company_name, avatar_url, email, is_banned',
+      )
+      .maybeSingle();
+
+    if (error) throw mapSupabaseError(error);
+    if (!data)
+      throw new Error(
+        'Update failed — missing UPDATE policy on profiles for admins. Run the profiles_update_managed SQL policy.',
+      );
+
+    return mapUserRow({
+      ...data,
+      email: data.email,
+      userId: data.user_id,
+      fullName: data.full_name,
+      companyName: data.company_name,
+      avatarUrl: data.avatar_url,
+      isBanned: data.is_banned,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    });
+  },
+
+  /**
+   * Delete a managed user (mark as deleted or archive)
+   * This is a soft delete - the user account is disabled but data is retained
+   */
+  async deleteManagedUser(userId: string): Promise<void> {
+    const adminId = await getCurrentUserId();
+    const accessToken = await getAccessToken();
+
+    // Verify this user is managed by the current admin
+    const { data: existing, error: fetchError } = await supabase
+      .from(TABLES.PROFILES)
+      .select('user_id, managed_by')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) throw mapSupabaseError(fetchError);
+    if (existing?.managed_by !== adminId) {
+      throw new Error('You do not have permission to delete this user');
+    }
+
+    // Call edge function to delete user
+    const { error } = await supabase.functions.invoke(
+      EDGE_FUNCTIONS.DELETE_MANAGED_USER,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: { userId },
+      },
+    );
+
+    if (error) {
+      const body = await (error as any).context?.json?.().catch(() => null);
+      throw new Error(body?.message ?? error.message);
+    }
+  },
+
+  /**
+   * Ban or unban a managed user
+   */
+  async banManagedUser(userId: string, ban: boolean): Promise<ManagedUser> {
+    const adminId = await getCurrentUserId(); // ensures session is loaded before invoke
+    const accessToken = await getAccessToken();
+    const { data, error } = await supabase.functions.invoke(
+      EDGE_FUNCTIONS.BAN_MANAGED_USER,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: { userId, ban, managedBy: adminId },
+      },
+    );
+
+    if (error) {
+      const body = await (error as any).context?.json?.().catch(() => null);
+      throw new Error(body?.message ?? error.message);
+    }
+
+    return mapUserRow(data as Record<string, unknown>);
+  },
+};

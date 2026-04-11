@@ -4,7 +4,7 @@ import {
 } from '@heroicons/react/20/solid';
 import SelectField from '@components/ui/SelectField';
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500, 1000];
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 250, 500];
 
 type PaginationProps = {
   page: number;

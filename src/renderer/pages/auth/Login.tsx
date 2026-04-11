@@ -8,7 +8,7 @@ import Button from '@components/ui/Button';
 import TextField from '@components/ui/TextField';
 import { useAuth } from '@contexts/AuthContext';
 
-import logo from '../../../../assets/header-logo.png';
+import logo from '../../../../assets/logo.png';
 
 type View = 'login' | 'forgot' | 'otp' | 'reset';
 
@@ -50,14 +50,7 @@ export default function LoginPage() {
     setLoading(true);
     clearMessages();
     try {
-      await signIn(email, password)
-        .then(() => {
-          window.location.href = '/'; // Force reload to reset state and load user data
-          return null;
-        })
-        .catch((err) => {
-          throw err;
-        });
+      await signIn(email, password);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Login failed. Please try again.',
@@ -155,7 +148,7 @@ export default function LoginPage() {
             <img
               src={logo}
               alt="JMS Tax Consultancy"
-              className="w-20 h-20 object-contain mb-3"
+              className="w-40 h-40 object-cover"
             />
             <h1 className="text-2xl font-bold text-slate-900">JMS Tax</h1>
             <p className="mt-1 text-sm text-slate-500">

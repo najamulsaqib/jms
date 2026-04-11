@@ -72,6 +72,8 @@ export default function Button({
   busy = false,
   icon: Icon,
   disabled,
+  type = 'button',
+  onClick,
   ...props
 }: ButtonProps) {
   const hasIcon = !!Icon;
@@ -87,8 +89,22 @@ export default function Button({
     .filter(Boolean)
     .join(' ');
 
+  const handleClick: ButtonProps['onClick'] = (event) => {
+    if (type === 'button') {
+      event.preventDefault();
+    }
+
+    onClick?.(event);
+  };
+
   return (
-    <button className={classes} disabled={disabled || busy} {...props}>
+    <button
+      type={type}
+      className={classes}
+      disabled={disabled || busy}
+      onClick={handleClick}
+      {...props}
+    >
       {busy ? (
         <>
           <Spinner className={dim} />
