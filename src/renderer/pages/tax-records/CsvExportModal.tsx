@@ -9,6 +9,7 @@ import { TaxRecord } from '@shared/taxRecord.contracts';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { PAGE_KEYS } from '@lib/enums';
 
 export type CsvField =
   | 'referenceNumber'
@@ -221,7 +222,7 @@ export default function CsvExportModal({ isOpen, ids, onClose }: Props) {
             ).map((f) => f.id),
           });
           await queryClient.invalidateQueries({
-            queryKey: ['auditLog', 'tax-record'],
+            queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
           });
         } catch {
           // Keep export non-blocking if audit logging fails.

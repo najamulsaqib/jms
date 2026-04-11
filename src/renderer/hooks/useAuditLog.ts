@@ -1,4 +1,4 @@
-import { PAGE_KEYS, PAGE_SIZE } from '@lib/enums';
+import { MODULE_TO_PAGE_KEY, PAGE_KEYS, PAGE_SIZE } from '@lib/enums';
 import { auditLogApi } from '@services/auditLog.api';
 import { AuditLog } from '@shared/auditLog.contracts';
 import { useQuery } from '@tanstack/react-query';
@@ -12,9 +12,10 @@ export function useAuditLog(
   const id =
     recordId !== null && recordId !== undefined ? String(recordId) : null;
   const [page, setPage] = useState(1);
+  const pageKey = MODULE_TO_PAGE_KEY[module] || module;
 
   const { data, isLoading, error } = useQuery({
-    queryKey: [PAGE_KEYS.AUDIT_LOGS, module, id ?? 'all', page, perPage],
+    queryKey: [PAGE_KEYS.AUDIT_LOGS, pageKey, id ?? 'all', page, perPage],
     queryFn: () =>
       auditLogApi.get(module, {
         recordId: id,

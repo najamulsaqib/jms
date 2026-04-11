@@ -27,6 +27,16 @@ export type UpdateManagedUserInput = {
   fullName: string;
 };
 
+export type ManagedUsersPaginationInput = {
+  page: number;
+  pageSize: number;
+};
+
+export type ManagedUsersPage = {
+  data: ManagedUser[];
+  total: number;
+};
+
 type SupabaseErrorLike = {
   code?: string | null;
   message: string;
@@ -57,32 +67,42 @@ export const teamManagementApi = {
   /**
    * List all users managed by the current admin
    */
-  async getManagedUsers(): Promise<ManagedUser[]> {
+  async getManagedUsers(
+    pagination: ManagedUsersPaginationInput,
+  ): Promise<ManagedUsersPage> {
     const adminId = await getCurrentUserId();
+    const from = pagination.page * pagination.pageSize;
+    const to = from + pagination.pageSize - 1;
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from(TABLES.PROFILES)
       .select(
         'user_id, created_at, updated_at, role, full_name, company_name, avatar_url, email, is_banned',
+        { count: 'exact' },
       )
       .eq('managed_by', adminId)
+      .order('created_at', { ascending: false })
+      .range(from, to)
       .returns<any[]>();
 
     if (error) throw mapSupabaseError(error);
 
-    return (data || []).map((row) =>
-      mapUserRow({
-        ...row,
-        email: row.email,
-        userId: row.user_id,
-        fullName: row.full_name,
-        companyName: row.company_name,
-        avatarUrl: row.avatar_url,
-        isBanned: row.is_banned,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      }),
-    );
+    return {
+      data: (data || []).map((row) =>
+        mapUserRow({
+          ...row,
+          email: row.email,
+          userId: row.user_id,
+          fullName: row.full_name,
+          companyName: row.company_name,
+          avatarUrl: row.avatar_url,
+          isBanned: row.is_banned,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        }),
+      ),
+      total: count ?? 0,
+    };
   },
 
   /**

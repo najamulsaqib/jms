@@ -396,19 +396,30 @@ export const taxRecordApi = {
 
     if (error) throw mapSupabaseError(error);
 
-    await Promise.all(
-      records.map((record) =>
-        auditLogApi.log({
-          module: MODULES.TAX_RECORD,
-          recordId: record.referenceNumber,
-          action: AUDIT_ACTIONS.BULK_DELETE,
-          changedByName: actorName,
-          managedBy: ownerId,
-          changes: toDeletionChanges(record),
-          snapshot: record as unknown as Record<string, unknown>,
-        }),
-      ),
-    );
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: null,
+      action: AUDIT_ACTIONS.BULK_DELETE,
+      changedByName: actorName,
+      managedBy: ownerId,
+      changes: {
+        deletedCount: {
+          from: null,
+          to: String(records.length),
+        },
+        deletedNamesAndCnics: {
+          from: null,
+          to: formatIdentityList(records),
+        },
+      },
+      snapshot: {
+        records: records.map((record) => ({
+          referenceNumber: record.referenceNumber,
+          name: record.name,
+          cnic: record.cnic,
+        })),
+      },
+    });
   },
 
   async logPdfExport(
@@ -417,6 +428,8 @@ export const taxRecordApi = {
       selectedFields: string[];
       selectedCount: number;
       totalFields: number;
+      name?: string;
+      cnic?: string;
     },
   ): Promise<void> {
     const { ownerId, actorName } = await getEffectiveOwnerId();
@@ -428,6 +441,8 @@ export const taxRecordApi = {
       changedByName: actorName,
       managedBy: ownerId,
       changes: {
+        ...(details.name ? { name: { from: null, to: details.name } } : {}),
+        ...(details.cnic ? { cnic: { from: null, to: details.cnic } } : {}),
         exportedFields: {
           from: null,
           to: details.selectedFields.join(', '),
@@ -534,6 +549,11 @@ export const taxRecordApi = {
 
     const dbSortKey = SORT_KEY_MAP[sortKey] ?? 'created_at';
     query = query.order(dbSortKey, { ascending: sortDirection === 'asc' });
+    // Secondary sort by id ensures stable ordering when primary sort key has ties,
+    // preventing duplicate rows at page boundaries.
+    if (dbSortKey !== 'id') {
+      query = query.order('id', { ascending: false });
+    }
 
     const from = page * pageSize;
     query = query.range(from, from + pageSize - 1);

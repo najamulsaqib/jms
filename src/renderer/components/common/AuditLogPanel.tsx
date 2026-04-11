@@ -7,8 +7,12 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
+  DocumentMinusIcon,
+  DocumentPlusIcon,
+  DocumentTextIcon,
   PencilIcon,
   PlusIcon,
+  TableCellsIcon,
   TrashIcon,
 } from '@heroicons/react/20/solid';
 import { useAuditLog } from '@hooks/useAuditLog';
@@ -24,7 +28,12 @@ type AuditLogPanelProps = {
   title?: string;
 };
 
-type ActionStyle = { label: string; sentence: string; className: string; Icon: React.ElementType };
+type ActionStyle = {
+  label: string;
+  sentence: string;
+  className: string;
+  Icon: React.ElementType;
+};
 
 const ACTION_STYLES: Record<string, ActionStyle> = {
   // Current enum values
@@ -50,19 +59,19 @@ const ACTION_STYLES: Record<string, ActionStyle> = {
     label: 'Bulk Created',
     sentence: 'bulk created records',
     className: 'bg-green-100 text-green-700',
-    Icon: PlusIcon,
+    Icon: DocumentPlusIcon,
   },
   [AUDIT_ACTIONS.BULK_UPDATE]: {
     label: 'Bulk Updated',
     sentence: 'bulk updated records',
     className: 'bg-blue-100 text-blue-700',
-    Icon: PencilIcon,
+    Icon: DocumentTextIcon,
   },
   [AUDIT_ACTIONS.BULK_DELETE]: {
     label: 'Bulk Deleted',
     sentence: 'bulk deleted records',
     className: 'bg-red-100 text-red-700',
-    Icon: TrashIcon,
+    Icon: DocumentMinusIcon,
   },
   [AUDIT_ACTIONS.EXPORT_PDF]: {
     label: 'PDF Export',
@@ -74,32 +83,7 @@ const ACTION_STYLES: Record<string, ActionStyle> = {
     label: 'CSV Export',
     sentence: 'exported a CSV',
     className: 'bg-amber-100 text-amber-700',
-    Icon: ArrowDownTrayIcon,
-  },
-  // Legacy values for existing DB entries
-  created: {
-    label: 'Created',
-    sentence: 'created the record',
-    className: 'bg-green-100 text-green-700',
-    Icon: PlusIcon,
-  },
-  updated: {
-    label: 'Updated',
-    sentence: 'updated the record',
-    className: 'bg-blue-100 text-blue-700',
-    Icon: PencilIcon,
-  },
-  deleted: {
-    label: 'Deleted',
-    sentence: 'deleted the record',
-    className: 'bg-red-100 text-red-700',
-    Icon: TrashIcon,
-  },
-  exported: {
-    label: 'Exported',
-    sentence: 'exported',
-    className: 'bg-amber-100 text-amber-700',
-    Icon: ArrowDownTrayIcon,
+    Icon: TableCellsIcon,
   },
 };
 
@@ -167,9 +151,8 @@ function ChangeDiff({
   action: string;
 }) {
   if (!changes || Object.keys(changes).length === 0) return null;
-  const showResultOnly = action === AUDIT_ACTIONS.EXPORT_PDF ||
-    action === AUDIT_ACTIONS.EXPORT_CSV ||
-    action === 'exported';
+  const showResultOnly =
+    action === AUDIT_ACTIONS.EXPORT_PDF || action === AUDIT_ACTIONS.EXPORT_CSV;
 
   return (
     <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 divide-y divide-slate-100">

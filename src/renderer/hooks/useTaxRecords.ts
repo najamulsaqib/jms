@@ -114,8 +114,12 @@ export function usePaginatedTaxRecords(params: PaginatedListParams) {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => taxRecordApi.remove(id),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TAX_RECORDS_KEY });
+      queryClient.invalidateQueries({
+        queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS],
+      });
+    },
   });
 
   const deleteTaxRecord = async (id: number) => {
@@ -231,7 +235,11 @@ export function useTaxRecord(id: number | null) {
   }) => {
     if (id === null || !record?.referenceNumber) return;
     try {
-      await taxRecordApi.logPdfExport(record.referenceNumber, details);
+      await taxRecordApi.logPdfExport(record.referenceNumber, {
+        ...details,
+        name: record.name,
+        cnic: record.cnic,
+      });
       await queryClient.invalidateQueries({
         queryKey: [
           PAGE_KEYS.AUDIT_LOGS,

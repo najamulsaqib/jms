@@ -62,3 +62,12 @@ export const PAGE_KEYS = {
 };
 
 export type PageKey = (typeof PAGE_KEYS)[keyof typeof PAGE_KEYS];
+
+/** Map MODULES to their corresponding PAGE_KEYS for query key construction */
+export const MODULE_TO_PAGE_KEY: Record<string, string> = {
+  [MODULES.TAX_RECORD]: PAGE_KEYS.TAX_RECORDS,
+  [MODULES.PORTAL_PAGE]: PAGE_KEYS.PORTAL_PAGES,
+  [MODULES.TEAM_MANAGEMENT]: PAGE_KEYS.TEAM_MANAGEMENT,
+  [MODULES.AUTH]: PAGE_KEYS.MANAGED_USERS,
+  [MODULES.USER_PERMISSIONS]: PAGE_KEYS.MANAGED_USERS,
+};

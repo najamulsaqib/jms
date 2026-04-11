@@ -1,5 +1,6 @@
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import DataTable, { DataTableColumn } from '@components/table/DataTable';
+import Pagination from '@components/table/Pagination';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
 import { Chip } from '@components/ui/Chip';
@@ -14,6 +15,7 @@ import {
 } from '@heroicons/react/20/solid';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { useTeamManagement } from '@hooks/useTeamManagement';
+import { PAGE_SIZE } from '@lib/enums';
 import type { ManagedUser } from '@services/teamManagement.api';
 import { useState } from 'react';
 import UserModal from './UserModal';
@@ -25,15 +27,21 @@ type ModalState =
   | null;
 
 export default function TeamManagementSection() {
+  const [pagination, setPagination] = useState({
+    page: 0,
+    pageSize: PAGE_SIZE.TABLES,
+  });
+
   const {
     managedUsers,
+    total,
     isLoading,
     error,
     banUser,
     isBanningUser,
     deleteUser,
     isDeletingUser,
-  } = useTeamManagement();
+  } = useTeamManagement(pagination);
 
   const [modal, setModal] = useState<ModalState>(null);
   const [deleteConfirmUser, setDeleteConfirmUser] =
@@ -98,11 +106,6 @@ export default function TeamManagementSection() {
           <span>{user.fullName || '—'}</span>
         </div>
       ),
-    },
-    {
-      id: 'companyName',
-      header: 'Company',
-      render: (user) => user.companyName || '—',
     },
     {
       id: 'createdAt',
@@ -170,8 +173,8 @@ export default function TeamManagementSection() {
 
   return (
     <>
-      <Card padding="lg">
-        <div className="mb-6 flex items-center justify-between">
+      <Card padding="none">
+        <div className="mb-6 flex items-center justify-between p-6">
           <div>
             <h3 className="text-lg font-semibold text-slate-900">
               Team Members
@@ -186,17 +189,30 @@ export default function TeamManagementSection() {
         </div>
 
         {managedUsers.length === 0 ? (
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-8 text-center">
+          <div className="mx-6 mb-6 rounded-lg border border-slate-200 bg-slate-50 p-8 text-center">
             <p className="text-sm text-slate-600">
               No team members yet. Add your first user to get started.
             </p>
           </div>
         ) : (
-          <DataTable
-            columns={columns}
-            rows={managedUsers}
-            getRowId={(user) => user.userId}
-          />
+          <>
+            <DataTable
+              columns={columns}
+              rows={managedUsers}
+              getRowId={(user) => user.userId}
+            />
+            <Pagination
+              page={pagination.page}
+              pageSize={pagination.pageSize}
+              total={total}
+              onPageChange={(page) =>
+                setPagination((prev) => ({ ...prev, page }))
+              }
+              onPageSizeChange={(size) => {
+                setPagination((prev) => ({ ...prev, pageSize: size, page: 0 }));
+              }}
+            />
+          </>
         )}
       </Card>
 

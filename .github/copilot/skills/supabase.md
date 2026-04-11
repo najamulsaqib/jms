@@ -35,6 +35,7 @@ import {
   PAGE_KEYS,
   PAGE_SIZE,
   INTERVALS,
+  MODULE_TO_PAGE_KEY,
 } from '@lib/enums';
 ```
 
@@ -43,21 +44,24 @@ Rules:
 - Always use `TABLES.*` in `.from(...)`
 - Always use `EDGE_FUNCTIONS.*` in `.functions.invoke(...)`
 - Always use `PAGE_KEYS.*` for query keys where applicable
+- **Audit log query keys use PAGE_KEYS, not MODULES**: `[PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS]` (MODULES are only for audit logging data)
 - Always use `PAGE_SIZE.*` and `INTERVALS.*` instead of numeric literals when matching existing app defaults
 
 ## Audit Trail for Mutations (Required)
 
 Every create/update/delete/bulk/export mutation should write an audit log entry through `auditLogApi.log(...)`.
 
+**Important:** Use `MODULES.*` for audit logging and `PAGE_KEYS.*` for query key invalidations — they serve different purposes:
+
 ```typescript
-import { MODULES, AUDIT_ACTIONS, AUDIT_EVENTS } from '@lib/enums';
+import { MODULES, AUDIT_ACTIONS, AUDIT_EVENTS, PAGE_KEYS } from '@lib/enums';
 import { auditLogApi, diffRecord } from '@services/auditLog.api';
 
-// Example in mutation onSuccess
+// Audit logging: use MODULES to identify the domain being acted upon
 const changes = diffRecord(previousRow, updatedRow);
 if (changes) {
   await auditLogApi.log({
-    module: MODULES.TAX_RECORD,
+    module: MODULES.TAX_RECORD, // ✅ For audit trail
     recordId: String(updatedRow.id),
     action: AUDIT_ACTIONS.UPDATE,
     changedByName,
@@ -65,6 +69,11 @@ if (changes) {
     snapshot: { event: AUDIT_EVENTS.BULK_STATUS_UPDATED_SELECTED },
   });
 }
+
+// Query invalidation: use PAGE_KEYS to match audit query structure
+queryClient.invalidateQueries({
+  queryKey: [PAGE_KEYS.AUDIT_LOGS, PAGE_KEYS.TAX_RECORDS], // ✅ For query keys
+});
 ```
 
 Audit rules:

@@ -1,31 +1,38 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { refreshAuthSession } from '@lib/authSession';
+import { PAGE_KEYS, PAGE_SIZE } from '@lib/enums';
 import {
   teamManagementApi,
   type CreateManagedUserInput,
+  type ManagedUsersPaginationInput,
   type UpdateManagedUserInput,
-  type ManagedUser,
 } from '@services/teamManagement.api';
-import { refreshAuthSession } from '@lib/authSession';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { PAGE_KEYS } from '@lib/enums';
 
-const MANAGED_USERS_QUERY_KEY = [
+const MANAGED_USERS_QUERY_KEY_BASE = [
   PAGE_KEYS.TEAM_MANAGEMENT,
   PAGE_KEYS.MANAGED_USERS,
 ];
 
-export function useTeamManagement() {
+export function useTeamManagement(
+  pagination: ManagedUsersPaginationInput = {
+    page: 0,
+    pageSize: PAGE_SIZE.TABLES,
+  },
+) {
   const queryClient = useQueryClient();
+  const managedUsersQueryKey = [
+    ...MANAGED_USERS_QUERY_KEY_BASE,
+    pagination.page,
+    pagination.pageSize,
+  ];
 
   // Fetch managed users
-  const {
-    data: managedUsers = [],
-    isLoading,
-    error,
-  } = useQuery({
-    queryKey: MANAGED_USERS_QUERY_KEY,
-    queryFn: () => teamManagementApi.getManagedUsers(),
+  const { data, isLoading, error } = useQuery({
+    queryKey: managedUsersQueryKey,
+    queryFn: () => teamManagementApi.getManagedUsers(pagination),
     retry: 1,
+    placeholderData: (prev) => prev,
   });
 
   // Create managed user mutation
@@ -33,10 +40,7 @@ export function useTeamManagement() {
     mutationFn: (payload: CreateManagedUserInput) =>
       teamManagementApi.createManagedUser(payload),
     onSuccess: async (newUser) => {
-      queryClient.setQueryData(
-        MANAGED_USERS_QUERY_KEY,
-        (prev: ManagedUser[] = []) => [...prev, newUser],
-      );
+      queryClient.invalidateQueries({ queryKey: MANAGED_USERS_QUERY_KEY_BASE });
       toast.success(`User ${newUser.email} created successfully`);
       await refreshAuthSession();
     },
@@ -57,14 +61,8 @@ export function useTeamManagement() {
       userId: string;
       payload: UpdateManagedUserInput;
     }) => teamManagementApi.updateManagedUser(userId, payload),
-    onSuccess: async (updatedUser) => {
-      queryClient.setQueryData(
-        MANAGED_USERS_QUERY_KEY,
-        (prev: ManagedUser[] = []) =>
-          prev.map((user) =>
-            user.userId === updatedUser.userId ? updatedUser : user,
-          ),
-      );
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: MANAGED_USERS_QUERY_KEY_BASE });
       toast.success('User updated successfully');
     },
     onError: (err) => {
@@ -80,13 +78,7 @@ export function useTeamManagement() {
     mutationFn: ({ userId, ban }: { userId: string; ban: boolean }) =>
       teamManagementApi.banManagedUser(userId, ban),
     onSuccess: async (updatedUser) => {
-      queryClient.setQueryData(
-        MANAGED_USERS_QUERY_KEY,
-        (prev: ManagedUser[] = []) =>
-          prev.map((user) =>
-            user.userId === updatedUser.userId ? updatedUser : user,
-          ),
-      );
+      queryClient.invalidateQueries({ queryKey: MANAGED_USERS_QUERY_KEY_BASE });
       toast.success(
         updatedUser.isBanned
           ? `${updatedUser.email} has been banned`
@@ -105,12 +97,8 @@ export function useTeamManagement() {
   // Delete managed user mutation
   const deleteUserMutation = useMutation({
     mutationFn: (userId: string) => teamManagementApi.deleteManagedUser(userId),
-    onSuccess: async (_, userId) => {
-      queryClient.setQueryData(
-        MANAGED_USERS_QUERY_KEY,
-        (prev: ManagedUser[] = []) =>
-          prev.filter((user) => user.userId !== userId),
-      );
+    onSuccess: async () => {
+      queryClient.invalidateQueries({ queryKey: MANAGED_USERS_QUERY_KEY_BASE });
       toast.success('User deleted successfully');
       await refreshAuthSession();
     },
@@ -123,7 +111,8 @@ export function useTeamManagement() {
   });
 
   return {
-    managedUsers,
+    managedUsers: data?.data ?? [],
+    total: data?.total ?? 0,
     isLoading,
     error: error instanceof Error ? error.message : null,
     createUser: createUserMutation.mutate,
