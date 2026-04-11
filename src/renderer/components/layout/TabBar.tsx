@@ -11,13 +11,21 @@ function getTitleFromPath(pathname: string): string {
   if (pathname === '/settings') return 'Settings';
   if (/^\/tax-records\/[^/]+\/edit$/.test(pathname)) return 'Edit Tax Record';
   if (/^\/tax-records\/[^/]+$/.test(pathname)) return 'Tax Record';
+
   return 'Page';
+}
+
+function isPathWithinTab(tabPath: string, pathname: string): boolean {
+  if (tabPath === '/') return pathname === '/';
+  if (pathname === tabPath) return true;
+  return pathname.startsWith(`${tabPath}/`);
 }
 
 export default function TabBar() {
   const {
     tabs,
     activeTabId,
+    activeTab,
     closeTab,
     setActiveTab,
     updateTabCurrentPath,
@@ -26,7 +34,6 @@ export default function TabBar() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const prevActiveTabIdRef = useRef(activeTabId);
   const draggedTabId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
@@ -36,23 +43,31 @@ export default function TabBar() {
   useEffect(() => {
     if (prevActiveTabIdRef.current === activeTabId) return;
     prevActiveTabIdRef.current = activeTabId;
-    if (activeTab && activeTab.currentPath !== location.pathname) {
+
+    if (!activeTab) return;
+
+    if (activeTab.currentPath !== location.pathname) {
       navigate(activeTab.currentPath);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTabId]);
+  }, [activeTabId, activeTab, location.pathname, navigate]);
 
   // When the URL changes due to in-tab navigation, save the new position and update the title
   useEffect(() => {
-    if (activeTab && activeTab.currentPath !== location.pathname) {
-      updateTabCurrentPath(
-        activeTabId,
-        location.pathname,
-        getTitleFromPath(location.pathname),
-      );
+    if (!activeTab) return;
+
+    // Ignore URL updates that don't belong to the active tab root. This avoids
+    // temporarily writing the previous tab's route/title into the newly selected tab.
+    if (!isPathWithinTab(activeTab.path, location.pathname)) return;
+
+    if (activeTab.currentPath !== location.pathname) {
+      const isPortalRoute = /^\/portal\/.+/.test(location.pathname);
+      const nextTitle = isPortalRoute
+        ? activeTab.title
+        : getTitleFromPath(location.pathname);
+
+      updateTabCurrentPath(activeTabId, location.pathname, nextTitle);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+  }, [activeTabId, activeTab, location.pathname, updateTabCurrentPath]);
 
   return (
     <div className="bg-white border-b border-slate-300 px-4 h-8">
