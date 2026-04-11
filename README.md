@@ -1,23 +1,27 @@
-# JMS Tax App (Electron + React + SQLite)
+# JMS Tax App (Electron + React + Supabase)
 
-A desktop tax record management app built with Electron React Boilerplate, using `better-sqlite3` to store client tax records locally in SQLite.
+A desktop tax record management app built with Electron React Boilerplate, using Supabase for authentication and tax record storage.
 
 ## Features
 
-- Local SQLite database managed in the Electron main process
+- Supabase-backed tax record management
 - Full CRUD for client tax records (create, view, edit, delete)
-- Dashboard with filer stats (active, inactive, late-filer)
-- Sortable and searchable records table
-- Status tracking: `active`, `inactive`, `late-filer`
-- Safe renderer-to-main bridge via preload/IPC
-- Confirm dialog for destructive actions
+- Dashboard with filer stats (`active`, `inactive`, `late-filer`)
+- Sortable, searchable, and paginated records table
+- Bulk status updates
+- CSV import and CSV/PDF export
+- Electron auto-update channel support (`latest` and `beta`)
 
-## Local Data Storage
+## Supabase Setup
 
-The database file is created automatically in Electron's `userData` path:
+Set these environment variables before running the app:
 
-- Database file name: `tax-records.sqlite3`
-- Table: `tax_records`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+
+Supabase client initialization lives in `src/renderer/lib/supabase.ts`.
+
+Create the `tax_records` table in Supabase using the SQL block documented in `src/renderer/services/taxRecord.api.ts`.
 
 ## Scripts
 
@@ -27,82 +31,22 @@ npm run build
 npm run test
 ```
 
-## Folder Structure
-
-```text
-src/
-  main/
-    db/
-      client.ts
-      migrations.ts
-      taxRecord.repository.ts
-    ipc/
-      taxRecord.handlers.ts
-    main.ts
-    menu.ts
-    preload.ts
-    util.ts
-
-  renderer/
-    components/
-      common/
-        EmptyState.tsx
-        LoadingSpinner.tsx
-      layout/
-        AppLayout.tsx
-        Sidebar.tsx
-      table/
-        DataTable.tsx
-      ui/
-        Badge.tsx
-        Button.tsx
-        Card.tsx
-        Chip.tsx
-        ConfirmDialog.tsx
-    pages/
-      dashboard/
-        Dashboard.tsx
-      tax-records/
-        TaxRecords.tsx
-        TaxRecordDetail.tsx
-        TaxRecordForm.tsx
-        taxRecordForm.helpers.ts
-    hooks/
-      useTaxRecords.ts
-    App.tsx
-    styles.css
-    index.tsx
-
-  shared/
-    taxRecord.contracts.ts
-```
-
-## Routes
-
-| Path | Page |
-|---|---|
-| `/` | Dashboard |
-| `/tax-records` | Tax Records list |
-| `/tax-records/new` | Create new record |
-| `/tax-records/:id` | Record detail view |
-| `/tax-records/:id/edit` | Edit record |
-
 ## Data Flow
 
-1. Renderer calls `window.electron.taxRecord.*` methods.
-2. Preload forwards calls via `ipcRenderer.invoke`.
-3. Main process handles IPC in `src/main/ipc/taxRecord.handlers.ts`.
-4. Repository in `src/main/db/taxRecord.repository.ts` reads/writes SQLite.
-5. Renderer updates UI from API responses.
+1. Renderer components call hooks in `src/renderer/hooks/useTaxRecords.ts`.
+2. Hooks call `taxRecordApi` in `src/renderer/services/taxRecord.api.ts`.
+3. `taxRecordApi` uses `@supabase/supabase-js` to query and mutate `tax_records`.
+4. React Query keeps UI state synchronized after mutations.
 
 ## Notes
 
-- All DB access stays in the main process.
-- Renderer never imports `better-sqlite3` directly.
+- Legacy local database code has been removed.
+- Tax record data is stored in Supabase.
 
 ## Downloads
 
 ### Windows
+
 Download the latest `.exe` installer from the [Releases](https://github.com/najamulsaqib/jms/releases) page.
 
 ### macOS (TODO)
@@ -112,6 +56,7 @@ Download the latest `.exe` installer from the [Releases](https://github.com/naja
 > macOS requires apps to be **code signed and notarized** by Apple before they can be distributed. This requires an Apple Developer account ($99/year).
 >
 > **To do:**
+>
 > - [ ] Obtain Apple Developer certificate
 > - [ ] Configure signing secrets in GitHub Actions (`APPLE_CSC_LINK`, `APPLE_CSC_KEY_PASSWORD`, `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID`)
 > - [ ] Set repo variable `APPLE_SIGNING_AVAILABLE=true` to enable the signed build path in CI

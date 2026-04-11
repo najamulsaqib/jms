@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeftIcon } from '@heroicons/react/20/solid';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  ArrowLeftIcon,
+  UserIcon,
+  KeyIcon,
+  ClipboardDocumentIcon,
+} from '@heroicons/react/20/solid';
 import AppLayout from '@components/layout/AppLayout';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import SelectField from '@components/ui/SelectField';
 import TextField from '@components/ui/TextField';
+import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import {
   createHandleChange,
@@ -21,22 +28,22 @@ import {
 export default function TaxRecordFormPage() {
   const { taxRecordId } = useParams<{ taxRecordId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const parsedId = useMemo(() => {
-    if (!taxRecordId) {
-      return null;
-    }
-
-    const id = Number(taxRecordId);
-    return Number.isNaN(id) ? null : id;
+    if (!taxRecordId) return null;
+    return decodeRecordId(taxRecordId);
   }, [taxRecordId]);
 
   const isEditMode = parsedId !== null;
 
   const [formValues, setFormValues] = useState<FormValues>(EMPTY_FORM_VALUES);
-  const [initialFormValues, setInitialFormValues] =
-    useState<FormValues | null>(null);
-  const [referenceOptions, setReferenceOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [initialFormValues, setInitialFormValues] = useState<FormValues | null>(
+    null,
+  );
+  const [referenceOptions, setReferenceOptions] = useState<
+    Array<{ value: string; label: string }>
+  >([]);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(isEditMode);
   const [saving, setSaving] = useState(false);
@@ -56,27 +63,39 @@ export default function TaxRecordFormPage() {
         if (!mounted) return;
 
         if (isEditMode && parsedId !== null) {
-          const todo = await taxRecordApi.getById(parsedId);
+          const record = await taxRecordApi.getById(parsedId);
           if (!mounted) return;
 
           // Build reference options, excluding current record's name
-          const options = buildReferenceOptions(existingEntries, todo.name.trim());
+          const options = buildReferenceOptions(
+            existingEntries,
+            record.name.trim(),
+          );
           setReferenceOptions(options);
 
+          // Strip \"0092\" prefix from phone for editing (user only sees 10 digits)
+          let phone = '';
+          if (record.phone && record.phone.startsWith('0092')) {
+            phone = record.phone.slice(4); // Remove \"0092\" prefix
+          } else if (record.phone) {
+            phone = record.phone;
+          }
+
           const nextFormValues: FormValues = {
-            referenceNumber: todo.referenceNumber,
-            name: todo.name,
-            cnic: todo.cnic,
-            email: todo.email,
-            password: todo.password,
-            selectedReference: options.some((o) => o.value === todo.reference)
-              ? todo.reference
+            referenceNumber: record.referenceNumber,
+            name: record.name,
+            cnic: record.cnic,
+            phone,
+            email: record.email,
+            password: record.password,
+            selectedReference: options.some((o) => o.value === record.reference)
+              ? record.reference
               : CUSTOM_REFERENCE_VALUE,
-            customReference: options.some((o) => o.value === todo.reference)
+            customReference: options.some((o) => o.value === record.reference)
               ? ''
-              : todo.reference,
-            status: todo.status,
-            notes: todo.notes,
+              : record.reference,
+            status: record.status,
+            notes: record.notes,
           };
 
           setFormValues(nextFormValues);
@@ -102,7 +121,11 @@ export default function TaxRecordFormPage() {
     };
   }, [isEditMode, parsedId]);
 
-  const handleChange = createHandleChange({ formValues, setFormValues, setFieldErrors });
+  const handleChange = createHandleChange({
+    formValues,
+    setFormValues,
+    setFieldErrors,
+  });
   const handleSubmit = createHandleSubmit({
     formValues,
     parsedId,
@@ -113,6 +136,7 @@ export default function TaxRecordFormPage() {
     setSuccess,
     setInitialFormValues,
     navigate,
+    onSaved: () => queryClient.invalidateQueries({ queryKey: ['taxRecords'] }),
   });
 
   const handleCancel = () => {
@@ -148,53 +172,67 @@ export default function TaxRecordFormPage() {
         { label: isEditMode ? 'Edit Record' : 'New Record' },
       ]}
     >
-      <div className="max-w-3xl">
+      <div className="max-w-6xl">
         {/* Back Button */}
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
-          className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Tax Records
         </button>
 
         {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">
-            {isEditMode ? 'Edit Tax Record' : 'New Tax Record'}
-          </h1>
-          <p className="mt-2 text-slate-600">
-            {isEditMode
-              ? 'Update the tax record information below'
-              : 'Fill in the details to create a new tax record'}
-          </p>
+        <div className="flex items-center gap-4 bg-white rounded-xl border border-slate-200 px-5 py-4 shadow-sm mb-5">
+          <div className="shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+            <UserIcon className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">
+              {isEditMode ? 'Edit Tax Record' : 'New Tax Record'}
+            </h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {isEditMode
+                ? 'Update the tax record information below'
+                : 'Fill in the details to create a new tax record'}
+            </p>
+          </div>
         </div>
 
         {/* Messages */}
         {error && (
-          <Card className="mb-6 border-red-200 bg-red-50">
+          <Card className="mb-5 border-red-200 bg-red-50">
             <p className="text-sm text-red-800">{error}</p>
           </Card>
         )}
-
         {success && (
-          <Card className="mb-6 border-green-200 bg-green-50">
+          <Card className="mb-5 border-green-200 bg-green-50">
             <p className="text-sm text-green-800">{success}</p>
           </Card>
         )}
 
         {/* Form */}
-        <Card>
-          {loading ? (
+        {loading ? (
+          <Card>
             <div className="text-center py-12">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-slate-200 border-t-blue-600" />
               <p className="mt-4 text-slate-600">Loading record...</p>
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Reference Number & Name */}
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          </Card>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Personal Information */}
+            <Card>
+              <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                  <UserIcon className="h-4 w-4 text-blue-600" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Personal Information
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <TextField
                   id="referenceNumber"
                   name="referenceNumber"
@@ -204,7 +242,6 @@ export default function TaxRecordFormPage() {
                   error={fieldErrors.referenceNumber}
                   placeholder="REF-001"
                 />
-
                 <TextField
                   id="name"
                   name="name"
@@ -214,10 +251,6 @@ export default function TaxRecordFormPage() {
                   error={fieldErrors.name}
                   placeholder="John Doe"
                 />
-              </div>
-
-              {/* CNIC & Email */}
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                 <TextField
                   id="cnic"
                   name="cnic"
@@ -227,100 +260,133 @@ export default function TaxRecordFormPage() {
                   error={fieldErrors.cnic}
                   placeholder="3520112345671"
                 />
-
                 <TextField
-                  id="email"
-                  name="email"
-                  label="Email"
-                  value={formValues.email}
+                  id="phone"
+                  name="phone"
+                  label="Phone"
+                  prefix="0092"
+                  inputMode="numeric"
+                  maxLength={10}
+                  value={formValues.phone}
                   onChange={handleChange}
-                  error={fieldErrors.email}
-                  placeholder="john@example.com"
+                  error={fieldErrors.phone}
+                  placeholder="3123456789"
                 />
-              </div>
-
-              {/* Password */}
-              <TextField
-                id="password"
-                name="password"
-                label="Password"
-                value={formValues.password}
-                onChange={handleChange}
-                error={fieldErrors.password}
-                placeholder="Enter password"
-              />
-
-              {/* Reference Selection */}
-              <SelectField
-                id="selectedReference"
-                name="selectedReference"
-                label="Reference"
-                value={formValues.selectedReference}
-                onChange={handleChange}
-                options={allReferenceOptions}
-                error={fieldErrors.selectedReference}
-              />
-
-              {/* Custom Reference */}
-              {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
-                <TextField
-                  id="customReference"
-                  name="customReference"
-                  label="Custom Reference"
-                  value={formValues.customReference}
+                <SelectField
+                  id="selectedReference"
+                  name="selectedReference"
+                  label="Reference"
+                  value={formValues.selectedReference}
                   onChange={handleChange}
-                  error={fieldErrors.customReference}
-                  placeholder="Enter custom reference"
+                  options={allReferenceOptions}
+                  error={fieldErrors.selectedReference}
                 />
-              )}
-
-              {/* Status */}
-              <SelectField
-                id="status"
-                name="status"
-                label="Status"
-                value={formValues.status}
-                onChange={handleChange}
-                options={statusOptions}
-                error={fieldErrors.status}
-              />
-
-              {/* Notes */}
-              <div className="space-y-1">
-                <label htmlFor="notes" className="block text-sm font-medium text-slate-700">
-                  Notes
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    value={formValues.notes}
+                {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
+                  <TextField
+                    id="customReference"
+                    name="customReference"
+                    label="Custom Reference"
+                    value={formValues.customReference}
                     onChange={handleChange}
-                    rows={4}
-                    className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                    placeholder="Additional notes..."
+                    error={fieldErrors.customReference}
+                    placeholder="Enter custom reference"
                   />
-                </label>
-                {fieldErrors.notes && (
-                  <p className="text-sm text-red-600">{fieldErrors.notes}</p>
                 )}
               </div>
+            </Card>
 
-              {/* Form Actions */}
-              <div className="flex gap-3 pt-4 border-t border-slate-200">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleCancel}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" busy={saving}>
-                  {isEditMode ? 'Update Record' : 'Create Record'}
-                </Button>
-              </div>
-            </form>
-          )}
-        </Card>
+            {/* Credentials + Status & Notes */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <Card>
+                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                  <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                    <KeyIcon className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Account Credentials & Status
+                  </h3>
+                </div>
+                <div className="space-y-5">
+                  <TextField
+                    id="email"
+                    name="email"
+                    label="Email"
+                    value={formValues.email}
+                    onChange={handleChange}
+                    error={fieldErrors.email}
+                    placeholder="john@example.com"
+                  />
+                  <TextField
+                    id="password"
+                    name="password"
+                    label="Password"
+                    value={formValues.password}
+                    onChange={handleChange}
+                    error={fieldErrors.password}
+                    placeholder="Enter password"
+                  />
+                  <SelectField
+                    id="status"
+                    name="status"
+                    label="Status"
+                    value={formValues.status}
+                    onChange={handleChange}
+                    options={statusOptions}
+                    error={fieldErrors.status}
+                  />
+                </div>
+              </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                  <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+                    <ClipboardDocumentIcon className="h-4 w-4 text-slate-600" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Notes
+                  </h3>
+                </div>
+                <textarea
+                  id="notes"
+                  name="notes"
+                  value={formValues.notes}
+                  onChange={handleChange}
+                  rows={10}
+                  maxLength={5000}
+                  className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                  placeholder="Additional notes..."
+                />
+                <div className="flex items-center justify-between mt-1.5">
+                  {fieldErrors.notes ? (
+                    <p className="text-sm text-red-600">{fieldErrors.notes}</p>
+                  ) : (
+                    <span />
+                  )}
+                  <p
+                    className={`text-xs tabular-nums ${formValues.notes.length >= 5000 ? 'text-red-500 font-medium' : formValues.notes.length >= 4500 ? 'text-amber-500' : 'text-slate-400'}`}
+                  >
+                    {formValues.notes.length} / 5000
+                  </p>
+                </div>
+              </Card>
+            </div>
+
+            <div className="flex gap-3 pt-1 justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleCancel}
+                disabled={saving}
+                size="sm"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" busy={saving} size="sm">
+                {isEditMode ? 'Update Record' : 'Create Record'}
+              </Button>
+            </div>
+          </form>
+        )}
 
         {/* Unsaved Changes Warning */}
         <ConfirmDialog

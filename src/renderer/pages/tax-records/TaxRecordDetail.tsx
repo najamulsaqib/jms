@@ -7,42 +7,53 @@ import ConfirmDialog from '@components/ui/ConfirmDialog';
 import SelectField from '@components/ui/SelectField';
 import TextField from '@components/ui/TextField';
 import {
+  ArrowDownTrayIcon,
   ArrowLeftIcon,
-  PencilIcon,
-  TrashIcon,
-  UserIcon,
-  IdentificationIcon,
-  EnvelopeIcon,
-  KeyIcon,
-  LinkIcon,
-  DocumentTextIcon,
-  CalendarIcon,
+  CheckIcon,
   ClipboardDocumentIcon,
+  ClipboardIcon,
+  DocumentTextIcon,
+  EnvelopeIcon,
   EyeIcon,
   EyeSlashIcon,
-  ClipboardIcon,
-  CheckIcon,
-  ArrowDownTrayIcon,
+  IdentificationIcon,
+  KeyIcon,
+  LinkIcon,
+  PencilIcon,
+  PhoneIcon,
+  TrashIcon,
+  UserIcon,
 } from '@heroicons/react/20/solid';
-import PdfExportModal from './PdfExportModal';
-import { toast } from 'sonner';
+import { useTaxRecord } from '@hooks/useTaxRecords';
+import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import PdfExportModal from './PdfExportModal';
 import {
+  buildReferenceOptions,
   createHandleChange,
   CUSTOM_REFERENCE_VALUE,
   EMPTY_FORM_VALUES,
-  buildReferenceOptions,
   type FieldErrors,
   type FormValues,
+  validatePhoneEdit,
 } from './taxRecordForm.helpers';
 
 function recordToFormValues(
   record: TaxRecord,
   referenceValues: string[],
 ): FormValues {
+  // Strip "0092" prefix from phone for editing (user only sees 10 digits)
+  let phone = '';
+  if (record.phone && record.phone.startsWith('0092')) {
+    phone = record.phone.slice(4); // Remove "0092" prefix
+  } else if (record.phone) {
+    phone = record.phone;
+  }
+
   return {
     referenceNumber: record.referenceNumber,
     name: record.name,
@@ -57,6 +68,7 @@ function recordToFormValues(
       : record.reference,
     status: record.status,
     notes: record.notes,
+    phone,
   };
 }
 
@@ -72,17 +84,22 @@ export default function TaxRecordDetailPage() {
 
   const parsedId = useMemo(() => {
     if (!taxRecordId) return null;
-    const id = Number(taxRecordId);
-    return Number.isNaN(id) ? null : id;
+    return decodeRecordId(taxRecordId);
   }, [taxRecordId]);
 
-  const [record, setRecord] = useState<TaxRecord | null>(null);
+  const {
+    record,
+    loading,
+    error: queryError,
+    updateTaxRecord,
+    deleteTaxRecord,
+    saving,
+    deleting,
+  } = useTaxRecord(parsedId);
+
   const [mode, setMode] = useState<'view' | 'edit'>('view');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
 
@@ -97,34 +114,8 @@ export default function TaxRecordDetailPage() {
   // Visibility and copy states
   const [showPassword, setShowPassword] = useState(false);
   const [copiedField, setCopiedField] = useState<
-    'email' | 'password' | 'cnic' | null
+    'email' | 'password' | 'cnic' | 'phone' | null
   >(null);
-
-  useEffect(() => {
-    if (!parsedId) return;
-    let mounted = true;
-    setLoading(true);
-    setError(null);
-
-    taxRecordApi
-      .getById(parsedId)
-      .then((r) => {
-        if (mounted) setRecord(r);
-      })
-      .catch((err) => {
-        if (mounted)
-          setError(
-            err instanceof Error ? err.message : 'Failed to load record.',
-          );
-      })
-      .finally(() => {
-        if (mounted) setLoading(false);
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [parsedId]);
 
   const enterEditMode = async () => {
     if (!record) return;
@@ -134,7 +125,6 @@ export default function TaxRecordDetailPage() {
       const otherRecords = allRecords.filter((r) => r.id !== record.id);
       const options = buildReferenceOptions(otherRecords);
 
-      console.log('OPTIONS', options);
       setReferenceOptions(options);
       const referenceValues = options.map((o) => o.value);
       const values = recordToFormValues(record, referenceValues);
@@ -164,7 +154,7 @@ export default function TaxRecordDetailPage() {
     }
   };
 
-  const handleEditSubmit = async (event: React.FormEvent) => {
+  const handleEditSubmit = async (event: { preventDefault(): void }) => {
     event.preventDefault();
     if (!parsedId) return;
 
@@ -184,6 +174,8 @@ export default function TaxRecordDetailPage() {
       nextErrors.email = 'Email format is invalid.';
     if (!formValues.password.trim())
       nextErrors.password = 'Password is required.';
+    const phoneError = validatePhoneEdit(formValues.phone);
+    if (phoneError) nextErrors.phone = phoneError;
     if (formValues.selectedReference === CUSTOM_REFERENCE_VALUE) {
       if (!formValues.customReference.trim())
         nextErrors.customReference = 'Reference is required.';
@@ -207,68 +199,99 @@ export default function TaxRecordDetailPage() {
       return;
     }
 
-    setSaving(true);
+    const uniquenessErrors = await taxRecordApi.validateUniqueness(
+      {
+        referenceNumber: formValues.referenceNumber,
+        cnic: formValues.cnic,
+      },
+      parsedId,
+    );
+
+    if (Object.keys(uniquenessErrors).length > 0) {
+      setFieldErrors((current) => ({
+        ...current,
+        ...uniquenessErrors,
+      }));
+      setError(null);
+      return;
+    }
+
     setError(null);
     setFieldErrors({});
 
-    try {
-      const updated = await taxRecordApi.update(parsedId, {
-        referenceNumber: formValues.referenceNumber,
-        name: formValues.name,
-        cnic: formValues.cnic,
-        email: formValues.email,
-        password: formValues.password,
-        reference,
-        status: formValues.status,
-        notes: formValues.notes,
-      });
-      setRecord(updated);
-      setInitialFormValues(formValues);
-      setMode('view');
-      toast.success('Record updated successfully');
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to save record.';
-      if (message === 'Email already exists.')
-        setFieldErrors((c) => ({ ...c, email: message }));
-      else if (message === 'CNIC already exists.')
-        setFieldErrors((c) => ({ ...c, cnic: message }));
-      else if (message === 'Reference number already exists.')
-        setFieldErrors((c) => ({ ...c, referenceNumber: message }));
-      setError(message);
-    } finally {
-      setSaving(false);
+    // Add "0092" prefix to phone before saving
+    const phoneWithPrefix = formValues.phone ? `0092${formValues.phone}` : '';
+
+    const { data: updated, error: updateError } = await updateTaxRecord({
+      referenceNumber: formValues.referenceNumber,
+      name: formValues.name,
+      cnic: formValues.cnic,
+      email: formValues.email,
+      password: formValues.password,
+      reference,
+      status: formValues.status,
+      notes: formValues.notes,
+      phone: phoneWithPrefix,
+    });
+
+    if (!updated) {
+      const mappedErrors: FieldErrors = {};
+
+      if (updateError?.includes('Email already exists')) {
+        mappedErrors.email = 'Email already exists.';
+      }
+
+      if (updateError?.includes('CNIC already exists')) {
+        mappedErrors.cnic = 'CNIC already exists.';
+      }
+
+      if (updateError?.includes('Reference number already exists')) {
+        mappedErrors.referenceNumber = 'Reference number already exists.';
+      }
+
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors((current) => ({
+          ...current,
+          ...mappedErrors,
+        }));
+        setError(null);
+        return;
+      }
+
+      setError(updateError ?? 'Failed to save record.');
+      return;
     }
+
+    setInitialFormValues(formValues);
+    setMode('view');
+    toast.success('Record updated successfully');
   };
 
   const handleDelete = async () => {
-    if (!parsedId) return;
-    setDeleting(true);
-    try {
-      await taxRecordApi.remove(parsedId);
+    const deleted = await deleteTaxRecord();
+    if (deleted) {
       toast.success('Record deleted successfully');
       navigate('/tax-records', { replace: true });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete record.');
+    } else {
       toast.error('Failed to delete record');
       setPendingDelete(false);
-      setDeleting(false);
     }
   };
 
   const handleCopy = async (
     text: string,
-    field: 'email' | 'password' | 'cnic',
+    field: 'email' | 'password' | 'cnic' | 'phone',
   ) => {
     try {
       await navigator.clipboard.writeText(text);
       setCopiedField(field);
       const label =
-        field === 'email'
-          ? 'Email'
-          : field === 'password'
-            ? 'Password'
-            : 'CNIC';
+        {
+          email: 'Email',
+          password: 'Password',
+          cnic: 'CNIC',
+          phone: 'Phone number',
+        }[field] || 'Value';
       toast.success(`${label} copied to clipboard`);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
@@ -287,11 +310,11 @@ export default function TaxRecordDetailPage() {
         { label: record?.name ?? 'Record' },
       ]}
     >
-      <div className="max-w-3xl">
+      <div className="max-w-6xl">
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
-          className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+          className="inline-flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-5 transition-colors"
         >
           <ArrowLeftIcon className="h-4 w-4 mr-1" />
           Back to Tax Records
@@ -313,258 +336,288 @@ export default function TaxRecordDetailPage() {
 
         {!loading && record && (
           <>
-            {/* Header */}
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900">
-                  {record.name}
-                </h1>
-                <p className="mt-1 text-medium text-slate-500">
-                  Ref # {record.referenceNumber}
-                </p>
+            {/* Hero Header */}
+            <div className="flex items-center gap-4 bg-white rounded-xl border border-slate-200 px-5 py-4 shadow-sm mb-5">
+              <div className="shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                <span className="text-lg font-bold text-blue-600 select-none">
+                  {record.name
+                    .split(' ')
+                    .map((n) => n[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl font-bold text-slate-900 truncate">
+                    {record.name}
+                  </h1>
+                  <Chip
+                    variant={
+                      ({
+                        active: 'green',
+                        inactive: 'red',
+                        'late-filer': 'orange',
+                      }[record.status] || 'slate') as any
+                    }
+                    size="md"
+                  >
+                    {record.status}
+                  </Chip>
+                </div>
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-400 flex-wrap">
+                  <span>Ref # {record.referenceNumber}</span>
+                  <span>·</span>
+                  <span>
+                    Created{' '}
+                    {new Date(record.createdAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                  <span>·</span>
+                  <span>
+                    Updated{' '}
+                    {new Date(record.updatedAt).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                    })}
+                  </span>
+                </div>
               </div>
               {mode === 'view' && (
-                <div className="flex items-center gap-2 shrink-0 ml-4">
+                <div className="flex items-center gap-2 shrink-0">
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
+                    icon={ArrowDownTrayIcon}
                     onClick={() => setShowPdfModal(true)}
                   >
-                    <ArrowDownTrayIcon className="h-4 w-4 mr-1" />
                     Export PDF
                   </Button>
                   <Button
                     type="button"
                     variant="secondary"
                     size="sm"
+                    icon={PencilIcon}
                     onClick={enterEditMode}
                   >
-                    <PencilIcon className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
                   <Button
                     type="button"
                     variant="danger"
                     size="sm"
+                    icon={TrashIcon}
                     onClick={() => setPendingDelete(true)}
                   >
-                    <TrashIcon className="h-4 w-4 mr-1" />
                     Delete
                   </Button>
                 </div>
               )}
             </div>
 
-            {error && (
-              <Card className="mb-6 border-red-200 bg-red-50">
-                <p className="text-sm text-red-800">{error}</p>
+            {(error || queryError) && (
+              <Card className="mb-5 border-red-200 bg-red-50">
+                <p className="text-sm text-red-800">
+                  {error ?? queryError ?? 'An error occurred.'}
+                </p>
               </Card>
             )}
 
             {/* VIEW MODE */}
             {mode === 'view' && (
-              <div className="space-y-6">
-                {/* Status Banner */}
-                <Card className="bg-linear-to-r from-slate-50 to-white border-l-4 border-l-blue-500">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-slate-500 mb-1">
-                        Current Status
+              <div className="space-y-5">
+                {/* 2-col grid: Personal Info + Account Credentials */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Personal Information */}
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                        <UserIcon className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Personal Information
                       </h3>
-                      <Chip
-                        variant={
-                          {
-                            active: 'green',
-                            inactive: 'red',
-                            'late-filer': 'orange',
-                          }[record.status] || ('slate' as any)
-                        }
-                        size="md"
-                      >
-                        {record.status}
-                      </Chip>
                     </div>
-                    <div className="text-right space-y-3">
-                      <div className="flex items-center justify-end text-sm text-slate-700">
-                        <div className="mr-1">Created:</div>
-                        <CalendarIcon className="h-4 w-4 mr-1 text-slate-400" />
-                        {new Date(record.createdAt).toLocaleDateString(
-                          'en-US',
-                          {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          },
-                        )}
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <UserIcon className="h-3 w-3" /> Full Name
+                        </p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {record.name}
+                        </p>
                       </div>
-                      <div className="flex items-center justify-end text-sm text-slate-700">
-                        <div className="mr-1">Last modified:</div>
-                        <CalendarIcon className="h-4 w-4 mr-1 text-slate-400" />
-                        {new Date(record.updatedAt).toLocaleDateString(
-                          'en-US',
-                          {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          },
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Personal Information */}
-                <Card>
-                  <div className="border-b border-slate-200 pb-4 mb-6">
-                    <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                      <UserIcon className="h-5 w-5 mr-2 text-blue-600" />
-                      Personal Information
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-                        Full Name
-                      </label>
-                      <div className="text-base font-medium text-slate-900">
-                        {record.name}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <IdentificationIcon className="h-3.5 w-3.5 mr-1" />
-                        CNIC
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
-                          {record.cnic}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(record.cnic, 'cnic')}
-                          className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors shrink-0"
-                          title="Copy CNIC"
-                        >
-                          {copiedField === 'cnic' ? (
-                            <CheckIcon className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <ClipboardIcon className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <ClipboardDocumentIcon className="h-3.5 w-3.5 mr-1" />
-                        Reference Number
-                      </label>
-                      <div className="text-base font-medium text-slate-900">
-                        {record.referenceNumber}
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <LinkIcon className="h-3.5 w-3.5 mr-1" />
-                        Reference
-                      </label>
-                      <div className="text-base font-medium text-slate-900 capitalize">
-                        {record.reference.replace(/-/g, ' ')}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Account Credentials */}
-                <Card>
-                  <div className="border-b border-slate-200 pb-4 mb-6">
-                    <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                      <KeyIcon className="h-5 w-5 mr-2 text-emerald-600" />
-                      Account Credentials
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <EnvelopeIcon className="h-3.5 w-3.5 mr-1" />
-                        Email Address
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
-                          {record.email}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(record.email, 'email')}
-                          className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors shrink-0"
-                          title="Copy email"
-                        >
-                          {copiedField === 'email' ? (
-                            <CheckIcon className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <ClipboardIcon className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-500 uppercase tracking-wide flex items-center">
-                        <KeyIcon className="h-3.5 w-3.5 mr-1" />
-                        Password
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <div className="text-base font-mono text-slate-900 bg-slate-50 px-3 py-2 rounded-md border border-slate-200 flex-1 select-all">
-                          {showPassword ? record.password : '••••••••••••'}
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <IdentificationIcon className="h-3 w-3" /> CNIC
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {record.cnic}
+                          </span>
                           <button
                             type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
-                            title={
-                              showPassword ? 'Hide password' : 'Show password'
-                            }
+                            onClick={() => handleCopy(record.cnic, 'cnic')}
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                            title="Copy CNIC"
                           >
-                            {showPassword ? (
-                              <EyeSlashIcon className="h-4 w-4" />
+                            {copiedField === 'cnic' ? (
+                              <CheckIcon className="h-3.5 w-3.5 text-green-600" />
                             ) : (
-                              <EyeIcon className="h-4 w-4" />
-                            )}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleCopy(record.password, 'password')
-                            }
-                            className="p-1.5 rounded-md hover:bg-slate-100 text-slate-600 hover:text-slate-900 transition-colors"
-                            title="Copy password"
-                          >
-                            {copiedField === 'password' ? (
-                              <CheckIcon className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <ClipboardIcon className="h-4 w-4" />
+                              <ClipboardIcon className="h-3.5 w-3.5" />
                             )}
                           </button>
                         </div>
                       </div>
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <ClipboardDocumentIcon className="h-3 w-3" />{' '}
+                          Reference Number
+                        </p>
+                        <p className="text-sm font-medium text-slate-900">
+                          {record.referenceNumber}
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <LinkIcon className="h-3 w-3" /> Reference
+                        </p>
+                        <p className="text-sm font-medium text-slate-900 capitalize">
+                          {record.reference.replace(/-/g, ' ')}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </Card>
+                  </Card>
+
+                  {/* Account Credentials */}
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                        <KeyIcon className="h-4 w-4 text-emerald-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Account Credentials
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <EnvelopeIcon className="h-3 w-3" /> Email Address
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {record.email || 'N/A'}
+                          </span>
+                          {record.email && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(record.email, 'email')}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                              title="Copy email"
+                            >
+                              {copiedField === 'email' ? (
+                                <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                              ) : (
+                                <ClipboardIcon className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <KeyIcon className="h-3 w-3" /> Password
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {showPassword
+                              ? record.password || 'N/A'
+                              : '••••••••••••'}
+                          </span>
+                          {record.password && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                                title={
+                                  showPassword
+                                    ? 'Hide password'
+                                    : 'Show password'
+                                }
+                              >
+                                {showPassword ? (
+                                  <EyeSlashIcon className="h-3.5 w-3.5" />
+                                ) : (
+                                  <EyeIcon className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopy(record.password, 'password')
+                                }
+                                className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                                title="Copy password"
+                              >
+                                {copiedField === 'password' ? (
+                                  <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                                ) : (
+                                  <ClipboardIcon className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                          <PhoneIcon className="h-3 w-3" /> Phone Number
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                            {record.phone || 'N/A'}
+                          </span>
+                          {record.phone && (
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(record.phone, 'phone')}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                              title="Copy phone"
+                            >
+                              {copiedField === 'phone' ? (
+                                <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                              ) : (
+                                <ClipboardIcon className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
 
                 {/* Additional Notes */}
                 {record.notes && (
                   <Card>
-                    <div className="border-b border-slate-200 pb-4 mb-6">
-                      <h3 className="text-lg font-semibold text-slate-900 flex items-center">
-                        <DocumentTextIcon className="h-5 w-5 mr-2 text-amber-600" />
+                    <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                        <DocumentTextIcon className="h-4 w-4 text-amber-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
                         Additional Notes
                       </h3>
                     </div>
-                    <div className="prose prose-sm max-w-none">
-                      <p className="text-slate-700 whitespace-pre-wrap leading-relaxed">
-                        {record.notes}
-                      </p>
-                    </div>
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {record.notes}
+                    </p>
                   </Card>
                 )}
               </div>
@@ -572,9 +625,18 @@ export default function TaxRecordDetailPage() {
 
             {/* EDIT MODE */}
             {mode === 'edit' && (
-              <Card>
-                <form onSubmit={handleEditSubmit} className="space-y-6">
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <form onSubmit={handleEditSubmit} className="space-y-5">
+                {/* Personal Info */}
+                <Card>
+                  <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                    <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                      <UserIcon className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-slate-900">
+                      Personal Information
+                    </h3>
+                  </div>
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <TextField
                       id="referenceNumber"
                       name="referenceNumber"
@@ -593,9 +655,6 @@ export default function TaxRecordDetailPage() {
                       error={fieldErrors.name}
                       placeholder="John Doe"
                     />
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <TextField
                       id="cnic"
                       name="cnic"
@@ -603,99 +662,139 @@ export default function TaxRecordDetailPage() {
                       value={formValues.cnic}
                       onChange={handleChange}
                       error={fieldErrors.cnic}
-                      placeholder="3520112345671"
+                      placeholder="XXXXXXXXXXXXX"
                     />
                     <TextField
-                      id="email"
-                      name="email"
-                      label="Email"
-                      value={formValues.email}
+                      id="phone"
+                      name="phone"
+                      label="Phone"
+                      prefix="0092"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={formValues.phone}
                       onChange={handleChange}
-                      error={fieldErrors.email}
-                      placeholder="john@example.com"
+                      error={fieldErrors.phone}
+                      placeholder="3123456789"
                     />
+                    <SelectField
+                      id="selectedReference"
+                      name="selectedReference"
+                      label="Reference"
+                      value={formValues.selectedReference}
+                      onChange={handleChange}
+                      options={allReferenceOptions}
+                      error={fieldErrors.selectedReference}
+                    />
+                    {formValues.selectedReference ===
+                      CUSTOM_REFERENCE_VALUE && (
+                      <TextField
+                        id="customReference"
+                        name="customReference"
+                        label="Custom Reference"
+                        value={formValues.customReference}
+                        onChange={handleChange}
+                        error={fieldErrors.customReference}
+                        placeholder="Enter custom reference"
+                      />
+                    )}
                   </div>
+                </Card>
 
-                  <TextField
-                    id="password"
-                    name="password"
-                    label="Password"
-                    value={formValues.password}
-                    onChange={handleChange}
-                    error={fieldErrors.password}
-                    placeholder="Enter password"
-                  />
+                {/* Credentials + Status */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                        <KeyIcon className="h-4 w-4 text-emerald-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Account Credentials & Status
+                      </h3>
+                    </div>
+                    <div className="space-y-5">
+                      <TextField
+                        id="email"
+                        name="email"
+                        label="Email"
+                        value={formValues.email}
+                        onChange={handleChange}
+                        error={fieldErrors.email}
+                        placeholder="john@example.com"
+                      />
+                      <TextField
+                        id="password"
+                        name="password"
+                        label="Password"
+                        value={formValues.password}
+                        onChange={handleChange}
+                        error={fieldErrors.password}
+                        placeholder="Enter password"
+                      />
+                      <SelectField
+                        id="status"
+                        name="status"
+                        label="Status"
+                        value={formValues.status}
+                        onChange={handleChange}
+                        options={STATUS_OPTIONS}
+                        error={fieldErrors.status}
+                      />
+                    </div>
+                  </Card>
 
-                  <SelectField
-                    id="selectedReference"
-                    name="selectedReference"
-                    label="Reference"
-                    value={formValues.selectedReference}
-                    onChange={handleChange}
-                    options={allReferenceOptions}
-                    error={fieldErrors.selectedReference}
-                  />
-
-                  {formValues.selectedReference === CUSTOM_REFERENCE_VALUE && (
-                    <TextField
-                      id="customReference"
-                      name="customReference"
-                      label="Custom Reference"
-                      value={formValues.customReference}
-                      onChange={handleChange}
-                      error={fieldErrors.customReference}
-                      placeholder="Enter custom reference"
-                    />
-                  )}
-
-                  <SelectField
-                    id="status"
-                    name="status"
-                    label="Status"
-                    value={formValues.status}
-                    onChange={handleChange}
-                    options={STATUS_OPTIONS}
-                    error={fieldErrors.status}
-                  />
-
-                  <div className="space-y-1">
-                    <label
-                      htmlFor="notes"
-                      className="block text-sm font-medium text-slate-700"
-                    >
-                      Notes
+                  <Card>
+                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                      <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
+                        <ClipboardDocumentIcon className="h-4 w-4 text-slate-600" />
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        Notes
+                      </h3>
+                    </div>
+                    <div className="space-y-5">
                       <textarea
                         id="notes"
                         name="notes"
                         value={formValues.notes}
                         onChange={handleChange}
-                        rows={8}
-                        className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                        rows={10}
+                        maxLength={5000}
+                        className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
                         placeholder="Additional notes..."
                       />
-                    </label>
-                    {fieldErrors.notes && (
-                      <p className="text-sm text-red-600">
-                        {fieldErrors.notes}
-                      </p>
-                    )}
-                  </div>
+                      <div className="flex items-center justify-between mt-1.5">
+                        {fieldErrors.notes ? (
+                          <p className="text-sm text-red-600">
+                            {fieldErrors.notes}
+                          </p>
+                        ) : (
+                          <span />
+                        )}
+                        <p
+                          className={`text-xs tabular-nums ${formValues.notes.length >= 5000 ? 'text-red-500 font-medium' : formValues.notes.length >= 4500 ? 'text-amber-500' : 'text-slate-400'}`}
+                        >
+                          {formValues.notes.length} / 5000
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
 
-                  <div className="flex gap-3 pt-4 border-t border-slate-200">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={handleEditCancel}
-                      disabled={saving}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" busy={saving}>
-                      Save Changes
-                    </Button>
-                  </div>
-                </form>
-              </Card>
+                <div className="flex gap-3 pt-1 justify-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={handleEditCancel}
+                    disabled={saving}
+                    size="sm"
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" busy={saving} size="sm">
+                    Save Changes
+                  </Button>
+                </div>
+              </form>
             )}
           </>
         )}

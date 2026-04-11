@@ -8,123 +8,12 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
+import { app, BrowserWindow, shell, ipcMain, net } from 'electron';
 import path from 'path';
-import { app, BrowserWindow, shell, ipcMain, dialog } from 'electron';
-import { autoUpdater } from 'electron-updater';
-import log from 'electron-log';
+import { registerUpdaterHandlers } from './ipc/updater.handlers';
 import MenuBuilder from './menu';
-import { initDatabase } from './db/client';
-import { TaxRecordRepository } from './db/taxRecord.repository';
-import { registerTaxRecordIpcHandlers } from './ipc/taxRecord.handlers';
+import { AppUpdater } from './updater';
 import { resolveHtmlPath } from './util';
-
-class AppUpdater {
-  constructor() {
-    log.transports.file.level = 'info';
-    autoUpdater.logger = log;
-
-    // Configure auto-updater
-    autoUpdater.autoDownload = false; // Don't auto-download, ask user first
-    autoUpdater.autoInstallOnAppQuit = true;
-
-    // Check for updates on startup (only in production)
-    if (app.isPackaged) {
-      autoUpdater.checkForUpdates();
-    }
-
-    // When update is available
-    autoUpdater.on('update-available', (info) => {
-      log.info('Update available:', info);
-      dialog
-        .showMessageBox({
-          type: 'info',
-          title: 'Update Available',
-          message: `A new version ${info.version} is available!`,
-          detail: `Current version: ${app.getVersion()}\nNew version: ${info.version}\n\nWould you like to download it now?`,
-          buttons: ['Download', 'Later'],
-          defaultId: 0,
-          cancelId: 1,
-        })
-        .then((result) => {
-          if (result.response === 0) {
-            autoUpdater.downloadUpdate();
-            dialog.showMessageBox({
-              type: 'info',
-              title: 'Downloading Update',
-              message: 'Downloading update in the background...',
-              detail: 'You will be notified when the download is complete.',
-              buttons: ['OK'],
-            });
-          }
-          return result;
-        })
-        .catch((err) => {
-          log.error('Error showing update dialog:', err);
-        });
-    });
-
-    // When update is not available
-    autoUpdater.on('update-not-available', (info) => {
-      log.info('Update not available:', info);
-    });
-
-    // When update is downloaded
-    autoUpdater.on('update-downloaded', (info) => {
-      log.info('Update downloaded:', info);
-      dialog
-        .showMessageBox({
-          type: 'info',
-          title: 'Update Ready',
-          message: 'Update downloaded successfully!',
-          detail: `Version ${info.version} has been downloaded and is ready to install.\n\nThe application will restart to apply the update.`,
-          buttons: ['Restart Now', 'Later'],
-          defaultId: 0,
-          cancelId: 1,
-        })
-        .then((result) => {
-          if (result.response === 0) {
-            autoUpdater.quitAndInstall(false, true);
-          }
-          return result;
-        })
-        .catch((err) => {
-          log.error('Error showing update ready dialog:', err);
-        });
-    });
-
-    // Handle errors
-    autoUpdater.on('error', (error) => {
-      log.error('Update error:', error);
-      dialog.showMessageBox({
-        type: 'error',
-        title: 'Update Error',
-        message: 'Failed to check for updates',
-        detail: error.message,
-        buttons: ['OK'],
-      });
-    });
-
-    // Download progress
-    autoUpdater.on('download-progress', (progressObj) => {
-      const message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}%`;
-      log.info(message);
-    });
-  }
-
-  // Manual check for updates
-  checkForUpdates() {
-    if (app.isPackaged) {
-      autoUpdater.checkForUpdates();
-    } else {
-      dialog.showMessageBox({
-        type: 'info',
-        title: 'Development Mode',
-        message: 'Auto-update is only available in production builds.',
-        buttons: ['OK'],
-      });
-    }
-  }
-}
 
 let mainWindow: BrowserWindow | null = null;
 let appUpdater: AppUpdater | null = null;
@@ -135,6 +24,9 @@ export function checkForUpdates() {
     appUpdater.checkForUpdates();
   }
 }
+
+// IPC handler for network status (more reliable than navigator.onLine on Windows)
+ipcMain.handle('net:isOnline', () => net.isOnline());
 
 // IPC handler for manual update check
 ipcMain.on('check-for-updates', () => {
@@ -190,11 +82,16 @@ const createWindow = async () => {
     width: 1024,
     height: 728,
     title: 'JMS Tax',
+    // Matches the app's bg-slate-50 background — prevents white flash while
+    // React is initializing, especially on first Windows launch (no V8 cache yet)
+    backgroundColor: '#f8fafc',
     icon: getAssetPath('icon.png'),
     webPreferences: {
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
+      sandbox: false,
+      webviewTag: true,
     },
   });
 
@@ -206,6 +103,12 @@ const createWindow = async () => {
     }
     if (process.env.START_MINIMIZED) {
       mainWindow.minimize();
+      return;
+    }
+    // On Windows, ready-to-show can fire before React finishes its first paint
+    // (no V8 JIT cache on first install). A short delay ensures the UI is visible.
+    if (process.platform === 'win32') {
+      setTimeout(() => mainWindow?.show(), 200);
     } else {
       mainWindow.show();
     }
@@ -241,14 +144,29 @@ app.on('window-all-closed', () => {
   }
 });
 
+// INFO: Intercept new windows opened from webview tags (target="_blank", window.open, etc.)
+// and load them inside the same webview instead of opening a new OS window.
+app.on('web-contents-created', (_event, contents) => {
+  if (contents.getType() === 'webview') {
+    // Can't call contents.loadURL() from inside this handler (DataClone error).
+    // Instead, send an IPC message to the renderer and let it call loadURL on
+    // the webview DOM element, which works fine from the renderer process.
+    contents.setWindowOpenHandler(({ url }) => {
+      mainWindow?.webContents.send('webview-navigate', url);
+      return { action: 'deny' };
+    });
+  }
+});
+
 app
   .whenReady()
   .then(() => {
-    const db = initDatabase();
-    const taxRecordRepository = new TaxRecordRepository(db);
-    registerTaxRecordIpcHandlers(taxRecordRepository);
-
     createWindow();
+
+    // Initialize updater and register IPC handlers
+    appUpdater = new AppUpdater();
+    registerUpdaterHandlers(appUpdater);
+
     app.on('activate', () => {
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.

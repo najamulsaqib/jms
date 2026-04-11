@@ -1,15 +1,32 @@
 import { jsPDF } from 'jspdf';
 import { TaxRecord } from '@shared/taxRecord.contracts';
 
-// ── Company details ── Change these to update all PDFs ────────────────────────
-export const PDF_COMPANY_INFO = {
-  name: 'JMS Tax Consultancy',
-  tagline: 'Professional Tax & Financial Services',
-  address: 'Bhatti Market, Katchehry Road, Lalian, Pakistan',
-  phone: '+92 342 0752602',
-  contactName: 'Umair Danish',
+export type PdfCompanyInfo = {
+  name: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  contactName: string;
 };
-// ─────────────────────────────────────────────────────────────────────────────
+
+// Resolves only the fields the user actually filled in.
+// Returns an empty object if nothing was provided — callers must check before rendering.
+function resolvePdfCompanyInfo(
+  overrides?: Partial<PdfCompanyInfo>,
+): Partial<PdfCompanyInfo> {
+  if (!overrides) return {};
+
+  const result: Partial<PdfCompanyInfo> = {};
+
+  for (const key of Object.keys(overrides) as Array<keyof PdfCompanyInfo>) {
+    const value = overrides[key];
+    if (typeof value === 'string' && value.trim()) {
+      result[key] = value.trim();
+    }
+  }
+
+  return result;
+}
 
 export type PdfField =
   | 'name'
@@ -17,6 +34,7 @@ export type PdfField =
   | 'cnic'
   | 'email'
   | 'password'
+  | 'phone'
   | 'reference'
   | 'status'
   | 'notes'
@@ -66,6 +84,12 @@ export const PDF_FIELD_OPTIONS: PdfFieldOption[] = [
     label: 'Password',
     defaultChecked: false,
     section: 'Account Credentials',
+  },
+  {
+    id: 'phone',
+    label: 'Phone Number',
+    defaultChecked: true,
+    section: 'Personal Information',
   },
   {
     id: 'status',
@@ -128,8 +152,10 @@ const SAFE_BOTTOM = PAGE_H - FOOTER_H - 4;
 export function generateTaxRecordPdf(
   record: TaxRecord,
   selectedFields: Set<PdfField>,
+  companyInfoOverrides?: Partial<PdfCompanyInfo>,
 ) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const companyInfo = resolvePdfCompanyInfo(companyInfoOverrides);
 
   const genDate = new Date().toLocaleDateString('en-US', {
     year: 'numeric',
@@ -139,28 +165,30 @@ export function generateTaxRecordPdf(
 
   // ── Draw full header (first page only) ─────────────────────────────────────
   const drawMainHeader = () => {
-    // Blue background
     doc.setFillColor(...C.blue600);
     doc.rect(0, 0, PAGE_W, HEADER_H, 'F');
 
-    // Darker accent strip at base
     doc.setFillColor(...C.blue800);
     doc.rect(0, HEADER_H - 1, PAGE_W, 1, 'F');
 
-    // Company name
-    doc.setTextColor(...C.white);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(PDF_COMPANY_INFO.name, ML, 16);
+    if (companyInfo.name) {
+      doc.setTextColor(...C.white);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text(companyInfo.name, ML, 16);
+    }
 
-    // Tagline
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...C.blue100);
-    doc.text(PDF_COMPANY_INFO.tagline, ML, 24);
+    if (companyInfo.tagline) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(...C.blue100);
+      doc.text(companyInfo.tagline, ML, 24);
+    }
 
     // Generated date (top-right)
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
+    doc.setTextColor(...C.white);
     doc.text(`Generated: ${genDate}`, PAGE_W - MR, 16, { align: 'right' });
 
     // Record name + ref# (bottom bar)
@@ -179,10 +207,15 @@ export function generateTaxRecordPdf(
   const drawContinuationHeader = () => {
     doc.setFillColor(...C.blue600);
     doc.rect(0, 0, PAGE_W, CONT_HDR_H, 'F');
+
     doc.setTextColor(...C.white);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.text(`${PDF_COMPANY_INFO.name} — Tax Record (continued)`, ML, 9.5);
+    const contLabel = companyInfo.name
+      ? `${companyInfo.name} — Tax Record (continued)`
+      : 'Tax Record (continued)';
+    doc.text(contLabel, ML, 9.5);
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...C.blue100);
@@ -193,16 +226,17 @@ export function generateTaxRecordPdf(
   const drawFooter = (pageNum: number, totalPages: number) => {
     const fy = PAGE_H - FOOTER_H;
 
-    // Divider line
     doc.setDrawColor(...C.slate200);
     doc.setLineWidth(0.4);
     doc.line(ML, fy, PAGE_W - MR, fy);
 
-    // Top row: company name + page number
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(...C.blue600);
-    doc.text(PDF_COMPANY_INFO.name, ML, fy + 6);
+    // Company name (left) — omitted if not set
+    if (companyInfo.name) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(...C.blue600);
+      doc.text(companyInfo.name, ML, fy + 6);
+    }
 
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...C.slate400);
@@ -210,23 +244,25 @@ export function generateTaxRecordPdf(
       align: 'right',
     });
 
-    // Thin separator
-    doc.setDrawColor(...C.slate200);
-    doc.setLineWidth(0.2);
-    doc.line(ML, fy + 8.5, PAGE_W - MR, fy + 8.5);
+    // Contact row — only rendered when at least one contact field is set
+    const contactLeft = [companyInfo.contactName, companyInfo.phone]
+      .filter(Boolean)
+      .join('  •  ');
 
-    // Bottom row: address | phone | email | website
-    doc.setFontSize(7.5);
-    doc.setTextColor(...C.slate600);
-    doc.text(
-      `${PDF_COMPANY_INFO.contactName}  •  ${PDF_COMPANY_INFO.phone}`,
-      ML,
-      fy + 13.5,
-    );
+    if (contactLeft || companyInfo.address) {
+      doc.setDrawColor(...C.slate200);
+      doc.setLineWidth(0.2);
+      doc.line(ML, fy + 8.5, PAGE_W - MR, fy + 8.5);
 
-    doc.text(PDF_COMPANY_INFO.address, PAGE_W - MR, fy + 13.5, {
-      align: 'right',
-    });
+      doc.setFontSize(7.5);
+      doc.setTextColor(...C.slate600);
+
+      if (contactLeft) doc.text(contactLeft, ML, fy + 13.5);
+      if (companyInfo.address)
+        doc.text(companyInfo.address, PAGE_W - MR, fy + 13.5, {
+          align: 'right',
+        });
+    }
 
     // Confidential badge
     doc.setFontSize(7);
@@ -379,6 +415,8 @@ export function generateTaxRecordPdf(
       label: 'Reference',
       value: record.reference.replace(/-/g, ' '),
     });
+  if (selectedFields.has('phone'))
+    personalFields.push({ label: 'Phone Number', value: record.phone || '' });
 
   if (personalFields.length > 0) {
     drawSectionHeader('Personal Information');

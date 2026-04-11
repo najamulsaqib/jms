@@ -1,10 +1,10 @@
-import { DocumentTextIcon } from '@heroicons/react/24/outline';
+import { DocumentTextIcon, BanknotesIcon } from '@heroicons/react/24/outline';
 import AppLayout from '@components/layout/AppLayout';
 import ServiceCard from '@components/common/ServiceCard';
-import { useTaxRecords } from '@hooks/useTaxRecords';
+import { useTotalCount } from '@hooks/useTaxRecords';
 
 export default function Dashboard() {
-  const { taxRecords } = useTaxRecords();
+  const { data: totalClients = 0 } = useTotalCount();
 
   return (
     <AppLayout breadcrumbs={[{ label: 'Dashboard' }]}>
@@ -24,7 +24,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-semibold text-slate-900 mb-4">
             Services
           </h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
             <ServiceCard
               title="Tax Records"
               description="Manage client tax records, including reference numbers, CNICs, contact details, and filing status."
@@ -32,9 +32,17 @@ export default function Dashboard() {
               href="/tax-records"
               stats={{
                 label: 'Total Clients',
-                value: taxRecords.length,
+                value: totalClients,
               }}
               color="blue"
+            />
+
+            <ServiceCard
+              title="Sales Tax"
+              description="Track and manage your sales tax clients, filings, and deadlines all in one place."
+              icon={BanknotesIcon}
+              href="/sales-tax"
+              color="green"
             />
 
             {/* Placeholder for future services */}

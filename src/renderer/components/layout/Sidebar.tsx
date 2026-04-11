@@ -1,19 +1,33 @@
-import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@contexts/AuthContext';
 import {
-  HomeIcon,
-  DocumentTextIcon,
+  BanknotesIcon,
   Cog6ToothIcon,
+  DocumentTextIcon,
+  HomeIcon,
+  GlobeAltIcon,
+  ArrowLeftStartOnRectangleIcon as LogoutIcon,
 } from '@heroicons/react/24/outline';
+import { useTabNavigate } from '@hooks/useTabNavigate';
+import { useLocation } from 'react-router-dom';
+
 import logo from '../../../../assets/header-logo.png';
-import { toast } from 'sonner';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Tax Records', href: '/tax-records', icon: DocumentTextIcon },
+  {
+    name: 'Tax Records',
+    href: '/tax-records',
+    icon: DocumentTextIcon,
+  },
+  { name: 'Sales Tax', href: '/sales-tax', icon: BanknotesIcon },
+  { name: 'FBR Portal', href: '/fbr-portal', icon: GlobeAltIcon },
 ];
 
 export default function Sidebar() {
   const location = useLocation();
+  const { signOut, userInfo } = useAuth();
+  const tabNavigate = useTabNavigate();
+  const isSettingsActive = location.pathname.startsWith('/settings');
 
   return (
     <div className="flex flex-col w-64 bg-white border-r border-slate-200">
@@ -34,13 +48,22 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navigation.map((item) => {
-          const isActive = location.pathname === item.href;
+          const isActive =
+            item.href === '/'
+              ? location.pathname === '/'
+              : location.pathname.startsWith(item.href);
           return (
-            <Link
+            <button
               key={item.name}
-              to={item.href}
+              onClick={() =>
+                tabNavigate(
+                  item.href,
+                  item.name,
+                  item.icon && <item.icon className="h-5 w-5" />,
+                )
+              }
               className={`
-                flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors
+                w-full flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer
                 ${
                   isActive
                     ? 'bg-blue-50 text-blue-700'
@@ -54,20 +77,63 @@ export default function Sidebar() {
                 }`}
               />
               {item.name}
-            </Link>
+            </button>
           );
         })}
       </nav>
 
       {/* Footer */}
-      <div className="p-3 border-t border-slate-200">
+      <div className="p-3 border-t border-slate-200 space-y-1">
+        {userInfo && (
+          <div className="flex items-center gap-2 px-3 py-2 mb-1">
+            {userInfo.avatarUrl ? (
+              <img
+                src={userInfo.avatarUrl}
+                alt="Avatar"
+                className="h-7 w-7 rounded-full shrink-0 object-cover border-slate-200 border bg-blue-50"
+              />
+            ) : (
+              <div className="h-7 w-7 shrink-0 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center">
+                <span className="text-xs font-semibold text-blue-500">
+                  {(userInfo.fullName ||
+                    userInfo.email ||
+                    'A')[0].toUpperCase()}
+                </span>
+              </div>
+            )}
+            <p className="text-xs text-slate-400 truncate">
+              {userInfo.fullName || userInfo.email || 'Account'}
+            </p>
+          </div>
+        )}
+        <button
+          onClick={() =>
+            tabNavigate(
+              '/settings',
+              'Settings',
+              <Cog6ToothIcon className="h-5 w-5" />,
+            )
+          }
+          className={`flex items-center w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+            isSettingsActive
+              ? 'bg-blue-50 text-blue-700'
+              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+          }`}
+        >
+          <Cog6ToothIcon
+            className={`mr-3 h-5 w-5 shrink-0 ${
+              isSettingsActive ? 'text-blue-600' : 'text-slate-400'
+            }`}
+          />
+          Settings
+        </button>
         <button
           type="button"
-          className="flex items-center w-full px-3 py-2 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
-          onClick={() => toast.info('Settings page coming soon!')}
+          className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors cursor-pointer"
+          onClick={() => signOut()}
         >
-          <Cog6ToothIcon className="mr-3 h-5 w-5 text-slate-400" />
-          Settings
+          <LogoutIcon className="mr-3 h-5 w-5" />
+          Sign Out
         </button>
       </div>
     </div>

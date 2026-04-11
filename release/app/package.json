@@ -1,6 +1,6 @@
 {
   "name": "jms-tax",
-  "version": "0.0.1",
+  "version": "2.0.0",
   "description": "JMS Tax Consultancy is a desktop application built with Electron and React, designed to help tax consultants manage their clients and tax-related tasks efficiently.",
   "license": "MIT",
   "author": {
@@ -13,8 +13,5 @@
     "rebuild": "node -r ts-node/register ../../.erb/scripts/electron-rebuild.js",
     "postinstall": "npm run rebuild && npm run link-modules",
     "link-modules": "node -r ts-node/register ../../.erb/scripts/link-modules.ts"
-  },
-  "dependencies": {
-    "better-sqlite3": "^12.8.0"
   }
 }

@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { ChevronUpIcon, ChevronDownIcon } from '@heroicons/react/20/solid';
+import { BugAntIcon } from '@heroicons/react/24/outline';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -26,6 +27,7 @@ type DataTableProps<T> = {
   sortState?: SortState;
   onSortChange?: (nextSort: SortState) => void;
   onRowClick?: (row: T) => void;
+  footer?: ReactNode;
 };
 
 const alignClasses = {
@@ -42,6 +44,7 @@ export default function DataTable<T>({
   sortState,
   onSortChange,
   onRowClick,
+  footer,
 }: DataTableProps<T>) {
   const handleSort = (columnId: string, sortable?: boolean) => {
     if (!sortable || !onSortChange) {
@@ -74,7 +77,7 @@ export default function DataTable<T>({
                     <button
                       type="button"
                       onClick={() => handleSort(column.id, column.sortable)}
-                      className="group inline-flex items-center gap-1 hover:text-slate-900 transition-colors"
+                      className="group inline-flex items-center gap-1 hover:text-slate-900 transition-colors whitespace-nowrap cursor-pointer"
                     >
                       {column.header}
                       <span className="flex-none">
@@ -112,7 +115,11 @@ export default function DataTable<T>({
                     <td
                       key={`${getRowId(row)}-${column.id}`}
                       className={`px-6 py-4 whitespace-nowrap text-sm ${alignClasses[align]} ${column.pinned ? 'sticky left-0 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200' : ''} ${column.className || ''}`}
-                      onClick={column.id === 'actions' || column.id === 'checkbox' ? (e) => e.stopPropagation() : undefined}
+                      onClick={
+                        column.id === 'actions' || column.id === 'checkbox'
+                          ? (e) => e.stopPropagation()
+                          : undefined
+                      }
                     >
                       {column.render(row)}
                     </td>
@@ -122,15 +129,16 @@ export default function DataTable<T>({
             ))
           ) : (
             <tr>
-              <td
-                colSpan={columns.length}
-                className="px-6 py-12 text-center text-sm text-slate-500"
-              >
-                {emptyMessage}
+              <td colSpan={columns.length} className="px-6 py-16 text-center">
+                <div className="flex flex-col items-center gap-2">
+                  <BugAntIcon className="h-10 w-10 text-slate-500" />
+                  <p className="text-sm text-slate-500">{emptyMessage}</p>
+                </div>
               </td>
             </tr>
           )}
         </tbody>
+        {footer && <tfoot>{footer}</tfoot>}
       </table>
     </div>
   );
