@@ -6,9 +6,11 @@ import {
   HomeIcon,
 } from '@heroicons/react/24/outline';
 import AppLayout from '@components/layout/AppLayout';
+import Button from '@components/ui/Button';
 import IconButton from '@components/ui/IconButton';
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import type { PortalPage } from '@shared/portalPage.contracts';
+import { PORTAL_WEBVIEW_PARTITION } from '@shared/portalSession';
 
 // Webview is an Electron-specific element; use a loose type
 type WebviewElement = HTMLElement & {
@@ -191,12 +193,9 @@ export default function WebPortal({ page }: Props) {
               <p className="text-slate-600 mb-4">
                 Please check your internet connection and try again.
               </p>
-              <button
-                onClick={handleReload}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
+              <Button onClick={handleReload} size="sm">
                 Try Again
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -205,6 +204,7 @@ export default function WebPortal({ page }: Props) {
         <webview
           ref={webviewRef as any}
           src={page.url}
+          partition={PORTAL_WEBVIEW_PARTITION}
           style={{
             flex: 1,
             width: '100%',

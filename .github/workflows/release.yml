@@ -1,5 +1,5 @@
-name: Build and Release
-run-name: "${{ inputs.channel == 'beta' && '🧪 Beta drop' || '🚀 Shipping' }} · ${{ inputs.bump }} bump on ${{ github.ref_name }} by @${{ github.actor }}"
+name: Build and Release (Latest)
+run-name: '🚀 Shipping · ${{ inputs.bump }} bump on ${{ github.ref_name }} by @${{ github.actor }}'
 
 on:
   workflow_dispatch:
@@ -13,14 +13,6 @@ on:
           - patch
           - minor
           - major
-      channel:
-        description: 'Release channel'
-        required: true
-        default: 'latest'
-        type: choice
-        options:
-          - latest
-          - beta
 
 jobs:
   bump:
@@ -51,11 +43,7 @@ jobs:
         id: bump
         working-directory: release/app
         run: |
-          if [ "${{ inputs.channel }}" = "beta" ]; then
-            NEW_VERSION=$(npm version pre${{ inputs.bump }} --preid=beta --no-git-tag-version)
-          else
-            NEW_VERSION=$(npm version ${{ inputs.bump }} --no-git-tag-version)
-          fi
+          NEW_VERSION=$(npm version ${{ inputs.bump }} --no-git-tag-version)
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: Commit and push
@@ -131,11 +119,7 @@ jobs:
       - name: Find previous tag
         id: prev_tag
         run: |
-          if [ "${{ inputs.channel }}" = "beta" ]; then
-            PREV=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-beta\.' | head -1)
-          else
-            PREV=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
-          fi
+          PREV=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
           echo "tag=$PREV" >> $GITHUB_OUTPUT
 
       - name: Generate release notes
@@ -163,6 +147,6 @@ jobs:
         with:
           tag_name: ${{ needs.bump.outputs.new_version }}
           name: ${{ needs.bump.outputs.new_version }}
-          prerelease: ${{ inputs.channel == 'beta' }}
+          prerelease: false
           files: artifacts/**/*
           body: ${{ steps.release_notes.outputs.body }}

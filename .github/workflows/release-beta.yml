@@ -1,0 +1,157 @@
+name: Build and Release (Beta)
+run-name: '🧪 Beta drop · ${{ inputs.bump }} bump on ${{ github.ref_name }} by @${{ github.actor }}'
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        default: 'bugfix'
+        type: choice
+        options:
+          - bugfix
+          - patch
+          - minor
+          - major
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_version: ${{ steps.bump.outputs.new_version }}
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.ref }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: bump
+        working-directory: release/app
+        run: |
+          if [ "${{ inputs.bump }}" = "bugfix" ]; then
+            NEW_VERSION=$(npm version prerelease --preid=beta --no-git-tag-version)
+          else
+            NEW_VERSION=$(npm version pre${{ inputs.bump }} --preid=beta --no-git-tag-version)
+          fi
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Commit and push
+        run: |
+          git add release/app/package.json release/app/package-lock.json
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }}"
+          git push origin HEAD:${{ github.ref_name }}
+
+  build:
+    needs: bump
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: pnpm run build
+
+      - name: Package
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: pnpm exec electron-builder --win --publish never
+
+      - name: Zip installer
+        shell: pwsh
+        run: Compress-Archive -Path release/build/*.exe -DestinationPath release/build/JMSTax-windows.zip
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: |
+            release/build/JMSTax-windows.zip
+            release/build/*.exe
+            release/build/latest*.yml
+            release/build/beta.yml
+          if-no-files-found: error
+
+  release:
+    needs: [bump, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Find previous tag
+        id: prev_tag
+        run: |
+          PREV=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+-beta\.' | head -1)
+          echo "tag=$PREV" >> $GITHUB_OUTPUT
+
+      - name: Generate release notes
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS="-f tag_name=${{ needs.bump.outputs.new_version }} -f target_commitish=${{ github.ref_name }}"
+          if [ -n "${{ steps.prev_tag.outputs.tag }}" ]; then
+            ARGS="$ARGS -f previous_tag_name=${{ steps.prev_tag.outputs.tag }}"
+          fi
+          BODY=$(gh api repos/${{ github.repository }}/releases/generate-notes $ARGS --jq '.body')
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: false
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.bump.outputs.new_version }}
+          name: ${{ needs.bump.outputs.new_version }}
+          prerelease: true
+          files: artifacts/**/*
+          body: ${{ steps.release_notes.outputs.body }}
