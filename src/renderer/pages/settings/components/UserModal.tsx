@@ -155,7 +155,7 @@ export default function UserModal({
   mode = user ? 'edit' : 'add',
   onClose,
 }: UserModalProps) {
-  const { createUser, updateUser, isCreatingUser, isUpdatingUser } =
+  const { createUserAsync, updateUser, isCreatingUser, isUpdatingUser } =
     useTeamManagement();
 
   const [activeMode, setActiveMode] = useState<Mode>(mode);
@@ -215,17 +215,30 @@ export default function UserModal({
           { onSuccess: () => onClose() },
         );
       } else {
-        await createUser(
-          {
+        try {
+          await createUserAsync({
             email: formData.email.trim(),
             password: formData.password,
             fullName: formData.fullName.trim(),
-          },
-          { onSuccess: () => onClose() },
-        );
+          });
+          onClose();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : '';
+          // Surface duplicate-email errors inline on the field instead of
+          // relying solely on the generic toast from the hook.
+          if (
+            message.toLowerCase().includes('already') ||
+            message.toLowerCase().includes('exists')
+          ) {
+            setErrors((prev) => ({
+              ...prev,
+              email: 'An account with this email is already registered.',
+            }));
+          }
+        }
       }
     } catch {
-      // Error is handled by toast in the hook
+      // Edit errors are handled by toast in the hook
     }
   };
 

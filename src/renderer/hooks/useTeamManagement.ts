@@ -55,7 +55,6 @@ export function useTeamManagement(
       const message =
         err instanceof Error ? err.message : 'Failed to create user';
       toast.error(message);
-      throw err;
     },
   });
 
@@ -76,7 +75,6 @@ export function useTeamManagement(
       const message =
         err instanceof Error ? err.message : 'Failed to update user';
       toast.error(message);
-      throw err;
     },
   });
 
@@ -97,7 +95,6 @@ export function useTeamManagement(
       const message =
         err instanceof Error ? err.message : 'Failed to update user status';
       toast.error(message);
-      throw err;
     },
   });
 
@@ -113,7 +110,6 @@ export function useTeamManagement(
       const message =
         err instanceof Error ? err.message : 'Failed to delete user';
       toast.error(message);
-      throw err;
     },
   });
 
