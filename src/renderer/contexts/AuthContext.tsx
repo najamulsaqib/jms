@@ -11,6 +11,7 @@ import {
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@lib/supabase';
 import { queryClient } from '@lib/queryClient';
+import { TABLES } from '@lib/enums';
 import { profileApi, type ProfileRow } from '@services/profile.api';
 
 export type UserInfo = {
@@ -95,6 +96,96 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription?.unsubscribe();
   }, [loadProfile]);
+
+  // Realtime: watch the current user's own profile row.
+  //
+  // Handles three admin actions in real-time:
+  //   - Ban:    UPDATE sets is_banned=true  → immediate local sign-out
+  //   - Delete: DELETE removes the row      → immediate local sign-out
+  //   - Edit:   Any other UPDATE            → refresh local profile state
+  //
+  // Offline resilience: when the channel reconnects after an outage the
+  // subscribe callback re-validates the profile. If it's gone (deleted) or
+  // banned, the user is signed out as soon as connectivity is restored.
+  //
+  // IMPORTANT: requires the `profiles` table in the Supabase Realtime
+  // publication: Dashboard → Database → Replication → enable `profiles`.
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const userId = session.user.id;
+    let hasConnectedOnce = false;
+
+    const forceSignOut = async () => {
+      await supabase.auth.signOut({ scope: 'local' });
+      queryClient.clear();
+    };
+
+    const channel = supabase
+      .channel(`profile-watch:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: TABLES.PROFILES,
+          filter: `user_id=eq.${userId}`,
+        },
+        async (payload) => {
+          const updated = payload.new as Record<string, unknown>;
+
+          if (updated.is_banned === true) {
+            await forceSignOut();
+            return;
+          }
+
+          // Any other profile change — keep local state in sync.
+          try {
+            const refreshed = await profileApi.getCurrentProfile();
+            setProfile(refreshed);
+          } catch {
+            // Non-fatal — profile will re-sync on the next page load.
+          }
+        },
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: TABLES.PROFILES,
+          filter: `user_id=eq.${userId}`,
+        },
+        async () => {
+          await forceSignOut();
+        },
+      )
+      .subscribe(async (status) => {
+        if (status !== 'SUBSCRIBED') return;
+
+        if (!hasConnectedOnce) {
+          hasConnectedOnce = true;
+          return; // First connect — profile was already loaded on boot.
+        }
+
+        // Reconnected after an outage. Re-validate: check if the profile
+        // still exists and isn't banned (covers ban/delete while offline).
+        const { data } = await supabase
+          .from(TABLES.PROFILES)
+          .select('is_banned')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        // null  = profile deleted; true = banned while offline
+        if (!data || data.is_banned === true) {
+          await forceSignOut();
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({

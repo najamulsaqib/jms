@@ -122,6 +122,23 @@ Deno.serve(async (req) => {
     return jsonResponse(500, { message: banErr.message });
   }
 
+  // When banning: revoke all active sessions so the user's refresh token is
+  // dead immediately. Their access token (JWT) is still valid until expiry
+  // (~1 h), but the client-side realtime subscription will force a local
+  // sign-out well before that window closes.
+  if (ban) {
+    await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}/logout`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!}`,
+        apikey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      },
+    }).catch(() => {
+      // Non-fatal: user is already banned in auth.users and profiles.
+      // The realtime subscription on the client will still sign them out.
+    });
+  }
+
   // Sync is_banned to profiles and return the full row
   const { data: updatedProfile, error: updateErr } = await supabase
     .from('profiles')

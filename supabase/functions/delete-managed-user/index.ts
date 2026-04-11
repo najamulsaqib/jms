@@ -72,6 +72,19 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Revoke all active sessions before deletion so the user's refresh
+    // token is dead immediately. The client-side realtime DELETE listener
+    // will force a local sign-out; this is the server-side safety net.
+    await fetch(`${supabaseUrl}/auth/v1/admin/users/${userId}/logout`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+      },
+    }).catch(() => {
+      // Non-fatal — deletion proceeds regardless.
+    });
+
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(userId);
 
     if (deleteError) {
