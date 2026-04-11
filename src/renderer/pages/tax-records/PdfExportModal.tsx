@@ -17,6 +17,11 @@ type PdfExportModalProps = {
   isOpen: boolean;
   record: TaxRecord;
   onClose: () => void;
+  onExported?: (details: {
+    selectedFields: string[];
+    selectedCount: number;
+    totalFields: number;
+  }) => Promise<void> | void;
 };
 
 const DEFAULT_FIELDS = new Set(
@@ -36,6 +41,7 @@ export default function PdfExportModal({
   isOpen,
   record,
   onClose,
+  onExported,
 }: PdfExportModalProps) {
   const { userInfo } = useAuth();
   const [selected, setSelected] = useState<Set<PdfField>>(
@@ -51,7 +57,7 @@ export default function PdfExportModal({
     });
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (selected.size === 0) {
       toast.error('Select at least one field to export');
       return;
@@ -66,6 +72,11 @@ export default function PdfExportModal({
     };
 
     generateTaxRecordPdf(record, selected, companyInfoOverrides);
+    await onExported?.({
+      selectedFields: Array.from(selected),
+      selectedCount: selected.size,
+      totalFields: PDF_FIELD_OPTIONS.length,
+    });
     toast.success('PDF downloaded');
     onClose();
   };

@@ -1,5 +1,6 @@
-import { supabase } from '@lib/supabase';
 import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
+import { TABLES } from '@lib/enums/tables';
+import { supabase } from '@lib/supabase';
 
 export type ProfileRow = {
   userId: string;
@@ -72,7 +73,7 @@ export const profileApi = {
   async getCurrentProfile(): Promise<ProfileRow | null> {
     const userId = await getCurrentUserId();
     const { data, error } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .select(PROFILE_SELECT)
       .eq('user_id', userId)
       .maybeSingle();
@@ -85,7 +86,7 @@ export const profileApi = {
   async upsertCurrentProfile(payload: UpdateProfileInput): Promise<ProfileRow> {
     const userId = await getCurrentUserId();
     const { data, error } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .upsert(
         toSnakeCase({
           userId,

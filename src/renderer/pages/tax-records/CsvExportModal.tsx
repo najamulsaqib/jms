@@ -4,8 +4,10 @@ import Modal from '@components/ui/Modal';
 import { ArrowDownTrayIcon, TableCellsIcon } from '@heroicons/react/20/solid';
 import { useExportRecords, useTotalCount } from '@hooks/useTaxRecords';
 import { triggerDownload } from '@lib/downloadManager';
+import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 export type CsvField =
@@ -171,6 +173,7 @@ type Props = {
 };
 
 export default function CsvExportModal({ isOpen, ids, onClose }: Props) {
+  const queryClient = useQueryClient();
   const { data: totalCount } = useTotalCount();
 
   const [selected, setSelected] = useState<Set<CsvField>>(
@@ -201,12 +204,29 @@ export default function CsvExportModal({ isOpen, ids, onClose }: Props) {
 
   const handleConfirmExport = () => {
     exportRecords(effectiveScope === 'selected' ? ids : [], {
-      onSuccess: (records) => {
+      onSuccess: async (records) => {
         triggerDownload(
           'tax-records.csv',
           buildCSV(records, selected),
           'text/csv',
         );
+
+        try {
+          await taxRecordApi.logCsvExport(records, {
+            scope: effectiveScope,
+            selectedCount: selected.size,
+            totalFields: CSV_FIELD_OPTIONS.length,
+            selectedFields: CSV_FIELD_OPTIONS.filter((f) =>
+              selected.has(f.id),
+            ).map((f) => f.id),
+          });
+          await queryClient.invalidateQueries({
+            queryKey: ['auditLog', 'tax-record'],
+          });
+        } catch {
+          // Keep export non-blocking if audit logging fails.
+        }
+
         toast.success(
           `${records.length} record${records.length !== 1 ? 's' : ''} exported`,
         );

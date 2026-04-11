@@ -9,11 +9,11 @@ interface FloatingActionBarProps {
   status: TaxRecordStatus;
   hasActiveFilters: boolean;
   onStatusChange: (status: TaxRecordStatus) => void;
-  onApplyToSelected: () => void;
-  onApplyToAll: () => void;
+  onApplyToSelected?: () => void;
+  onApplyToAll?: () => void;
   onClearSelection: () => void;
-  onDeleteSelected: () => void;
-  onExport: () => void;
+  onDeleteSelected?: () => void;
+  onExport?: () => void;
 }
 
 export default function FloatingActionBar({
@@ -40,58 +40,67 @@ export default function FloatingActionBar({
         </div>
 
         {/* Status selector */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm text-slate-300">Status:</span>
-          <SelectField
-            id="floating-bulk-status"
-            value={status}
-            onChange={(value) => onStatusChange(value as TaxRecordStatus)}
-            options={[
-              { value: 'active', label: 'Active' },
-              { value: 'inactive', label: 'Inactive' },
-              { value: 'late-filer', label: 'Late Filer' },
-            ]}
-            size="sm"
-            variant="dark"
-            className="w-36"
-          />
-          <button
-            type="button"
-            onClick={onApplyToSelected}
-            className="flex items-center justify-center w-8 h-8 text-blue-400 hover:text-blue-300 hover:bg-blue-900/40 rounded-lg transition-colors"
-            title="Apply to selected"
-          >
-            <CheckIcon className="w-4 h-4" />
-          </button>
-
-          <button
-            type="button"
-            onClick={onApplyToAll}
-            className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-            title={hasActiveFilters ? 'Apply to filtered' : 'Apply to all'}
-          >
-            <CheckCircleIcon className="w-4 h-4" />
-          </button>
-        </div>
+        {(onApplyToSelected || onApplyToAll) && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-slate-300">Status:</span>
+            <SelectField
+              id="floating-bulk-status"
+              value={status}
+              onChange={(value) => onStatusChange(value as TaxRecordStatus)}
+              options={[
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'late-filer', label: 'Late Filer' },
+              ]}
+              size="sm"
+              variant="dark"
+              className="w-36"
+            />
+            {onApplyToSelected && (
+              <button
+                type="button"
+                onClick={onApplyToSelected}
+                className="flex items-center justify-center w-8 h-8 text-blue-400 hover:text-blue-300 hover:bg-blue-900/40 rounded-lg transition-colors"
+                title="Apply to selected"
+              >
+                <CheckIcon className="w-4 h-4" />
+              </button>
+            )}
+            {onApplyToAll && (
+              <button
+                type="button"
+                onClick={onApplyToAll}
+                className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+                title={hasActiveFilters ? 'Apply to filtered' : 'Apply to all'}
+              >
+                <CheckCircleIcon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="flex items-center gap-1.5 pl-3 border-l border-slate-700 self-stretch">
-          <button
-            type="button"
-            onClick={onExport}
-            className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
-            title="Export selected as CSV"
-          >
-            <ArrowDownTrayIcon className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={onDeleteSelected}
-            className="flex items-center justify-center w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-900/40 rounded-lg transition-colors"
-            title="Delete selected"
-          >
-            <TrashIcon className="w-4 h-4" />
-          </button>
+          {onExport && (
+            <button
+              type="button"
+              onClick={onExport}
+              className="flex items-center justify-center w-8 h-8 text-slate-400 hover:text-white hover:bg-slate-700 rounded-lg transition-colors"
+              title="Export selected as CSV"
+            >
+              <ArrowDownTrayIcon className="w-4 h-4" />
+            </button>
+          )}
+          {onDeleteSelected && (
+            <button
+              type="button"
+              onClick={onDeleteSelected}
+              className="flex items-center justify-center w-8 h-8 text-red-400 hover:text-red-300 hover:bg-red-900/40 rounded-lg transition-colors"
+              title="Delete selected"
+            >
+              <TrashIcon className="w-4 h-4" />
+            </button>
+          )}
 
           <button
             type="button"

@@ -1,37 +1,11 @@
-import { supabase } from '../lib/supabase';
-import { toCamelCase } from '../lib/caseTransform';
+import { TABLES } from '@lib/enums';
 import {
   CreatePortalPageInput,
   PortalPage,
   UpdatePortalPageInput,
 } from '@shared/portalPage.contracts';
-
-// ─── Supabase SQL ────────────────────────────────────────────────────────────
-//
-// Table creation:
-//
-// create table portal_pages (
-//   id          uuid primary key default gen_random_uuid(),
-//   user_id     uuid not null references auth.users(id) on delete cascade,
-//   name        text not null,
-//   url         text not null,
-//   is_active   boolean not null default true,
-//   sort_order  integer not null default 0,
-//   created_at  timestamptz not null default now(),
-//   updated_at  timestamptz not null default now()
-// );
-
-// alter table portal_pages enable row level security;
-
-// create policy "Users manage own portal pages"
-//   on portal_pages for all
-//   using  (auth.uid() = user_id)
-//   with check (auth.uid() = user_id);
-
-// create index idx_portal_pages_user_id on portal_pages(user_id);
-// create index idx_portal_pages_sort_order on portal_pages(sort_order);
-//
-// ─────────────────────────────────────────────────────────────────────────────
+import { toCamelCase } from '../lib/caseTransform';
+import { supabase } from '../lib/supabase';
 
 async function getCurrentUserId(): Promise<string> {
   const {
@@ -61,7 +35,7 @@ async function list(): Promise<PortalPage[]> {
   const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
-    .from('portal_pages')
+    .from(TABLES.PORTAL_PAGES)
     .select('*')
     .eq('user_id', userId)
     .order('sort_order', { ascending: true })
@@ -75,7 +49,7 @@ async function create(payload: CreatePortalPageInput): Promise<PortalPage> {
   const userId = await getCurrentUserId();
 
   const { data, error } = await supabase
-    .from('portal_pages')
+    .from(TABLES.PORTAL_PAGES)
     .insert({
       user_id: userId,
       name: payload.name,
@@ -105,7 +79,7 @@ async function update(
   if (payload.sortOrder !== undefined) patch.sort_order = payload.sortOrder;
 
   const { data, error } = await supabase
-    .from('portal_pages')
+    .from(TABLES.PORTAL_PAGES)
     .update(patch)
     .eq('id', id)
     .eq('user_id', userId)
@@ -120,7 +94,7 @@ async function remove(id: string): Promise<void> {
   const userId = await getCurrentUserId();
 
   const { error } = await supabase
-    .from('portal_pages')
+    .from(TABLES.PORTAL_PAGES)
     .delete()
     .eq('id', id)
     .eq('user_id', userId);

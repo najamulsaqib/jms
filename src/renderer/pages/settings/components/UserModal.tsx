@@ -4,9 +4,15 @@ import { Chip } from '@components/ui/Chip';
 import IconButton from '@components/ui/IconButton';
 import Modal from '@components/ui/Modal';
 import TextField from '@components/ui/TextField';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/20/solid';
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  ShieldCheckIcon,
+} from '@heroicons/react/20/solid';
 import { useTeamManagement } from '@hooks/useTeamManagement';
+import { useTeamPermissions } from '@hooks/useUserPermissions';
 import type { ManagedUser } from '@services/teamManagement.api';
+import type { UpdateUserPermissionsInput } from '@shared/userPermissions.contracts';
 
 interface UserModalProps {
   open: boolean;
@@ -71,6 +77,123 @@ function ProfileField({ label, value }: { label: string; value: string }) {
   );
 }
 
+const PERMISSION_LABELS: {
+  key: keyof UpdateUserPermissionsInput;
+  label: string;
+  description: string;
+}[] = [
+  {
+    key: 'canCreate',
+    label: 'Create Records',
+    description: 'Add new tax records',
+  },
+  {
+    key: 'canUpdate',
+    label: 'Update Records',
+    description: 'Edit existing records',
+  },
+  {
+    key: 'canDelete',
+    label: 'Delete Records',
+    description: 'Delete individual records',
+  },
+  {
+    key: 'canBulkOperations',
+    label: 'Bulk Operations',
+    description: 'Bulk updates, CSV import',
+  },
+  {
+    key: 'canExport',
+    label: 'Export Data',
+    description: 'Export CSV and PDF reports',
+  },
+];
+
+function PermissionToggle({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-slate-800">{label}</p>
+        <p className="text-xs text-slate-400">{description}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+          checked ? 'bg-blue-600' : 'bg-slate-200'
+        }`}
+      >
+        <span
+          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+            checked ? 'translate-x-4' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
+
+function PermissionsSection({ userId }: { userId: string }) {
+  const { permissions, loading, updatePermissions } =
+    useTeamPermissions(userId);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-3">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+      </div>
+    );
+  }
+
+  if (!permissions)
+    return (
+      <div className="flex justify-center py-3">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-blue-600" />
+      </div>
+    );
+
+  const handleToggle = async (
+    key: keyof UpdateUserPermissionsInput,
+    value: boolean,
+  ) => {
+    await updatePermissions({ [key]: value });
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100">
+        <ShieldCheckIcon className="h-4 w-4 text-blue-500" />
+        <span className="text-sm font-semibold text-slate-800">
+          Permissions
+        </span>
+      </div>
+      <div className="divide-y divide-slate-100">
+        {PERMISSION_LABELS.map(({ key, label, description }) => (
+          <PermissionToggle
+            key={key}
+            label={label}
+            description={description}
+            checked={!!(permissions as unknown as Record<string, boolean>)[key]}
+            onChange={(next) => handleToggle(key, next)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function UserModal({
   open,
   user,
@@ -124,7 +247,10 @@ export default function UserModal({
     try {
       if (isEditMode && user) {
         await updateUser(
-          { userId: user.userId, payload: { fullName: formData.fullName.trim() } },
+          {
+            userId: user.userId,
+            payload: { fullName: formData.fullName.trim() },
+          },
           { onSuccess: () => onClose() },
         );
       } else {
@@ -173,9 +299,13 @@ export default function UserModal({
             <span className="text-sm font-medium text-slate-700">Status</span>
             <div className="pt-0.5">
               {user.isBanned ? (
-                <Chip variant="red" size="sm">Banned</Chip>
+                <Chip variant="red" size="sm">
+                  Banned
+                </Chip>
               ) : (
-                <Chip variant="green" size="sm">Active</Chip>
+                <Chip variant="green" size="sm">
+                  Active
+                </Chip>
               )}
             </div>
           </div>
@@ -214,7 +344,7 @@ export default function UserModal({
       isOpen={open}
       onClose={onClose}
       title={isEditMode ? 'Edit User' : 'Add User'}
-      size="sm"
+      size={isEditMode ? 'md' : 'sm'}
       footer={footer}
     >
       <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
@@ -249,6 +379,8 @@ export default function UserModal({
           disabled={isBusy}
           required
         />
+
+        {isEditMode && user && <PermissionsSection userId={user.userId} />}
 
         {!isEditMode && (
           <>

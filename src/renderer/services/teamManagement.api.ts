@@ -1,6 +1,8 @@
-import { supabase } from '@lib/supabase';
-import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
 import { getAccessToken, getCurrentUserId } from '@lib/authSession';
+import { toCamelCase, toSnakeCase } from '@lib/caseTransform';
+import { EDGE_FUNCTIONS, TABLES } from '@lib/enums';
+import { supabase } from '@lib/supabase';
+import { userPermissionsApi } from './userPermissions.api';
 
 export type ManagedUser = {
   userId: string;
@@ -59,7 +61,7 @@ export const teamManagementApi = {
     const adminId = await getCurrentUserId();
 
     const { data, error } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .select(
         'user_id, created_at, updated_at, role, full_name, company_name, avatar_url, email, is_banned',
       )
@@ -94,7 +96,7 @@ export const teamManagementApi = {
     const accessToken = await getAccessToken();
 
     const { data, error } = await supabase.functions.invoke(
-      'create-managed-user',
+      EDGE_FUNCTIONS.CREATE_MANAGED_USER,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -116,7 +118,14 @@ export const teamManagementApi = {
       throw new Error(message);
     }
 
-    return mapUserRow(data as Record<string, unknown>);
+    const newUser = mapUserRow(data as Record<string, unknown>);
+
+    // Seed default permissions for the new managed user (non-blocking)
+    userPermissionsApi.createDefaults(newUser.userId).catch((err) => {
+      console.warn('[teamManagement] Failed to seed permissions:', err);
+    });
+
+    return newUser;
   },
 
   /**
@@ -130,7 +139,7 @@ export const teamManagementApi = {
 
     // Verify this user is managed by the current admin
     const { data: existing, error: fetchError } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .select('user_id, managed_by')
       .eq('user_id', userId)
       .single();
@@ -142,7 +151,7 @@ export const teamManagementApi = {
 
     // Update the profile
     const { data, error } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .update(
         toSnakeCase({
           fullName: payload.fullName,
@@ -153,9 +162,13 @@ export const teamManagementApi = {
       .select(
         'user_id, created_at, updated_at, role, full_name, company_name, avatar_url, email, is_banned',
       )
-      .single();
+      .maybeSingle();
 
     if (error) throw mapSupabaseError(error);
+    if (!data)
+      throw new Error(
+        'Update failed — missing UPDATE policy on profiles for admins. Run the profiles_update_managed SQL policy.',
+      );
 
     return mapUserRow({
       ...data,
@@ -180,7 +193,7 @@ export const teamManagementApi = {
 
     // Verify this user is managed by the current admin
     const { data: existing, error: fetchError } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .select('user_id, managed_by')
       .eq('user_id', userId)
       .single();
@@ -191,12 +204,15 @@ export const teamManagementApi = {
     }
 
     // Call edge function to delete user
-    const { error } = await supabase.functions.invoke('delete-managed-user', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
+    const { error } = await supabase.functions.invoke(
+      EDGE_FUNCTIONS.DELETE_MANAGED_USER,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: { userId },
       },
-      body: { userId },
-    });
+    );
 
     if (error) {
       const body = await (error as any).context?.json?.().catch(() => null);
@@ -211,7 +227,7 @@ export const teamManagementApi = {
     const adminId = await getCurrentUserId(); // ensures session is loaded before invoke
     const accessToken = await getAccessToken();
     const { data, error } = await supabase.functions.invoke(
-      'ban-managed-user',
+      EDGE_FUNCTIONS.BAN_MANAGED_USER,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,

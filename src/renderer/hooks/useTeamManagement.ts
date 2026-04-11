@@ -7,8 +7,12 @@ import {
 } from '@services/teamManagement.api';
 import { refreshAuthSession } from '@lib/authSession';
 import { toast } from 'sonner';
+import { PAGE_KEYS } from '@lib/enums';
 
-const MANAGED_USERS_QUERY_KEY = ['teamManagement', 'managedUsers'];
+const MANAGED_USERS_QUERY_KEY = [
+  PAGE_KEYS.TEAM_MANAGEMENT,
+  PAGE_KEYS.MANAGED_USERS,
+];
 
 export function useTeamManagement() {
   const queryClient = useQueryClient();

@@ -1,11 +1,19 @@
-import { supabase } from '../lib/supabase';
-import { toCamelCase, toSnakeCase } from '../lib/caseTransform';
+import {
+  AUDIT_ACTIONS,
+  AUDIT_EVENTS,
+  MODULES,
+  PAGE_SIZE,
+  TABLES,
+} from '@lib/enums';
 import {
   CreateTaxRecordInput,
   TaxRecord,
   TaxRecordStatus,
   UpdateTaxRecordInput,
 } from '@shared/taxRecord.contracts';
+import { toCamelCase, toSnakeCase } from '../lib/caseTransform';
+import { supabase } from '../lib/supabase';
+import { auditLogApi, diffRecord } from './auditLog.api';
 
 export type PaginatedListParams = {
   page: number;
@@ -45,46 +53,6 @@ const SEARCH_FIELD_MAP: Record<string, string> = {
   status: 'status',
   notes: 'notes',
 };
-
-const BATCH_SIZE = 1000;
-
-// ─── Supabase SQL ────────────────────────────────────────────────────────────
-//
-// Table creation (fresh rebuild):
-//
-//   create table tax_records (
-//     id               bigint generated always as identity primary key,
-//     reference_number text not null,
-//     name             text not null,
-//     cnic             text not null,
-//     phone            text not null default '',
-//     email            text not null,
-//     password         text not null,
-//     reference        text not null default 'self',
-//     status           text not null default 'inactive' check (status in ('active', 'inactive', 'late-filer')),
-//     notes            text not null default '',
-//     user_id          uuid not null references auth.users(id) on delete cascade,
-//     created_at       timestamptz not null default now(),
-//     updated_at       timestamptz not null default now()
-//   );
-//
-//   alter table tax_records enable row level security;
-//
-//   create policy "Users manage own records"
-//     on tax_records for all
-//     using  (auth.uid() = user_id)
-//     with check (auth.uid() = user_id);
-//
-//   alter table tax_records
-//     add constraint tax_records_user_cnic_unique unique (user_id, cnic),
-//     add constraint tax_records_user_reference_number_unique unique (user_id, reference_number);
-//
-//   create index idx_tax_records_user_id on tax_records(user_id);
-//   create index idx_tax_records_status on tax_records(status);
-//   create index idx_tax_records_reference on tax_records(reference);
-//   create index idx_tax_records_created_at on tax_records(created_at desc);
-//
-// ─────────────────────────────────────────────────────────────────────────────
 
 type SupabaseErrorLike = {
   code?: string | null;
@@ -126,16 +94,64 @@ function mapRow(row: Record<string, unknown>): TaxRecord {
   };
 }
 
-async function getCurrentUserId(): Promise<string> {
+/**
+ * Returns the effective owner ID for tax records.
+ * - Managed users: returns their admin's ID (profile.managed_by)
+ * - Admin users:   returns their own ID
+ * Records created by managed users are stored under the admin's user_id
+ * so the whole team shares one record pool.
+ */
+async function getEffectiveOwnerId(): Promise<{
+  ownerId: string;
+  actorName: string;
+}> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
   if (!session?.user) {
-    // Logout the user if no session exists
     await supabase.auth.signOut();
     throw new Error('Not authenticated');
   }
-  return session.user.id;
+  const user = session.user;
+
+  const { data: profile } = await supabase
+    .from(TABLES.PROFILES)
+    .select('managed_by, full_name')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  const managedBy = (profile?.managed_by as string | undefined) ?? undefined;
+  const ownerId = managedBy ?? user.id;
+  const actorName =
+    (profile?.full_name as string | undefined) ?? user.email ?? 'Unknown';
+  return { ownerId, actorName };
+}
+
+function toDeletionChanges(
+  record: TaxRecord,
+): Record<string, { from: unknown; to: unknown }> {
+  return Object.entries(record).reduce<
+    Record<string, { from: unknown; to: unknown }>
+  >((acc, [field, value]) => {
+    acc[field] = { from: value, to: null };
+    return acc;
+  }, {});
+}
+
+function formatIdentity(record: Pick<TaxRecord, 'name' | 'cnic'>): string {
+  return `${record.name} (${record.cnic})`;
+}
+
+function formatIdentityList(
+  records: Array<Pick<TaxRecord, 'name' | 'cnic'>>,
+): string {
+  if (records.length === 0) return '';
+  const MAX_ITEMS = 20;
+  const items = records.slice(0, MAX_ITEMS).map(formatIdentity);
+  const remaining = records.length - items.length;
+  return remaining > 0
+    ? `${items.join(', ')}, +${remaining} more`
+    : items.join(', ');
 }
 
 export const taxRecordApi = {
@@ -143,11 +159,11 @@ export const taxRecordApi = {
     cnics: Set<string>;
     referenceNumbers: Set<string>;
   }> {
-    const userId = await getCurrentUserId();
+    const { ownerId } = await getEffectiveOwnerId();
     const { data, error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .select('cnic, reference_number')
-      .eq('user_id', userId);
+      .eq('user_id', ownerId);
 
     if (error) throw mapSupabaseError(error);
 
@@ -163,18 +179,17 @@ export const taxRecordApi = {
     payload: Pick<CreateTaxRecordInput, 'referenceNumber' | 'cnic'>,
     excludeId?: number,
   ): Promise<TaxRecordUniquenessErrors> {
-    // Uniqueness is scoped per user — RLS handles this automatically,
-    // but we also pass user_id explicitly for clarity.
-    const userId = await getCurrentUserId();
+    // Uniqueness is scoped per owner (admin's user_id for the whole team)
+    const { ownerId } = await getEffectiveOwnerId();
 
     const checkExists = async (
       column: 'cnic' | 'reference_number',
       value: string,
     ): Promise<boolean> => {
       let query = supabase
-        .from('tax_records')
+        .from(TABLES.TAX_RECORDS)
         .select('id', { head: true, count: 'exact' })
-        .eq('user_id', userId)
+        .eq('user_id', ownerId)
         .eq(column, value);
 
       if (typeof excludeId === 'number') {
@@ -202,7 +217,7 @@ export const taxRecordApi = {
 
   async list(): Promise<TaxRecord[]> {
     const { data, error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .select('*')
       .order('created_at', { ascending: false });
 
@@ -216,31 +231,30 @@ export const taxRecordApi = {
 
     while (true) {
       const { data, error } = await supabase
-        .from('tax_records')
+        .from(TABLES.TAX_RECORDS)
         .select('*')
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
-        .range(from, from + BATCH_SIZE - 1);
+        .range(from, from + PAGE_SIZE.BULK_OPERATIONS - 1);
 
       if (error) throw mapSupabaseError(error);
 
       const chunk = (data ?? []) as Record<string, unknown>[];
       allRows.push(...chunk);
 
-      if (chunk.length < BATCH_SIZE) break;
-      from += BATCH_SIZE;
+      if (chunk.length < PAGE_SIZE.BULK_OPERATIONS) break;
+      from += PAGE_SIZE.BULK_OPERATIONS;
     }
 
     return allRows.map(mapRow);
   },
 
   async getById(id: number): Promise<TaxRecord> {
-    const userId = await getCurrentUserId();
+    // RLS enforces team access — no explicit user_id filter needed
     const { data, error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .select('*')
       .eq('id', id)
-      .eq('user_id', userId)
       .maybeSingle();
 
     if (error) throw mapSupabaseError(error);
@@ -249,76 +263,237 @@ export const taxRecordApi = {
   },
 
   async create(payload: CreateTaxRecordInput): Promise<TaxRecord> {
-    const userId = await getCurrentUserId();
+    const { ownerId, actorName } = await getEffectiveOwnerId();
 
     const { data, error } = await supabase
-      .from('tax_records')
-      .insert(toSnakeCase({ ...payload, userId }))
+      .from(TABLES.TAX_RECORDS)
+      .insert(toSnakeCase({ ...payload, userId: ownerId }))
       .select()
       .single();
 
     if (error) throw mapSupabaseError(error);
-    return mapRow(data as Record<string, unknown>);
+    const created = mapRow(data as Record<string, unknown>);
+
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: created.referenceNumber,
+      action: AUDIT_ACTIONS.CREATE,
+      changedByName: actorName,
+      managedBy: ownerId,
+      snapshot: created as unknown as Record<string, unknown>,
+    });
+
+    return created;
   },
 
   async bulkCreate(payloads: CreateTaxRecordInput[]): Promise<TaxRecord[]> {
-    const userId = await getCurrentUserId();
+    const { ownerId, actorName } = await getEffectiveOwnerId();
 
     const { data, error } = await supabase
-      .from('tax_records')
-      .insert(payloads.map((p) => toSnakeCase({ ...p, userId })))
+      .from(TABLES.TAX_RECORDS)
+      .insert(payloads.map((p) => toSnakeCase({ ...p, userId: ownerId })))
       .select();
 
     if (error) throw mapSupabaseError(error);
-    return (data as Record<string, unknown>[]).map(mapRow);
+    const created = (data as Record<string, unknown>[]).map(mapRow);
+
+    await Promise.all(
+      created.map((record) =>
+        auditLogApi.log({
+          module: MODULES.TAX_RECORD,
+          recordId: record.referenceNumber,
+          action: AUDIT_ACTIONS.BULK_CREATE,
+          changedByName: actorName,
+          managedBy: ownerId,
+          snapshot: record as unknown as Record<string, unknown>,
+        }),
+      ),
+    );
+
+    return created;
   },
 
   async update(id: number, payload: UpdateTaxRecordInput): Promise<TaxRecord> {
-    const userId = await getCurrentUserId();
+    const { ownerId, actorName } = await getEffectiveOwnerId();
+
+    // Fetch the current state for diff (RLS guards access)
+    const before = await taxRecordApi.getById(id);
+
     const { data, error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .update(toSnakeCase({ ...payload, updatedAt: new Date().toISOString() }))
       .eq('id', id)
-      .eq('user_id', userId)
       .select()
       .single();
 
     if (error) throw mapSupabaseError(error);
-    return mapRow(data as Record<string, unknown>);
+    const updated = mapRow(data as Record<string, unknown>);
+
+    const changes = diffRecord(
+      before as unknown as Record<string, unknown>,
+      updated as unknown as Record<string, unknown>,
+    );
+
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: updated.referenceNumber,
+      action: AUDIT_ACTIONS.UPDATE,
+      changedByName: actorName,
+      managedBy: ownerId,
+      changes: changes ?? undefined,
+      snapshot: updated as unknown as Record<string, unknown>,
+    });
+
+    return updated;
   },
 
   async remove(id: number): Promise<void> {
-    const userId = await getCurrentUserId();
+    const { ownerId, actorName } = await getEffectiveOwnerId();
+
+    // Snapshot before delete
+    const record = await taxRecordApi.getById(id);
+    const changes = toDeletionChanges(record);
+
     const { error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .delete()
-      .eq('id', id)
-      .eq('user_id', userId);
+      .eq('id', id);
 
     if (error) throw mapSupabaseError(error);
+
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: record.referenceNumber,
+      action: AUDIT_ACTIONS.DELETE,
+      changedByName: actorName,
+      managedBy: ownerId,
+      changes,
+      snapshot: record as unknown as Record<string, unknown>,
+    });
   },
 
   async getByIds(ids: number[]): Promise<TaxRecord[]> {
-    const userId = await getCurrentUserId();
+    // RLS enforces team access
     const { data, error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .select('*')
-      .in('id', ids)
-      .eq('user_id', userId);
+      .in('id', ids);
 
     if (error) throw mapSupabaseError(error);
     return (data as Record<string, unknown>[]).map(mapRow);
   },
 
   async bulkRemove(ids: number[]): Promise<void> {
-    const userId = await getCurrentUserId();
+    const { ownerId, actorName } = await getEffectiveOwnerId();
+
+    // Snapshot records before deletion
+    const records = await taxRecordApi.getByIds(ids);
+
     const { error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .delete()
-      .in('id', ids)
-      .eq('user_id', userId);
+      .in('id', ids);
 
     if (error) throw mapSupabaseError(error);
+
+    await Promise.all(
+      records.map((record) =>
+        auditLogApi.log({
+          module: MODULES.TAX_RECORD,
+          recordId: record.referenceNumber,
+          action: AUDIT_ACTIONS.BULK_DELETE,
+          changedByName: actorName,
+          managedBy: ownerId,
+          changes: toDeletionChanges(record),
+          snapshot: record as unknown as Record<string, unknown>,
+        }),
+      ),
+    );
+  },
+
+  async logPdfExport(
+    referenceNumber: string,
+    details: {
+      selectedFields: string[];
+      selectedCount: number;
+      totalFields: number;
+    },
+  ): Promise<void> {
+    const { ownerId, actorName } = await getEffectiveOwnerId();
+
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: referenceNumber,
+      action: AUDIT_ACTIONS.EXPORT_PDF,
+      changedByName: actorName,
+      managedBy: ownerId,
+      changes: {
+        exportedFields: {
+          from: null,
+          to: details.selectedFields.join(', '),
+        },
+        exportedFieldCount: {
+          from: null,
+          to: `${details.selectedCount}/${details.totalFields}`,
+        },
+      },
+      snapshot: {
+        event: AUDIT_EVENTS.PDF_EXPORTED,
+        referenceNumber,
+        ...details,
+      },
+    });
+  },
+
+  async logCsvExport(
+    records: TaxRecord[],
+    details: {
+      scope: 'all' | 'selected';
+      selectedCount: number;
+      totalFields: number;
+      selectedFields: string[];
+    },
+  ): Promise<void> {
+    const { ownerId, actorName } = await getEffectiveOwnerId();
+
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: null,
+      action: AUDIT_ACTIONS.EXPORT_CSV,
+      changedByName: actorName,
+      managedBy: ownerId,
+      changes: {
+        exportScope: {
+          from: null,
+          to: details.scope,
+        },
+        exportedCount: {
+          from: null,
+          to: String(records.length),
+        },
+        exportedFields: {
+          from: null,
+          to: details.selectedFields.join(', '),
+        },
+        exportedFieldCount: {
+          from: null,
+          to: `${details.selectedCount}/${details.totalFields}`,
+        },
+        exportedNamesAndCnics: {
+          from: null,
+          to: formatIdentityList(records),
+        },
+      },
+      snapshot: {
+        event: AUDIT_EVENTS.CSV_EXPORTED,
+        records: records.map((record) => ({
+          referenceNumber: record.referenceNumber,
+          name: record.name,
+          cnic: record.cnic,
+        })),
+        ...details,
+      },
+    });
   },
 
   async listPaginated(
@@ -335,7 +510,9 @@ export const taxRecordApi = {
       statusFilter,
     } = params;
 
-    let query = supabase.from('tax_records').select('*', { count: 'exact' });
+    let query = supabase
+      .from(TABLES.TAX_RECORDS)
+      .select('*', { count: 'exact' });
 
     if (referenceFilter.length > 0) {
       query = query.in('reference', referenceFilter);
@@ -376,15 +553,15 @@ export const taxRecordApi = {
   }> {
     const [activeRes, inactiveRes, lateFilerRes] = await Promise.all([
       supabase
-        .from('tax_records')
+        .from(TABLES.TAX_RECORDS)
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active'),
       supabase
-        .from('tax_records')
+        .from(TABLES.TAX_RECORDS)
         .select('*', { count: 'exact', head: true })
         .eq('status', 'inactive'),
       supabase
-        .from('tax_records')
+        .from(TABLES.TAX_RECORDS)
         .select('*', { count: 'exact', head: true })
         .eq('status', 'late-filer'),
     ]);
@@ -401,10 +578,10 @@ export const taxRecordApi = {
 
     while (true) {
       const { data, error } = await supabase
-        .from('tax_records')
+        .from(TABLES.TAX_RECORDS)
         .select('reference')
         .order('reference')
-        .range(from, from + BATCH_SIZE - 1);
+        .range(from, from + PAGE_SIZE.BULK_OPERATIONS - 1);
 
       if (error) throw mapSupabaseError(error);
 
@@ -413,8 +590,8 @@ export const taxRecordApi = {
         if (row.reference) references.add(row.reference);
       });
 
-      if (chunk.length < BATCH_SIZE) break;
-      from += BATCH_SIZE;
+      if (chunk.length < PAGE_SIZE.BULK_OPERATIONS) break;
+      from += PAGE_SIZE.BULK_OPERATIONS;
     }
 
     return Array.from(references).sort((a, b) => a.localeCompare(b));
@@ -422,7 +599,7 @@ export const taxRecordApi = {
 
   async getTotalCount(): Promise<number> {
     const { count, error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .select('*', { count: 'exact', head: true });
     if (error) throw mapSupabaseError(error);
     return count ?? 0;
@@ -432,13 +609,51 @@ export const taxRecordApi = {
     ids: number[],
     status: TaxRecordStatus,
   ): Promise<void> {
-    const userId = await getCurrentUserId();
+    const { ownerId, actorName } = await getEffectiveOwnerId();
+
+    if (ids.length === 0) return;
+
+    const before = await taxRecordApi.getByIds(ids);
+
+    // Explicit owner filter prevents broad updates and supports safe-update guards.
     const { error } = await supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .update({ status, updated_at: new Date().toISOString() })
-      .in('id', ids)
-      .eq('user_id', userId);
+      .eq('user_id', ownerId)
+      .in('id', ids);
     if (error) throw mapSupabaseError(error);
+
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: null,
+      action: AUDIT_ACTIONS.BULK_UPDATE,
+      changedByName: actorName,
+      managedBy: ownerId,
+      changes: {
+        updatedCount: {
+          from: null,
+          to: String(before.length),
+        },
+        updatedNamesAndCnics: {
+          from: null,
+          to: formatIdentityList(before),
+        },
+        targetStatus: {
+          from: null,
+          to: status,
+        },
+      },
+      snapshot: {
+        event: AUDIT_EVENTS.BULK_STATUS_UPDATED_SELECTED,
+        status,
+        records: before.map((record) => ({
+          referenceNumber: record.referenceNumber,
+          name: record.name,
+          cnic: record.cnic,
+          previousStatus: record.status,
+        })),
+      },
+    });
   },
 
   async bulkUpdateAllStatus(
@@ -450,12 +665,42 @@ export const taxRecordApi = {
       statusFilter?: string[];
     },
   ): Promise<void> {
-    const userId = await getCurrentUserId();
+    const { ownerId, actorName } = await getEffectiveOwnerId();
 
+    let beforeQuery = supabase
+      .from(TABLES.TAX_RECORDS)
+      .select('*')
+      .eq('user_id', ownerId);
+
+    if (filters) {
+      if (filters.referenceFilter && filters.referenceFilter.length > 0) {
+        beforeQuery = beforeQuery.in('reference', filters.referenceFilter);
+      }
+      if (filters.statusFilter && filters.statusFilter.length > 0) {
+        beforeQuery = beforeQuery.in('status', filters.statusFilter);
+      }
+      if (filters.search && filters.search.trim()) {
+        const term = filters.search.trim();
+        if (filters.searchField === 'all') {
+          beforeQuery = beforeQuery.or(
+            `reference_number.ilike.%${term}%,name.ilike.%${term}%,cnic.ilike.%${term}%,email.ilike.%${term}%,reference.ilike.%${term}%,status.ilike.%${term}%,notes.ilike.%${term}%`,
+          );
+        } else if (filters.searchField) {
+          const col = SEARCH_FIELD_MAP[filters.searchField] ?? 'name';
+          beforeQuery = beforeQuery.ilike(col, `%${term}%`);
+        }
+      }
+    }
+
+    const { data: beforeData, error: beforeError } = await beforeQuery;
+    if (beforeError) throw mapSupabaseError(beforeError);
+    const before = (beforeData as Record<string, unknown>[]).map(mapRow);
+
+    // Always scope to effective owner (admin id for managed users, self for admins).
     let query = supabase
-      .from('tax_records')
+      .from(TABLES.TAX_RECORDS)
       .update({ status, updated_at: new Date().toISOString() })
-      .eq('user_id', userId);
+      .eq('user_id', ownerId);
 
     if (filters) {
       if (filters.referenceFilter && filters.referenceFilter.length > 0) {
@@ -479,5 +724,38 @@ export const taxRecordApi = {
 
     const { error } = await query;
     if (error) throw mapSupabaseError(error);
+
+    await auditLogApi.log({
+      module: MODULES.TAX_RECORD,
+      recordId: null,
+      action: AUDIT_ACTIONS.BULK_UPDATE,
+      changedByName: actorName,
+      managedBy: ownerId,
+      changes: {
+        updatedCount: {
+          from: null,
+          to: String(before.length),
+        },
+        updatedNamesAndCnics: {
+          from: null,
+          to: formatIdentityList(before),
+        },
+        targetStatus: {
+          from: null,
+          to: status,
+        },
+      },
+      snapshot: {
+        event: AUDIT_EVENTS.BULK_STATUS_UPDATED_ALL,
+        status,
+        filters: filters ?? null,
+        records: before.map((record) => ({
+          referenceNumber: record.referenceNumber,
+          name: record.name,
+          cnic: record.cnic,
+          previousStatus: record.status,
+        })),
+      },
+    });
   },
 };

@@ -1,8 +1,8 @@
+import AuditLogPanel from '@components/common/AuditLogPanel';
 import FloatingActionBar from '@components/common/FloatingActionBar';
 import LoadingSpinner from '@components/common/LoadingSpinner';
 import StatCard from '@components/common/StatCard';
 import AppLayout from '@components/layout/AppLayout';
-import BulkActionModal from '@pages/tax-records/BulkActionModal';
 import DataTable, {
   type DataTableColumn,
   type SortState,
@@ -10,12 +10,12 @@ import DataTable, {
 import Pagination from '@components/table/Pagination';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
-import SelectField from '@components/ui/SelectField';
 import { Chip } from '@components/ui/Chip';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import DropdownMenu, {
   type DropdownMenuItem,
 } from '@components/ui/DropdownMenu';
+import SelectField from '@components/ui/SelectField';
 import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
@@ -36,8 +36,11 @@ import {
   usePaginatedTaxRecords,
   useStatusCounts,
 } from '@hooks/useTaxRecords';
-import { TaxRecord, TaxRecordStatus } from '@shared/taxRecord.contracts';
+import { useMyPermissions } from '@hooks/useUserPermissions';
+import { MODULES } from '@lib/enums';
 import { encodeRecordId } from '@lib/recordId';
+import BulkActionModal from '@pages/tax-records/BulkActionModal';
+import { TaxRecord, TaxRecordStatus } from '@shared/taxRecord.contracts';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -53,6 +56,7 @@ const DEFAULT_PAGE_SIZE = 10;
 
 export default function TaxRecordsPage() {
   const navigate = useNavigate();
+  const { permissions } = useMyPermissions();
 
   // Pagination + filter state
   const [page, setPage] = useState(0);
@@ -261,9 +265,9 @@ export default function TaxRecordsPage() {
     })),
   ];
 
-  // Dropdown menu items
+  // Dropdown menu items — gated by permissions
   const dropdownMenuItems: DropdownMenuItem[] = [
-    ...(total > 0
+    ...(total > 0 && permissions?.canBulkOperations
       ? [
           {
             label: 'Bulk Actions',
@@ -271,6 +275,10 @@ export default function TaxRecordsPage() {
             onClick: () => setShowBulkActionModal(true),
             badge: selectedIds.size > 0 ? selectedIds.size : undefined,
           },
+        ]
+      : []),
+    ...(total > 0 && permissions?.canExport
+      ? [
           {
             label: 'Export CSV',
             icon: ArrowDownTrayIcon,
@@ -279,11 +287,15 @@ export default function TaxRecordsPage() {
           },
         ]
       : []),
-    {
-      label: 'Import CSV',
-      icon: ArrowUpTrayIcon,
-      onClick: () => setShowCsvImport(true),
-    },
+    ...(permissions?.canBulkOperations
+      ? [
+          {
+            label: 'Import CSV',
+            icon: ArrowUpTrayIcon,
+            onClick: () => setShowCsvImport(true),
+          },
+        ]
+      : []),
   ];
 
   const columns: DataTableColumn<TaxRecord>[] = [
@@ -407,24 +419,28 @@ export default function TaxRecordsPage() {
         </span>
       ),
     },
-    {
-      id: 'actions',
-      header: 'Actions',
-      size: '100px',
-      align: 'right',
-      render: (record) => (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => requestDelete(record)}
-            className="flex items-center justify-center w-8 h-8 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
-            title="Delete selected"
-          >
-            <TrashIcon className="w-4 h-4" />
-          </button>
-        </div>
-      ),
-    },
+    ...(permissions?.canDelete
+      ? [
+          {
+            id: 'actions',
+            header: 'Actions',
+            size: '100px',
+            align: 'right' as const,
+            render: (record: TaxRecord) => (
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => requestDelete(record)}
+                  className="flex items-center justify-center w-8 h-8 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors"
+                  title="Delete record"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
+            ),
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -445,15 +461,19 @@ export default function TaxRecordsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <DropdownMenu items={dropdownMenuItems} />
-            <Button
-              type="button"
-              size="md"
-              icon={PlusIcon}
-              onClick={() => navigate('/tax-records/new')}
-            >
-              Add New Entry
-            </Button>
+            {dropdownMenuItems.length > 0 && (
+              <DropdownMenu items={dropdownMenuItems} />
+            )}
+            {permissions?.canCreate && (
+              <Button
+                type="button"
+                size="md"
+                icon={PlusIcon}
+                onClick={() => navigate('/tax-records/new')}
+              >
+                Add New Entry
+              </Button>
+            )}
           </div>
         </div>
 
@@ -606,6 +626,12 @@ export default function TaxRecordsPage() {
           />
         </Card>
 
+        <AuditLogPanel
+          module={MODULES.TAX_RECORD}
+          recordId={null}
+          perPage={5}
+        />
+
         {/* CSV Export Modal */}
         <CsvExportModal
           isOpen={showCsvExport}
@@ -690,14 +716,28 @@ export default function TaxRecordsPage() {
           status={bulkStatus}
           hasActiveFilters={hasActiveFilters}
           onStatusChange={setBulkStatus}
-          onApplyToSelected={() => requestBulkUpdate('selected')}
-          onApplyToAll={() => requestBulkUpdate('all')}
+          onApplyToSelected={
+            permissions?.canBulkOperations
+              ? () => requestBulkUpdate('selected')
+              : undefined
+          }
+          onApplyToAll={
+            permissions?.canBulkOperations
+              ? () => requestBulkUpdate('all')
+              : undefined
+          }
           onClearSelection={() => {
             setBulkStatus('active');
             setSelectedIds(new Set());
           }}
-          onDeleteSelected={() => setPendingBulkDelete(true)}
-          onExport={() => setShowCsvExport(true)}
+          onDeleteSelected={
+            permissions?.canDelete
+              ? () => setPendingBulkDelete(true)
+              : undefined
+          }
+          onExport={
+            permissions?.canExport ? () => setShowCsvExport(true) : undefined
+          }
         />
       </div>
     </AppLayout>

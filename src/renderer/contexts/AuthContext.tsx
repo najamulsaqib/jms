@@ -25,6 +25,8 @@ export type UserInfo = {
   avatarUrl: string;
   role: 'admin' | 'user';
   isAdmin: boolean;
+  /** UUID of the admin who owns this user's account; null for admin accounts. */
+  managedBy: string | null;
 };
 
 interface AuthContextValue {
@@ -198,6 +200,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               avatarUrl: profile?.avatarUrl ?? '',
               role: role as 'admin' | 'user',
               isAdmin: role === 'admin',
+              managedBy: profile?.managedBy ?? null,
             } satisfies UserInfo;
           })()
         : null,
