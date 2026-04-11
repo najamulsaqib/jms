@@ -1,5 +1,18 @@
+function redactPasswords(val: unknown): unknown {
+  if (Array.isArray(val)) return val.map(redactPasswords);
+  if (val !== null && typeof val === 'object') {
+    return Object.fromEntries(
+      Object.entries(val as Record<string, unknown>).map(([k, v]) => [
+        k,
+        k.toLowerCase() === 'password' ? '••••••••' : redactPasswords(v),
+      ]),
+    );
+  }
+  return val;
+}
+
 export default function JsonHighlight({ value }: { value: unknown }) {
-  const json = JSON.stringify(value, null, 2);
+  const json = JSON.stringify(redactPasswords(value), null, 2);
 
   // Tokenise the JSON string into typed segments
   const tokens: { type: string; text: string }[] = [];
