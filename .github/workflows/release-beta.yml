@@ -7,10 +7,10 @@ on:
       bump:
         description: 'Version bump type'
         required: true
-        default: 'beta-bugfix'
+        default: 'bugfix'
         type: choice
         options:
-          - beta-bugfix
+          - bugfix
           - patch
           - minor
           - major
@@ -44,7 +44,7 @@ jobs:
         id: bump
         working-directory: release/app
         run: |
-          if [ "${{ inputs.bump }}" = "beta-bugfix" ]; then
+          if [ "${{ inputs.bump }}" = "bugfix" ]; then
             NEW_VERSION=$(npm version prerelease --preid=beta --no-git-tag-version)
           else
             NEW_VERSION=$(npm version pre${{ inputs.bump }} --preid=beta --no-git-tag-version)
