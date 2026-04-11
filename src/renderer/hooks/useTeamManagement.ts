@@ -35,6 +35,13 @@ export function useTeamManagement(
     placeholderData: (prev) => prev,
   });
 
+  const { data: summary } = useQuery({
+    queryKey: [...MANAGED_USERS_QUERY_KEY_BASE, 'summary'],
+    queryFn: () => teamManagementApi.getManagedUsersSummary(),
+    retry: 1,
+    staleTime: 15_000,
+  });
+
   // Create managed user mutation
   const createUserMutation = useMutation({
     mutationFn: (payload: CreateManagedUserInput) =>
@@ -113,6 +120,8 @@ export function useTeamManagement(
   return {
     managedUsers: data?.data ?? [],
     total: data?.total ?? 0,
+    activeCount: summary?.active ?? 0,
+    bannedCount: summary?.banned ?? 0,
     isLoading,
     error: error instanceof Error ? error.message : null,
     createUser: createUserMutation.mutate,

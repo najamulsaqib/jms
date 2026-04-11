@@ -37,6 +37,12 @@ export type ManagedUsersPage = {
   total: number;
 };
 
+export type ManagedUsersSummary = {
+  total: number;
+  active: number;
+  banned: number;
+};
+
 type SupabaseErrorLike = {
   code?: string | null;
   message: string;
@@ -102,6 +108,40 @@ export const teamManagementApi = {
         }),
       ),
       total: count ?? 0,
+    };
+  },
+
+  /**
+   * Return summary counts for all managed users (independent of pagination)
+   */
+  async getManagedUsersSummary(): Promise<ManagedUsersSummary> {
+    const adminId = await getCurrentUserId();
+
+    const [
+      { count: totalCount, error: totalError },
+      { count: bannedCount, error: bannedError },
+    ] = await Promise.all([
+      supabase
+        .from(TABLES.PROFILES)
+        .select('user_id', { count: 'exact', head: true })
+        .eq('managed_by', adminId),
+      supabase
+        .from(TABLES.PROFILES)
+        .select('user_id', { count: 'exact', head: true })
+        .eq('managed_by', adminId)
+        .eq('is_banned', true),
+    ]);
+
+    if (totalError) throw mapSupabaseError(totalError);
+    if (bannedError) throw mapSupabaseError(bannedError);
+
+    const total = totalCount ?? 0;
+    const banned = bannedCount ?? 0;
+
+    return {
+      total,
+      banned,
+      active: Math.max(total - banned, 0),
     };
   },
 

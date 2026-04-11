@@ -10,15 +10,22 @@ import {
   NoSymbolIcon,
   PencilSquareIcon,
   PlusIcon,
+  ShieldCheckIcon,
   TrashIcon,
   UserIcon,
 } from '@heroicons/react/20/solid';
-import { UserCircleIcon } from '@heroicons/react/24/outline';
+import {
+  CheckBadgeIcon,
+  UserCircleIcon,
+  UserMinusIcon,
+  UsersIcon,
+} from '@heroicons/react/24/outline';
 import { useTeamManagement } from '@hooks/useTeamManagement';
 import { PAGE_SIZE } from '@lib/enums';
 import type { ManagedUser } from '@services/teamManagement.api';
 import { useState } from 'react';
 import UserModal from './UserModal';
+import UserPermissionsModal from './UserPermissionsModal';
 
 type ModalState =
   | { mode: 'add' }
@@ -35,6 +42,8 @@ export default function TeamManagementSection() {
   const {
     managedUsers,
     total,
+    activeCount,
+    bannedCount,
     isLoading,
     error,
     banUser,
@@ -47,6 +56,9 @@ export default function TeamManagementSection() {
   const [deleteConfirmUser, setDeleteConfirmUser] =
     useState<ManagedUser | null>(null);
   const [banConfirmUser, setBanConfirmUser] = useState<ManagedUser | null>(
+    null,
+  );
+  const [permissionsUser, setPermissionsUser] = useState<ManagedUser | null>(
     null,
   );
 
@@ -67,15 +79,42 @@ export default function TeamManagementSection() {
 
   const columns: DataTableColumn<ManagedUser>[] = [
     {
+      id: 'member',
+      header: 'Member',
+      render: (user) => (
+        <div className="flex items-center gap-3">
+          <div className="items-center justify-center rounded-full border border-blue-100 bg-blue-50 overflow-hidden">
+            {user.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName || user.email}
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <span className="h-8 w-8 text-blue-400">
+                <UserCircleIcon className="h-8 w-8" />
+              </span>
+            )}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-slate-900">
+              {user.fullName || 'No name provided'}
+            </p>
+            <p className="truncate text-xs text-slate-500">{user.email}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
       id: 'status',
       header: 'Status',
       render: (user) =>
         user.isBanned ? (
-          <Chip variant="red" size="sm">
+          <Chip variant="red" size="sm" rounded="full">
             Banned
           </Chip>
         ) : (
-          <Chip variant="green" size="sm">
+          <Chip variant="green" size="sm" rounded="full">
             Active
           </Chip>
         ),
@@ -83,28 +122,15 @@ export default function TeamManagementSection() {
     {
       id: 'email',
       header: 'Email',
-      render: (user) => user.email,
+      render: (user) => <span className="text-slate-600">{user.email}</span>,
     },
     {
-      id: 'fullName',
-      header: 'Full Name',
+      id: 'role',
+      header: 'Role',
       render: (user) => (
-        <div className="flex items-center gap-2">
-          <div className="items-center justify-center rounded-full border border-blue-100 bg-blue-50 overflow-hidden">
-            {user.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.fullName || user.email}
-                className="h-7 w-7 rounded-full object-cover"
-              />
-            ) : (
-              <span className="h-7 w-7 text-blue-400">
-                <UserCircleIcon className="h-7 w-7" />
-              </span>
-            )}
-          </div>
-          <span>{user.fullName || '—'}</span>
-        </div>
+        <Chip variant={user.role === 'admin' ? 'blue' : 'grey'} size="sm">
+          {user.role}
+        </Chip>
       ),
     },
     {
@@ -120,6 +146,7 @@ export default function TeamManagementSection() {
     {
       id: 'actions',
       header: '',
+      align: 'right',
       render: (user) => (
         <DropdownMenu
           items={[
@@ -129,9 +156,14 @@ export default function TeamManagementSection() {
               onClick: () => setModal({ mode: 'view', user }),
             },
             {
-              label: 'Edit',
+              label: 'Edit Details',
               icon: PencilSquareIcon,
               onClick: () => setModal({ mode: 'edit', user }),
+            },
+            {
+              label: 'Manage Permissions',
+              icon: ShieldCheckIcon,
+              onClick: () => setPermissionsUser(user),
               divider: true,
             },
             {
@@ -174,25 +206,74 @@ export default function TeamManagementSection() {
   return (
     <>
       <Card padding="none">
-        <div className="mb-6 flex items-center justify-between p-6">
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900">
-              Team Members
-            </h3>
-            <p className="mt-1 text-sm text-slate-600">
-              Manage users that access your account
-            </p>
+        <div className="border-b border-slate-200 bg-linear-to-r from-slate-50 to-white p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h3 className="text-xl font-semibold text-slate-900">
+                Team Members
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Manage account access, profile details, and permission controls.
+              </p>
+            </div>
+            <Button icon={PlusIcon} onClick={() => setModal({ mode: 'add' })}>
+              Add Team Member
+            </Button>
           </div>
-          <Button icon={PlusIcon} onClick={() => setModal({ mode: 'add' })}>
-            Add User
-          </Button>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <div className="flex items-center gap-2 text-slate-500">
+                <UsersIcon className="h-4 w-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">
+                  Total Members
+                </span>
+              </div>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {total}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckBadgeIcon className="h-4 w-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">
+                  Active Members
+                </span>
+              </div>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {activeCount}
+              </p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <div className="flex items-center gap-2 text-red-600">
+                <UserMinusIcon className="h-4 w-4" />
+                <span className="text-xs font-medium uppercase tracking-wider">
+                  Banned Members
+                </span>
+              </div>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {bannedCount}
+              </p>
+            </div>
+          </div>
         </div>
 
         {managedUsers.length === 0 ? (
-          <div className="mx-6 mb-6 rounded-lg border border-slate-200 bg-slate-50 p-8 text-center">
-            <p className="text-sm text-slate-600">
-              No team members yet. Add your first user to get started.
+          <div className="m-6 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white">
+              <UsersIcon className="h-6 w-6 text-slate-400" />
+            </div>
+            <p className="text-sm font-medium text-slate-800">
+              No team members found
             </p>
+            <p className="mt-1 text-sm text-slate-600">
+              Add your first team member to start assigning account access.
+            </p>
+            <div className="mt-4 flex justify-center">
+              <Button icon={PlusIcon} onClick={() => setModal({ mode: 'add' })}>
+                Invite First Member
+              </Button>
+            </div>
           </div>
         ) : (
           <>
@@ -221,11 +302,12 @@ export default function TeamManagementSection() {
         user={modal && modal.mode !== 'add' ? modal.user : null}
         mode={modal?.mode ?? 'add'}
         onClose={() => setModal(null)}
-        onEdit={
-          modal?.mode === 'view'
-            ? () => setModal({ mode: 'edit', user: modal.user })
-            : undefined
-        }
+      />
+
+      <UserPermissionsModal
+        open={permissionsUser !== null}
+        user={permissionsUser}
+        onClose={() => setPermissionsUser(null)}
       />
 
       <ConfirmDialog

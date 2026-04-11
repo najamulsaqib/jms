@@ -1,6 +1,9 @@
 import { type InputHTMLAttributes } from 'react';
 
-type CheckboxFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> & {
+type CheckboxFieldProps = Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'type'
+> & {
   label: string;
   hint?: string;
 };
@@ -13,8 +16,11 @@ export default function CheckboxField({
   ...props
 }: CheckboxFieldProps) {
   return (
-    <div className={`flex items-start ${className}`}>
-      <div className="flex items-center h-5">
+    <label
+      htmlFor={id}
+      className={`flex w-full cursor-pointer items-start ${className}`}
+    >
+      <div className="flex h-5 items-center">
         <input
           id={id}
           type="checkbox"
@@ -23,11 +29,9 @@ export default function CheckboxField({
         />
       </div>
       <div className="ml-3">
-        <label htmlFor={id} className="text-sm font-medium text-slate-700">
-          {label}
-        </label>
+        <span className="text-sm font-medium text-slate-700">{label}</span>
         {hint && <p className="text-sm text-slate-500">{hint}</p>}
       </div>
-    </div>
+    </label>
   );
 }

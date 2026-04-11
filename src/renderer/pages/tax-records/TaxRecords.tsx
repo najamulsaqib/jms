@@ -631,11 +631,7 @@ export default function TaxRecordsPage() {
 
           {/* Audit Log sidebar */}
           <div className="sticky top-6">
-            <AuditLogPanel
-              module={MODULES.TAX_RECORD}
-              recordId={null}
-              perPage={5}
-            />
+            <AuditLogPanel module={MODULES.TAX_RECORD} perPage={6} />
           </div>
         </div>
         {/* end table + sidebar grid */}
