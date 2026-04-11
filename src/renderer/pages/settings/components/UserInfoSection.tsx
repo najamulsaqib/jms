@@ -85,7 +85,7 @@ function createProfileDraft(userInfo: UserInfo | null): ProfileDraft {
 
 function ProfileRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-1 gap-1 border-b border-slate-200 py-3 last:border-b-0 sm:grid-cols-[180px_minmax(0,1fr)] sm:gap-4">
+    <div className="grid grid-cols-1 gap-1 border-b border-slate-200 py-3 last:border-b-0">
       <dt className="text-sm font-medium text-slate-500">{label}</dt>
       <dd className="text-sm font-medium text-slate-900 wrap-break-word">
         {value || 'Not set'}
@@ -303,7 +303,7 @@ export default function UserInfoSection() {
       </div>
 
       {uiState.isEditing ? (
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div className="mt-6 grid gap-6 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
@@ -440,7 +440,7 @@ export default function UserInfoSection() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hidden 2xl:block">
             <p className="text-sm font-semibold text-slate-900">
               Profile preview
             </p>
@@ -497,7 +497,7 @@ export default function UserInfoSection() {
           </div>
         </div>
       ) : (
-        <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="mt-6 grid gap-6 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <p className="text-sm font-semibold text-slate-900">
               Profile table
@@ -544,7 +544,7 @@ export default function UserInfoSection() {
             </dl>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm hidden 2xl:block">
             <div className="flex items-start gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 shadow-sm">
                 <UserAvatar avatarUrl={userInfo?.avatarUrl ?? ''} size="lg" />
