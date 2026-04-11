@@ -1,6 +1,4 @@
 import { app, session } from 'electron';
-import { promises as fs } from 'fs';
-import path from 'path';
 import { ElectronBlocker } from '@ghostery/adblocker-electron';
 import { PORTAL_WEBVIEW_PARTITION } from '@shared/portalSession';
 
@@ -13,14 +11,7 @@ export async function enablePortalAdBlocking() {
   }
 
   try {
-    const blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(
-      fetchImpl,
-      {
-        path: path.join(app.getPath('userData'), 'ghostery-adblocker.bin'),
-        read: fs.readFile,
-        write: fs.writeFile,
-      },
-    );
+    const blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetchImpl);
 
     blocker.enableBlockingInSession(
       session.fromPartition(PORTAL_WEBVIEW_PARTITION),
