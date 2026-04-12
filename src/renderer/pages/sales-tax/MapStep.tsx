@@ -39,9 +39,15 @@ export default function MapStep({
       headers.map((header) => ({
         id: header,
         header,
-        render: (row) => (
-          <span className="text-slate-700 text-xs">{row[header] || '—'}</span>
-        ),
+        size: '160px',
+        render: (row) => {
+          const value = row[header] || '—';
+          return (
+            <span className="text-slate-700 text-xs" title={value}>
+              {value}
+            </span>
+          );
+        },
       })),
     [headers],
   );

@@ -1,11 +1,10 @@
 import LoadingSpinner from '@components/common/LoadingSpinner';
+import AuditLogPanel from '@components/common/AuditLogPanel';
 import AppLayout from '@components/layout/AppLayout';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
 import { Chip } from '@components/ui/Chip';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
-import SelectField from '@components/ui/SelectField';
-import TextField from '@components/ui/TextField';
 import {
   ArrowDownTrayIcon,
   ArrowLeftIcon,
@@ -25,10 +24,12 @@ import {
   UserIcon,
 } from '@heroicons/react/20/solid';
 import { useTaxRecord } from '@hooks/useTaxRecords';
+import { MODULES } from '@lib/enums';
+import { useMyPermissions } from '@hooks/useUserPermissions';
 import { decodeRecordId } from '@lib/recordId';
 import { taxRecordApi } from '@services/taxRecord.api';
 import { TaxRecord } from '@shared/taxRecord.contracts';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import PdfExportModal from './PdfExportModal';
@@ -41,6 +42,7 @@ import {
   type FormValues,
   validatePhoneEdit,
 } from './taxRecordForm.helpers';
+import TaxRecordFormFields from './TaxRecordFormFields';
 
 function recordToFormValues(
   record: TaxRecord,
@@ -72,12 +74,6 @@ function recordToFormValues(
   };
 }
 
-const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'late-filer', label: 'Late Filer' },
-];
-
 export default function TaxRecordDetailPage() {
   const { taxRecordId } = useParams<{ taxRecordId: string }>();
   const navigate = useNavigate();
@@ -93,9 +89,12 @@ export default function TaxRecordDetailPage() {
     error: queryError,
     updateTaxRecord,
     deleteTaxRecord,
+    logPdfExport,
     saving,
     deleting,
   } = useTaxRecord(parsedId);
+
+  const { permissions } = useMyPermissions();
 
   const [mode, setMode] = useState<'view' | 'edit'>('view');
   const [error, setError] = useState<string | null>(null);
@@ -299,8 +298,6 @@ export default function TaxRecordDetailPage() {
     }
   };
 
-  const allReferenceOptions = referenceOptions;
-
   return (
     <AppLayout
       breadcrumbs={[
@@ -309,7 +306,7 @@ export default function TaxRecordDetailPage() {
         { label: record?.name ?? 'Record' },
       ]}
     >
-      <div className="max-w-6xl">
+      <div>
         <button
           type="button"
           onClick={() => navigate('/tax-records')}
@@ -389,33 +386,39 @@ export default function TaxRecordDetailPage() {
               </div>
               {mode === 'view' && (
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    icon={ArrowDownTrayIcon}
-                    onClick={() => setShowPdfModal(true)}
-                  >
-                    Export PDF
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon={PencilIcon}
-                    onClick={enterEditMode}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="danger"
-                    size="sm"
-                    icon={TrashIcon}
-                    onClick={() => setPendingDelete(true)}
-                  >
-                    Delete
-                  </Button>
+                  {permissions?.canExport && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      icon={ArrowDownTrayIcon}
+                      onClick={() => setShowPdfModal(true)}
+                    >
+                      Export PDF
+                    </Button>
+                  )}
+                  {permissions?.canUpdate && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      icon={PencilIcon}
+                      onClick={enterEditMode}
+                    >
+                      Edit
+                    </Button>
+                  )}
+                  {permissions?.canDelete && (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="sm"
+                      icon={TrashIcon}
+                      onClick={() => setPendingDelete(true)}
+                    >
+                      Delete
+                    </Button>
+                  )}
                 </div>
               )}
             </div>
@@ -430,360 +433,221 @@ export default function TaxRecordDetailPage() {
 
             {/* VIEW MODE */}
             {mode === 'view' && (
-              <div className="space-y-5">
-                {/* 2-col grid: Personal Info + Account Credentials */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  {/* Personal Information */}
-                  <Card>
-                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                      <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
-                        <UserIcon className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Personal Information
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                          <UserIcon className="h-3 w-3" /> Full Name
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {record.name}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                          <IdentificationIcon className="h-3 w-3" /> CNIC
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
-                            {record.cnic}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(record.cnic, 'cnic')}
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                            title="Copy CNIC"
-                          >
-                            {copiedField === 'cnic' ? (
-                              <CheckIcon className="h-3.5 w-3.5 text-green-600" />
-                            ) : (
-                              <ClipboardIcon className="h-3.5 w-3.5" />
-                            )}
-                          </button>
+              <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-5 items-start">
+                {/* Left column: record detail cards */}
+                <div className="space-y-5">
+                  {/* 2-col grid: Personal Info + Account Credentials */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 gap-5">
+                    {/* Personal Information */}
+                    <Card>
+                      <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                        <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
+                          <UserIcon className="h-4 w-4 text-blue-600" />
                         </div>
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          Personal Information
+                        </h3>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                          <ClipboardDocumentIcon className="h-3 w-3" />{' '}
-                          Reference Number
-                        </p>
-                        <p className="text-sm font-medium text-slate-900">
-                          {record.referenceNumber}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                          <LinkIcon className="h-3 w-3" /> Reference
-                        </p>
-                        <p className="text-sm font-medium text-slate-900 capitalize">
-                          {record.reference.replace(/-/g, ' ')}
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-
-                  {/* Account Credentials */}
-                  <Card>
-                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                      <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
-                        <KeyIcon className="h-4 w-4 text-emerald-600" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Account Credentials
-                      </h3>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-5">
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                          <EnvelopeIcon className="h-3 w-3" /> Email Address
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
-                            {record.email || 'N/A'}
-                          </span>
-                          {record.email && (
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            <UserIcon className="h-3 w-3" /> Full Name
+                          </p>
+                          <p className="text-sm font-medium text-slate-900">
+                            {record.name}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            <IdentificationIcon className="h-3 w-3" /> CNIC
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                              {record.cnic}
+                            </span>
                             <button
                               type="button"
-                              onClick={() => handleCopy(record.email, 'email')}
+                              onClick={() => handleCopy(record.cnic, 'cnic')}
                               className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                              title="Copy email"
+                              title="Copy CNIC"
                             >
-                              {copiedField === 'email' ? (
+                              {copiedField === 'cnic' ? (
                                 <CheckIcon className="h-3.5 w-3.5 text-green-600" />
                               ) : (
                                 <ClipboardIcon className="h-3.5 w-3.5" />
                               )}
                             </button>
-                          )}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            <ClipboardDocumentIcon className="h-3 w-3" />{' '}
+                            Reference Number
+                          </p>
+                          <p className="text-sm font-medium text-slate-900">
+                            {record.referenceNumber}
+                          </p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            <LinkIcon className="h-3 w-3" /> Reference
+                          </p>
+                          <p className="text-sm font-medium text-slate-900 capitalize">
+                            {record.reference.replace(/-/g, ' ')}
+                          </p>
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                          <KeyIcon className="h-3 w-3" /> Password
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
-                            {showPassword
-                              ? record.password || 'N/A'
-                              : '••••••••••••'}
-                          </span>
-                          {record.password && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                                title={
-                                  showPassword
-                                    ? 'Hide password'
-                                    : 'Show password'
-                                }
-                              >
-                                {showPassword ? (
-                                  <EyeSlashIcon className="h-3.5 w-3.5" />
-                                ) : (
-                                  <EyeIcon className="h-3.5 w-3.5" />
-                                )}
-                              </button>
+                    </Card>
+
+                    {/* Account Credentials */}
+                    <Card>
+                      <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
+                        <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
+                          <KeyIcon className="h-4 w-4 text-emerald-600" />
+                        </div>
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          Account Credentials
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-5">
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            <EnvelopeIcon className="h-3 w-3" /> Email Address
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                              {record.email || 'N/A'}
+                            </span>
+                            {record.email && (
                               <button
                                 type="button"
                                 onClick={() =>
-                                  handleCopy(record.password, 'password')
+                                  handleCopy(record.email, 'email')
                                 }
                                 className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                                title="Copy password"
+                                title="Copy email"
                               >
-                                {copiedField === 'password' ? (
+                                {copiedField === 'email' ? (
                                   <CheckIcon className="h-3.5 w-3.5 text-green-600" />
                                 ) : (
                                   <ClipboardIcon className="h-3.5 w-3.5" />
                                 )}
                               </button>
-                            </>
-                          )}
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            <KeyIcon className="h-3 w-3" /> Password
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                              {showPassword
+                                ? record.password || 'N/A'
+                                : '••••••••••••'}
+                            </span>
+                            {record.password && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                                  title={
+                                    showPassword
+                                      ? 'Hide password'
+                                      : 'Show password'
+                                  }
+                                >
+                                  {showPassword ? (
+                                    <EyeSlashIcon className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <EyeIcon className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleCopy(record.password, 'password')
+                                  }
+                                  className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                                  title="Copy password"
+                                >
+                                  {copiedField === 'password' ? (
+                                    <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                                  ) : (
+                                    <ClipboardIcon className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
+                            <PhoneIcon className="h-3 w-3" /> Phone Number
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
+                              {record.phone || 'N/A'}
+                            </span>
+                            {record.phone && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  handleCopy(record.phone, 'phone')
+                                }
+                                className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
+                                title="Copy phone"
+                              >
+                                {copiedField === 'phone' ? (
+                                  <CheckIcon className="h-3.5 w-3.5 text-green-600" />
+                                ) : (
+                                  <ClipboardIcon className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-[12px] font-medium text-slate-400 uppercase tracking-wide flex items-center gap-1">
-                          <PhoneIcon className="h-3 w-3" /> Phone Number
-                        </p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm font-mono text-slate-900 bg-slate-50 px-2 py-1 rounded border border-slate-200 flex-1 select-all">
-                            {record.phone || 'N/A'}
-                          </span>
-                          {record.phone && (
-                            <button
-                              type="button"
-                              onClick={() => handleCopy(record.phone, 'phone')}
-                              className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
-                              title="Copy phone"
-                            >
-                              {copiedField === 'phone' ? (
-                                <CheckIcon className="h-3.5 w-3.5 text-green-600" />
-                              ) : (
-                                <ClipboardIcon className="h-3.5 w-3.5" />
-                              )}
-                            </button>
-                          )}
+                    </Card>
+                  </div>
+
+                  {/* Additional Notes */}
+                  {record.notes && (
+                    <Card>
+                      <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
+                        <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
+                          <DocumentTextIcon className="h-4 w-4 text-amber-600" />
                         </div>
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          Additional Notes
+                        </h3>
                       </div>
-                    </div>
-                  </Card>
+                      <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {record.notes}
+                      </p>
+                    </Card>
+                  )}
                 </div>
 
-                {/* Additional Notes */}
-                {record.notes && (
-                  <Card>
-                    <div className="flex items-center gap-2 mb-4 pb-4 border-b border-slate-100">
-                      <div className="w-7 h-7 rounded-md bg-amber-50 flex items-center justify-center shrink-0">
-                        <DocumentTextIcon className="h-4 w-4 text-amber-600" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Additional Notes
-                      </h3>
-                    </div>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                      {record.notes}
-                    </p>
-                  </Card>
-                )}
+                {/* Right column: Activity Log */}
+                <AuditLogPanel
+                  module={MODULES.TAX_RECORD}
+                  recordId={record.referenceNumber}
+                  perPage={6}
+                />
               </div>
             )}
 
             {/* EDIT MODE */}
             {mode === 'edit' && (
               <form onSubmit={handleEditSubmit} className="space-y-5">
-                {/* Personal Info */}
-                <Card>
-                  <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                    <div className="w-7 h-7 rounded-md bg-blue-50 flex items-center justify-center shrink-0">
-                      <UserIcon className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      Personal Information
-                    </h3>
-                  </div>
-                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                    <TextField
-                      id="referenceNumber"
-                      name="referenceNumber"
-                      label="Reference Number"
-                      value={formValues.referenceNumber}
-                      onChange={handleChange}
-                      error={fieldErrors.referenceNumber}
-                      placeholder="REF-001"
-                    />
-                    <TextField
-                      id="name"
-                      name="name"
-                      label="Name"
-                      value={formValues.name}
-                      onChange={handleChange}
-                      error={fieldErrors.name}
-                      placeholder="John Doe"
-                    />
-                    <TextField
-                      id="cnic"
-                      name="cnic"
-                      label="CNIC"
-                      value={formValues.cnic}
-                      onChange={handleChange}
-                      error={fieldErrors.cnic}
-                      placeholder="XXXXXXXXXXXXX"
-                    />
-                    <TextField
-                      id="phone"
-                      name="phone"
-                      label="Phone"
-                      prefix="0092"
-                      inputMode="numeric"
-                      maxLength={10}
-                      value={formValues.phone}
-                      onChange={handleChange}
-                      error={fieldErrors.phone}
-                      placeholder="3123456789"
-                    />
-                    <SelectField
-                      id="selectedReference"
-                      label="Reference"
-                      value={formValues.selectedReference}
-                      onChange={(value) =>
-                        handleChange({
-                          target: { name: 'selectedReference', value },
-                        } as React.ChangeEvent<HTMLSelectElement>)
-                      }
-                      options={allReferenceOptions}
-                      error={fieldErrors.selectedReference}
-                    />
-                    {formValues.selectedReference ===
-                      CUSTOM_REFERENCE_VALUE && (
-                      <TextField
-                        id="customReference"
-                        name="customReference"
-                        label="Custom Reference"
-                        value={formValues.customReference}
-                        onChange={handleChange}
-                        error={fieldErrors.customReference}
-                        placeholder="Enter custom reference"
-                      />
-                    )}
-                  </div>
-                </Card>
-
-                {/* Credentials + Status */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <Card>
-                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                      <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center shrink-0">
-                        <KeyIcon className="h-4 w-4 text-emerald-600" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Account Credentials & Status
-                      </h3>
-                    </div>
-                    <div className="space-y-5">
-                      <TextField
-                        id="email"
-                        name="email"
-                        label="Email"
-                        value={formValues.email}
-                        onChange={handleChange}
-                        error={fieldErrors.email}
-                        placeholder="john@example.com"
-                      />
-                      <TextField
-                        id="password"
-                        name="password"
-                        label="Password"
-                        value={formValues.password}
-                        onChange={handleChange}
-                        error={fieldErrors.password}
-                        placeholder="Enter password"
-                      />
-                      <SelectField
-                        id="status"
-                        label="Status"
-                        value={formValues.status}
-                        onChange={(value) =>
-                          handleChange({
-                            target: { name: 'status', value },
-                          } as React.ChangeEvent<HTMLSelectElement>)
-                        }
-                        options={STATUS_OPTIONS}
-                        error={fieldErrors.status}
-                      />
-                    </div>
-                  </Card>
-
-                  <Card>
-                    <div className="flex items-center gap-2 mb-5 pb-4 border-b border-slate-100">
-                      <div className="w-7 h-7 rounded-md bg-slate-100 flex items-center justify-center shrink-0">
-                        <ClipboardDocumentIcon className="h-4 w-4 text-slate-600" />
-                      </div>
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        Notes
-                      </h3>
-                    </div>
-                    <div className="space-y-5">
-                      <textarea
-                        id="notes"
-                        name="notes"
-                        value={formValues.notes}
-                        onChange={handleChange}
-                        rows={10}
-                        maxLength={5000}
-                        className="block w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
-                        placeholder="Additional notes..."
-                      />
-                      <div className="flex items-center justify-between mt-1.5">
-                        {fieldErrors.notes ? (
-                          <p className="text-sm text-red-600">
-                            {fieldErrors.notes}
-                          </p>
-                        ) : (
-                          <span />
-                        )}
-                        <p
-                          className={`text-xs tabular-nums ${formValues.notes.length >= 5000 ? 'text-red-500 font-medium' : formValues.notes.length >= 4500 ? 'text-amber-500' : 'text-slate-400'}`}
-                        >
-                          {formValues.notes.length} / 5000
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                </div>
+                <TaxRecordFormFields
+                  formValues={formValues}
+                  referenceOptions={referenceOptions}
+                  fieldErrors={fieldErrors}
+                  onChange={handleChange}
+                />
 
                 <div className="flex gap-3 pt-1 justify-end">
                   <Button
@@ -840,6 +704,7 @@ export default function TaxRecordDetailPage() {
           <PdfExportModal
             isOpen={showPdfModal}
             record={record}
+            onExported={logPdfExport}
             onClose={() => setShowPdfModal(false)}
           />
         )}

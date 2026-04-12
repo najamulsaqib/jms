@@ -59,7 +59,12 @@ const configuration: webpack.Configuration = {
       },
       {
         test: /\.s?(a|c)ss$/,
-        use: [MiniCssExtractPlugin.loader, 'css-loader', 'postcss-loader', 'sass-loader'],
+        use: [
+          MiniCssExtractPlugin.loader,
+          'css-loader',
+          'postcss-loader',
+          'sass-loader',
+        ],
         exclude: /\.module\.s?(c|a)ss$/,
       },
       // Fonts
@@ -128,6 +133,7 @@ const configuration: webpack.Configuration = {
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: path.join(webpackPaths.srcRendererPath, 'index.ejs'),
+      favicon: path.join(webpackPaths.rootPath, 'assets', 'icons', 'icon.ico'),
       minify: {
         collapseWhitespace: true,
         removeAttributeQuotes: true,

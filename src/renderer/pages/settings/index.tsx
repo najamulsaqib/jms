@@ -2,22 +2,32 @@
 import AppLayout from '@components/layout/AppLayout';
 import {
   UserGroupIcon,
+  UsersIcon,
   Squares2X2Icon,
   GlobeAltIcon,
 } from '@heroicons/react/24/outline';
 import { useState } from 'react';
+import { useAuth } from '@contexts/AuthContext';
 import SettingsSidebar from './components/SettingsSidebar';
 import UpdateChannelSection from './components/UpdateChannelSection';
 import UserInfoSection from './components/UserInfoSection';
 import PortalPagesSection from './components/PortalPagesSection';
+import TeamManagementSection from './components/TeamManagementSection';
 import type { SettingsSection, SectionItem } from './components/settings.types';
 
-const sections: SectionItem[] = [
+const allSections: SectionItem[] = [
   {
     id: 'users',
     label: 'Users',
     description: 'Account and profile details',
     icon: UserGroupIcon,
+  },
+  {
+    id: 'team',
+    label: 'Team Management',
+    description: 'Manage team members',
+    icon: UsersIcon,
+    adminOnly: true,
   },
   {
     id: 'portals',
@@ -34,7 +44,13 @@ const sections: SectionItem[] = [
 ];
 
 function SettingsContent() {
+  const { userInfo } = useAuth();
   const [activeSection, setActiveSection] = useState<SettingsSection>('users');
+
+  // Filter sections based on admin role
+  const sections = allSections.filter(
+    (section) => !section.adminOnly || userInfo?.isAdmin,
+  );
 
   return (
     <div className="mx-auto">
@@ -49,7 +65,7 @@ function SettingsContent() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[25%_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-6 lg:self-start">
           <SettingsSidebar
             activeSection={activeSection}
@@ -58,10 +74,11 @@ function SettingsContent() {
           />
         </aside>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {
             {
               users: <UserInfoSection />,
+              team: <TeamManagementSection />,
               portals: <PortalPagesSection />,
               updates: <UpdateChannelSection />,
             }[activeSection]

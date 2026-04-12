@@ -51,15 +51,13 @@ Spread the camelCase payload into `toSnakeCase()` — never write out snake_case
 
 ```typescript
 // Create
-supabase
-  .from('tax_records')
-  .insert(toSnakeCase({ ...payload, userId }))
+supabase.from(TABLES.TAX_RECORDS).insert(toSnakeCase({ ...payload, userId }));
 
 // Update
 supabase
-  .from('tax_records')
+  .from(TABLES.TAX_RECORDS)
   .update(toSnakeCase({ ...payload, updatedAt: new Date().toISOString() }))
-  .eq('id', id)
+  .eq('id', id);
 ```
 
 ## Auth — User Info
@@ -84,11 +82,11 @@ export type UserInfo = {
 // In any component:
 const { userInfo } = useAuth();
 
-userInfo?.fullName       // ✅
-userInfo?.email          // ✅
-userInfo?.createdAt      // ✅
-userInfo?.provider       // ✅
-user?.user_metadata?.full_name  // ❌ — user is not exposed
+userInfo?.fullName; // ✅
+userInfo?.email; // ✅
+userInfo?.createdAt; // ✅
+userInfo?.provider; // ✅
+user?.user_metadata?.full_name; // ❌ — user is not exposed
 ```
 
 Writing profile updates goes through `AuthContext.updateProfile()` which calls `toSnakeCase()` internally.
@@ -114,15 +112,74 @@ The snake_case DB column names are only used inside Supabase query builder `.eq(
 
 ```typescript
 // These are correct — query builder column references, not JS field names:
-query.eq('user_id', userId)
-query.eq('reference_number', value)
-query.order('created_at', { ascending: false })
+query.eq('user_id', userId);
+query.eq('reference_number', value);
+query.order('created_at', { ascending: false });
 ```
+
+## Enums-First Constants
+
+Do not hardcode table names, module names, audit action names, edge function names, page keys, page sizes, or intervals.
+
+```typescript
+import {
+  TABLES,
+  EDGE_FUNCTIONS,
+  MODULES,
+  AUDIT_ACTIONS,
+  AUDIT_EVENTS,
+  PAGE_KEYS,
+  PAGE_SIZE,
+  INTERVALS,
+} from '@lib/enums';
+```
+
+Use these constants in all new and refactored code:
+
+- `TABLES.*` for `supabase.from(...)`
+- `EDGE_FUNCTIONS.*` for `supabase.functions.invoke(...)`
+- `MODULES.*` for audit `module` values
+- `AUDIT_ACTIONS.*` and `AUDIT_EVENTS.*` for audit values
+- `PAGE_KEYS.*`, `PAGE_SIZE.*`, and `INTERVALS.*` in hooks and UI state/query behavior
+
+## Audit Trail Pattern (Create/Update/Delete/Bulk/Export)
+
+All mutation flows must write immutable audit entries via `auditLogApi.log(...)` from hooks/services.
+
+```typescript
+import { AUDIT_ACTIONS, AUDIT_EVENTS, MODULES } from '@lib/enums';
+import { auditLogApi, diffRecord } from '@services/auditLog.api';
+
+// Update flow example
+const changes = diffRecord(beforeRecord, afterRecord);
+if (changes) {
+  await auditLogApi.log({
+    module: MODULES.TAX_RECORD,
+    recordId: String(afterRecord.id),
+    action: AUDIT_ACTIONS.UPDATE,
+    changedByName,
+    changes,
+    snapshot: { event: AUDIT_EVENTS.BULK_STATUS_UPDATED_SELECTED },
+  });
+}
+```
+
+Rules:
+
+- Create: `AUDIT_ACTIONS.CREATE`
+- Update: `AUDIT_ACTIONS.UPDATE` + `changes` from `diffRecord(before, after)`
+- Delete: `AUDIT_ACTIONS.DELETE` + pre-delete `snapshot`
+- Bulk: `AUDIT_ACTIONS.BULK_*` + event metadata in `snapshot`
+- Export: `AUDIT_ACTIONS.EXPORT_PDF` / `AUDIT_ACTIONS.EXPORT_CSV` + `AUDIT_EVENTS.*`
+- Never let audit logging failures block the primary operation
 
 ## Checklist
 
 When adding a new Supabase table/service:
+
 - [ ] Responses wrapped in `mapRow()` using `toCamelCase()`
 - [ ] Write payloads wrapped in `toSnakeCase()`
 - [ ] No snake_case field names used in components or hooks
 - [ ] Uniqueness validated per-user (not globally)
+- [ ] Table/module/action/event values come from `@lib/enums`
+- [ ] All mutations (create/update/delete/bulk/export) write audit logs

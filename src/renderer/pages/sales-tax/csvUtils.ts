@@ -1,6 +1,9 @@
 import { REQUIRED_FIELDS } from './types';
 
-export function parseCSV(text: string): { headers: string[]; rows: string[][] } {
+export function parseCSV(text: string): {
+  headers: string[];
+  rows: string[][];
+} {
   const allRows: string[][] = [];
   let currentRow: string[] = [];
   let current = '';
@@ -37,7 +40,27 @@ export function parseCSV(text: string): { headers: string[]; rows: string[][] } 
   }
 
   if (allRows.length === 0) return { headers: [], rows: [] };
-  return { headers: allRows[0], rows: allRows.slice(1) };
+
+  const headers = allRows[0];
+  // Filter out FBR-format continuation rows — these are description overflow lines
+  // that have an empty first cell (no Registration No. / status value).
+  const dataRows = allRows.slice(1).filter((row) => row[0] !== '');
+
+  return { headers, rows: dataRows };
+}
+
+/**
+ * Extracts the pure HS code from FBR export cells that look like:
+ *   "3401.2000:-SOAP, ORGANIC SURFACE-ACTIVE AGENTS..."
+ *   ="1516.2020"
+ * Returns just the leading numeric code, e.g. "3401.2000".
+ */
+export function extractHsCode(raw: string): string {
+  const stripped = raw.replace(/[="]/g, '').trim();
+  // Take everything before the first ":- " separator
+  const sepIdx = stripped.indexOf(':-');
+  const code = sepIdx !== -1 ? stripped.slice(0, sepIdx).trim() : stripped;
+  return code;
 }
 
 export function cleanNumber(raw: string): number {
@@ -51,9 +74,16 @@ export function autoDetectMapping(headers: string[]): Record<string, string> {
   const norm = (s: string) => s.toLowerCase().replace(/[\s_\-/.]/g, '');
 
   const aliases: Record<string, string[]> = {
-    hsCode: ['hscode', 'hs', 'hscodes', 'hscode'],
+    hsCode: ['hscode', 'hs', 'hscodes'],
     quantity: ['quantity', 'qty', 'units'],
-    value: ['value', 'amount', 'totalvalue'],
+    value: [
+      'value',
+      'amount',
+      'totalvalue',
+      'valueofsalesexclst',
+      'valueofsales',
+      'valueofsalesexcl',
+    ],
     salesTax: [
       'salestaxfedinstmode',
       'salestax',

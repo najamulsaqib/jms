@@ -19,6 +19,8 @@ Key rules to internalize before writing any code:
 - **No raw `<button>` for actions** — use `Button`, `IconButton`, or `DropdownMenu`
 - **All components are default exports** — `import Button from '@components/ui/Button'`, never `import { Button }`
 - **All Supabase data is camelCase on the frontend** — use `toCamelCase` / `toSnakeCase` from `src/renderer/lib/caseTransform.ts`
+- **Use enums/constants for all core values** — import `TABLES`, `EDGE_FUNCTIONS`, `MODULES`, `AUDIT_ACTIONS`, `AUDIT_EVENTS`, `PAGE_KEYS`, `PAGE_SIZE`, `INTERVALS` from `@lib/enums` (no hardcoded strings for these)
+- **Audit trail is mandatory for all module mutations** — log create/update/delete/bulk/export actions via `auditLogApi.log(...)` using enum-backed `module` and `action` values
 - **HeadlessUI is internal only** — used inside `DropdownMenu` and `Modal`, do not import it directly in pages/new components
 - **Icons only from `@heroicons/react`** — `/20/solid` for compact, `/24/outline` or `/24/solid` for standard
 

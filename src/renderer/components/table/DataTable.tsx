@@ -15,7 +15,8 @@ export type DataTableColumn<T> = {
   sortable?: boolean;
   align?: 'left' | 'center' | 'right';
   size?: string | number;
-  pinned?: boolean;
+  /** `true` is treated as `'left'` for backwards compatibility */
+  pinned?: 'left' | 'right' | boolean;
   className?: string;
   render: (row: T) => ReactNode;
 };
@@ -37,14 +38,55 @@ const alignClasses = {
   right: 'text-right',
 };
 
-function getColumnSizeStyle<T>({
-  size,
-}: DataTableColumn<T>): CSSProperties | undefined {
-  if (size === undefined) {
-    return undefined;
+function getPinnedSide(
+  pinned: DataTableColumn<unknown>['pinned'],
+): 'left' | 'right' | null {
+  if (!pinned) return null;
+  if (pinned === true) return 'left';
+  return pinned;
+}
+
+function parsePx(size: string | number | undefined): number {
+  if (size === undefined) return 0;
+  if (typeof size === 'number') return size;
+  const m = size.match(/^(\d+(?:\.\d+)?)px$/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
+/** Pre-compute sticky offsets for all pinned columns. */
+function buildPinOffsets<T>(
+  columns: DataTableColumn<T>[],
+): Record<string, number> {
+  const offsets: Record<string, number> = {};
+
+  // Left-pinned: accumulate left-to-right
+  let cumLeft = 0;
+  for (const col of columns) {
+    if (getPinnedSide(col.pinned) === 'left') {
+      offsets[col.id] = cumLeft;
+      cumLeft += parsePx(col.size);
+    }
   }
 
-  const resolvedSize = typeof size === 'number' ? `${size}px` : size;
+  // Right-pinned: accumulate right-to-left (last column in array = rightmost)
+  let cumRight = 0;
+  for (const col of [...columns].reverse()) {
+    if (getPinnedSide(col.pinned) === 'right') {
+      offsets[col.id] = cumRight;
+      cumRight += parsePx(col.size);
+    }
+  }
+
+  return offsets;
+}
+
+function getColumnSizeStyle<T>(
+  column: DataTableColumn<T>,
+): CSSProperties | undefined {
+  if (column.size === undefined) return undefined;
+
+  const resolvedSize =
+    typeof column.size === 'number' ? `${column.size}px` : column.size;
 
   return {
     width: resolvedSize,
@@ -89,6 +131,20 @@ function SortIcon({
   );
 }
 
+function getPinnedClasses(
+  pinned: DataTableColumn<unknown>['pinned'],
+  isHeader: boolean,
+): string {
+  const side = getPinnedSide(pinned);
+  if (!side) return '';
+  const bg = isHeader ? 'bg-slate-50' : 'bg-white';
+  if (side === 'left') {
+    return `sticky z-10 ${bg} after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200`;
+  }
+  // right-pinned: shadow divider on the left edge
+  return `sticky z-10 ${bg} after:absolute after:inset-y-0 after:left-0 after:w-px after:bg-slate-200`;
+}
+
 export default function DataTable<T>({
   columns,
   rows,
@@ -99,10 +155,10 @@ export default function DataTable<T>({
   onRowClick,
   footer,
 }: DataTableProps<T>) {
+  const pinOffsets = buildPinOffsets(columns);
+
   const handleSort = (columnId: string, sortable?: boolean) => {
-    if (!sortable || !onSortChange) {
-      return;
-    }
+    if (!sortable || !onSortChange) return;
 
     const sameColumn = sortState?.key === columnId;
 
@@ -126,15 +182,20 @@ export default function DataTable<T>({
               const isSorted = sortState?.key === column.id;
               const align = column.align || 'left';
               const sizeStyle = getColumnSizeStyle(column);
-              const pinnedClasses = column.pinned
-                ? 'sticky left-0 z-10 bg-slate-50 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200'
-                : '';
+              const side = getPinnedSide(column.pinned);
+              const pinnedClasses = getPinnedClasses(column.pinned, true);
+              const pinnedStyle: CSSProperties =
+                side === 'left'
+                  ? { left: pinOffsets[column.id] }
+                  : side === 'right'
+                    ? { right: pinOffsets[column.id] }
+                    : {};
 
               return (
                 <th
                   key={column.id}
                   scope="col"
-                  style={sizeStyle}
+                  style={{ ...sizeStyle, ...pinnedStyle }}
                   className={`px-6 py-3 text-xs font-semibold uppercase tracking-wider transition-colors ${alignClasses[align]} ${isSorted ? 'text-blue-700' : 'text-slate-700'} ${pinnedClasses} ${column.className || ''}`}
                 >
                   {column.sortable ? (
@@ -169,11 +230,20 @@ export default function DataTable<T>({
                 {columns.map((column) => {
                   const align = column.align || 'left';
                   const sizeStyle = getColumnSizeStyle(column);
+                  const side = getPinnedSide(column.pinned);
+                  const pinnedClasses = getPinnedClasses(column.pinned, false);
+                  const pinnedStyle: CSSProperties =
+                    side === 'left'
+                      ? { left: pinOffsets[column.id] }
+                      : side === 'right'
+                        ? { right: pinOffsets[column.id] }
+                        : {};
+
                   return (
                     <td
                       key={`${getRowId(row)}-${column.id}`}
-                      style={sizeStyle}
-                      className={`px-6 py-4 text-sm ${alignClasses[align]} ${column.pinned ? 'sticky left-0 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-slate-200' : ''} ${column.className || ''}`}
+                      style={{ ...sizeStyle, ...pinnedStyle }}
+                      className={`px-6 py-4 text-sm ${alignClasses[align]} ${pinnedClasses} ${column.className || ''}`}
                       onClick={
                         column.id === 'actions' || column.id === 'checkbox'
                           ? (e) => e.stopPropagation()
