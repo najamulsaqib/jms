@@ -10,6 +10,7 @@ import DataTable, {
 import Pagination from '@components/table/Pagination';
 import Button from '@components/ui/Button';
 import Card from '@components/ui/Card';
+import TabBar from '@components/ui/TabBar';
 import { Chip } from '@components/ui/Chip';
 import ConfirmDialog from '@components/ui/ConfirmDialog';
 import DropdownMenu, {
@@ -26,7 +27,9 @@ import {
 import {
   ArrowDownTrayIcon,
   ArrowUpTrayIcon,
+  ClockIcon,
   FolderIcon,
+  TableCellsIcon,
   TrashIcon,
 } from '@heroicons/react/24/outline';
 import {
@@ -453,15 +456,17 @@ export default function TaxRecordsPage() {
     >
       <div className="space-y-6">
         {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex-1 min-w-0">
-            <h1 className="text-3xl font-bold text-slate-900">Tax Records</h1>
-            <p className="mt-2 text-slate-600">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-slate-900 sm:text-3xl">
+              Tax Records
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 sm:mt-2 sm:text-base">
               Manage client tax records, including reference numbers, CNICs,
               contact details, and filing status.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {dropdownMenuItems.length > 0 && (
               <DropdownMenu items={dropdownMenuItems} />
             )}
@@ -510,131 +515,143 @@ export default function TaxRecordsPage() {
           </Card>
         )}
 
-        {/* Table + Audit Log sidebar */}
-        <div className="grid grid-cols-[1fr_300px] gap-6 items-start mb-20">
-          <Card padding="none" className="min-w-0 overflow-hidden">
-            {/* Filters Bar */}
-            <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-2">
-              {/* Row 1: Search */}
-              <div className="flex items-center gap-2">
-                <SelectField
-                  id="searchField"
-                  value={searchField}
-                  onChange={(value) => {
-                    setSearchField(value as SearchField);
-                    setSearchQuery('');
-                    resetPage();
-                  }}
-                  options={SEARCH_FIELD_OPTIONS}
-                  size="sm"
-                  className="shrink-0 w-36"
-                />
-                <div className="relative flex-1 min-w-0">
-                  <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
+        {/* Records / Activity Log tab switcher */}
+        <TabBar
+          tabs={[
+            { id: 'records', label: 'Records', icon: TableCellsIcon },
+            { id: 'activity', label: 'Activity Log', icon: ClockIcon },
+          ]}
+          variant="underline"
+          className="mb-20"
+        >
+          {(activeId) => (
+            <>
+              {activeId === 'records' && (
+                <Card padding="none" className="min-w-0 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-200 bg-slate-50 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <SelectField
+                        id="searchField"
+                        value={searchField}
+                        onChange={(value) => {
+                          setSearchField(value as SearchField);
+                          setSearchQuery('');
+                          resetPage();
+                        }}
+                        options={SEARCH_FIELD_OPTIONS}
+                        size="sm"
+                        className="shrink-0 w-36"
+                      />
+                      <div className="relative flex-1 min-w-0">
+                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                          <MagnifyingGlassIcon className="h-4 w-4 text-slate-400" />
+                        </div>
+                        <input
+                          id="search"
+                          type="text"
+                          placeholder={SEARCH_FIELD_PLACEHOLDER[searchField]}
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="block w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Row 2: Filters */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <SelectField
+                        id="referenceFilter"
+                        multiple
+                        value={referenceFilter}
+                        onChange={(values) => {
+                          setReferenceFilter(values.includes('') ? [] : values);
+                          resetPage();
+                        }}
+                        options={referenceOptions}
+                        placeholder="All References"
+                        size="sm"
+                        className="flex-1 min-w-32"
+                      />
+                      <SelectField
+                        id="statusFilter"
+                        multiple
+                        value={statusFilter}
+                        onChange={(values) => {
+                          setStatusFilter(values.includes('') ? [] : values);
+                          resetPage();
+                        }}
+                        options={[
+                          { value: '', label: 'All Statuses' },
+                          { value: 'active', label: 'Active' },
+                          { value: 'inactive', label: 'Inactive' },
+                          { value: 'late-filer', label: 'Late Filer' },
+                        ]}
+                        placeholder="All Statuses"
+                        size="sm"
+                        className="flex-1 min-w-28"
+                      />
+                      {hasActiveFilters && (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          icon={XMarkIcon}
+                          onClick={clearFilters}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <input
-                    id="search"
-                    type="text"
-                    placeholder={SEARCH_FIELD_PLACEHOLDER[searchField]}
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="block w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-colors"
+
+                  {/* Table */}
+                  {loading ? (
+                    <div className="py-12">
+                      <LoadingSpinner className="py-4" size="lg" />
+                      <p className="text-center text-slate-600 mt-4">
+                        Loading records...
+                      </p>
+                    </div>
+                  ) : (
+                    <DataTable
+                      columns={columns}
+                      rows={records}
+                      getRowId={(row) => row.id}
+                      sortState={sortState}
+                      onSortChange={(next) => {
+                        setSortState(next);
+                        resetPage();
+                      }}
+                      onRowClick={(row) =>
+                        navigate(`/tax-records/${encodeRecordId(row.id)}`)
+                      }
+                    />
+                  )}
+
+                  {/* Pagination */}
+                  <Pagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={total}
+                    onPageChange={setPage}
+                    onPageSizeChange={(size) => {
+                      setPageSize(size);
+                      setPage(0);
+                    }}
                   />
-                </div>
-              </div>
+                </Card>
+              )}
 
-              {/* Row 2: Filters */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <SelectField
-                  id="referenceFilter"
-                  multiple
-                  value={referenceFilter}
-                  onChange={(values) => {
-                    // Empty string is the "All References" sentinel — clicking it clears all selections
-                    setReferenceFilter(values.includes('') ? [] : values);
-                    resetPage();
-                  }}
-                  options={referenceOptions}
-                  placeholder="All References"
-                  size="sm"
-                  className="flex-1 min-w-32"
+              {activeId === 'activity' && (
+                <AuditLogPanel
+                  variant="minimal"
+                  module={MODULES.TAX_RECORD}
+                  perPage={15}
                 />
-                <SelectField
-                  id="statusFilter"
-                  multiple
-                  value={statusFilter}
-                  onChange={(values) => {
-                    setStatusFilter(values.includes('') ? [] : values);
-                    resetPage();
-                  }}
-                  options={[
-                    { value: '', label: 'All Statuses' },
-                    { value: 'active', label: 'Active' },
-                    { value: 'inactive', label: 'Inactive' },
-                    { value: 'late-filer', label: 'Late Filer' },
-                  ]}
-                  placeholder="All Statuses"
-                  size="sm"
-                  className="flex-1 min-w-28"
-                />
-                {hasActiveFilters && (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    icon={XMarkIcon}
-                    onClick={clearFilters}
-                  >
-                    Clear
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Table */}
-            {loading ? (
-              <div className="py-12">
-                <LoadingSpinner className="py-4" size="lg" />
-                <p className="text-center text-slate-600 mt-4">
-                  Loading records...
-                </p>
-              </div>
-            ) : (
-              <DataTable
-                columns={columns}
-                rows={records}
-                getRowId={(row) => row.id}
-                sortState={sortState}
-                onSortChange={(next) => {
-                  setSortState(next);
-                  resetPage();
-                }}
-                onRowClick={(row) =>
-                  navigate(`/tax-records/${encodeRecordId(row.id)}`)
-                }
-              />
-            )}
-
-            {/* Pagination */}
-            <Pagination
-              page={page}
-              pageSize={pageSize}
-              total={total}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(0);
-              }}
-            />
-          </Card>
-
-          {/* Audit Log sidebar */}
-          <div className="sticky top-6">
-            <AuditLogPanel module={MODULES.TAX_RECORD} perPage={6} />
-          </div>
-        </div>
-        {/* end table + sidebar grid */}
+              )}
+            </>
+          )}
+        </TabBar>
 
         {/* CSV Export Modal */}
         <CsvExportModal

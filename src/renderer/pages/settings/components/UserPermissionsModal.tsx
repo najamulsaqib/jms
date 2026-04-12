@@ -124,7 +124,8 @@ export default function UserPermissionsModal({
           ? `Configure access controls for ${user.fullName || user.email}`
           : 'Configure access controls'
       }
-      size="md"
+      size="sm"
+      maxHeight="max-h-[85vh]"
       footer={
         <div className="flex gap-3">
           <Button
@@ -159,21 +160,18 @@ export default function UserPermissionsModal({
           onSubmit={handleSubmit}
           className="space-y-4"
         >
-          <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-3">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
             <div className="flex items-start gap-2">
-              <ShieldCheckIcon className="mt-0.5 h-4 w-4 text-blue-600" />
-              <p className="text-sm text-blue-800">
+              <ShieldCheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" />
+              <p className="text-xs text-blue-800">
                 Permission changes take effect immediately for this team member.
               </p>
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-slate-100">
             {PERMISSION_FIELDS.map(({ key, label, hint }) => (
-              <div
-                key={key}
-                className="rounded-lg border border-slate-200 bg-white p-3"
-              >
+              <div key={key} className="py-2.5">
                 <CheckboxField
                   id={`permission-${key}`}
                   label={label}

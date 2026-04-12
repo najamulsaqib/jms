@@ -26,6 +26,9 @@ type AuditLogPanelProps = {
   recordId?: string | number | null;
   perPage?: number;
   title?: string;
+  /** default — full cards with icon, details, and pagination
+   *  minimal — compact one-liner rows, same modal on click */
+  variant?: 'default' | 'minimal';
 };
 
 type ActionStyle = {
@@ -246,6 +249,49 @@ function AuditEntry({
   );
 }
 
+function MinimalAuditEntry({
+  log,
+  onOpen,
+}: {
+  log: AuditLog;
+  onOpen: (log: AuditLog) => void;
+}) {
+  const style = getStyle(log.action);
+  const { Icon } = style;
+  const snapshotName =
+    typeof log.snapshot?.name === 'string' ? log.snapshot.name : null;
+  const snapshotCnic =
+    typeof log.snapshot?.cnic === 'string' ? log.snapshot.cnic : null;
+  const actorName = log.changedByName ?? snapshotName ?? 'Unknown user';
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(log)}
+      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-violet-500 cursor-pointer"
+    >
+      <span
+        className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${style.className}`}
+      >
+        <Icon className="h-3 w-3" />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm text-slate-700">
+        <span className="font-medium text-slate-900">{actorName}</span>{' '}
+        {getActionSentence(log)}
+        {snapshotName && (
+          <span className="text-slate-400"> · {snapshotName}</span>
+        )}
+        {snapshotCnic && (
+          <span className="text-slate-400"> · {snapshotCnic}</span>
+        )}
+      </span>
+      <span className="shrink-0 text-xs text-slate-400">
+        {formatRelativeTime(log.createdAt)}
+      </span>
+    </button>
+  );
+}
+
 function DetailCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -281,6 +327,7 @@ export default function AuditLogPanel({
   recordId = null,
   perPage = 5,
   title = 'Activity Log',
+  variant = 'default',
 }: AuditLogPanelProps) {
   const { logs, loading, page, totalPages, total, setPage } = useAuditLog(
     module,
@@ -316,6 +363,45 @@ export default function AuditLogPanel({
           <p className="text-sm text-slate-400 text-center py-6">
             No activity recorded yet.
           </p>
+        ) : variant === 'minimal' ? (
+          <>
+            <div className="divide-y divide-slate-100">
+              {logs.map((log) => (
+                <MinimalAuditEntry
+                  key={log.id}
+                  log={log}
+                  onOpen={setSelectedLog}
+                />
+              ))}
+            </div>
+            {totalPages > 1 && (
+              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={ChevronLeftIcon}
+                  disabled={page === 1}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Prev
+                </Button>
+                <span className="text-xs text-slate-400">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  icon={ChevronRightIcon}
+                  disabled={page === totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
         ) : (
           <>
             <div className="space-y-3">
@@ -378,7 +464,7 @@ export default function AuditLogPanel({
               />
             </div>
 
-            <div className="grid gap-5 lg:grid-cols-2 h-150">
+            <div className="grid gap-5 lg:grid-cols-2 h-[40vh]">
               {selectedLog.snapshot && (
                 <SectionCard title="Snapshot">
                   <JsonHighlight value={selectedLog.snapshot} />

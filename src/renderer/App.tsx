@@ -7,10 +7,11 @@ import TaxRecordDetailPage from '@pages/tax-records/TaxRecordDetail';
 import TaxRecordFormPage from '@pages/tax-records/TaxRecordForm';
 import TaxRecordsPage from '@pages/tax-records/TaxRecords';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { Route, HashRouter as Router, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { TabProvider } from './contexts/TabContext';
+import { TabProvider, useTab } from './contexts/TabContext';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { queryClient } from './lib/queryClient';
 import LoginPage from './pages/auth/Login';
@@ -20,6 +21,17 @@ import './styles.css';
 
 function AppRoutes() {
   const { session, loading } = useAuth();
+  const { closeAllTabs } = useTab();
+  const prevSession = useRef(session);
+
+  useEffect(() => {
+    const wasLoggedIn = prevSession.current !== null;
+    prevSession.current = session;
+    if (wasLoggedIn && session === null) {
+      closeAllTabs();
+      window.location.hash = '/';
+    }
+  }, [session, closeAllTabs]);
 
   if (loading) {
     return (
