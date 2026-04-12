@@ -15,7 +15,7 @@ export interface DropdownMenuItem {
 interface DropdownMenuProps {
   items: DropdownMenuItem[];
   buttonLabel?: string;
-  buttonVariant?: 'icon' | 'text';
+  buttonVariant?: 'icon' | 'text' | 'ghost';
 }
 
 export default function DropdownMenu({
@@ -25,19 +25,28 @@ export default function DropdownMenu({
 }: DropdownMenuProps) {
   return (
     <Menu as="div" className="relative inline-block text-left">
-      <MenuButton className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all">
-        {buttonVariant === 'icon' ? (
+      {buttonVariant === 'ghost' ? (
+        <MenuButton className="inline-flex items-center justify-center rounded-md p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all">
           <EllipsisHorizontalIcon
-            className="h-5 w-5 text-slate-600"
+            className="h-5 w-5"
             aria-label={buttonLabel}
           />
-        ) : (
-          <>
-            <span>{buttonLabel}</span>
-            <EllipsisHorizontalIcon className="h-4 w-4 text-slate-500" />
-          </>
-        )}
-      </MenuButton>
+        </MenuButton>
+      ) : (
+        <MenuButton className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-all">
+          {buttonVariant === 'icon' ? (
+            <EllipsisHorizontalIcon
+              className="h-5 w-5 text-slate-600"
+              aria-label={buttonLabel}
+            />
+          ) : (
+            <>
+              <span>{buttonLabel}</span>
+              <EllipsisHorizontalIcon className="h-4 w-4 text-slate-500" />
+            </>
+          )}
+        </MenuButton>
+      )}
 
       <MenuItems
         transition

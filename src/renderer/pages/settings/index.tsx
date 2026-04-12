@@ -65,7 +65,7 @@ function SettingsContent() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[25%_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
         <aside className="lg:sticky lg:top-6 lg:self-start">
           <SettingsSidebar
             activeSection={activeSection}
@@ -74,7 +74,7 @@ function SettingsContent() {
           />
         </aside>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           {
             {
               users: <UserInfoSection />,

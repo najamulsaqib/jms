@@ -79,6 +79,46 @@ export default function TeamManagementSection() {
 
   const columns: DataTableColumn<ManagedUser>[] = [
     {
+      id: 'actions',
+      header: '',
+      align: 'right',
+      pinned: 'left',
+      render: (user) => (
+        <DropdownMenu
+          buttonVariant="ghost"
+          items={[
+            {
+              label: 'View Profile',
+              icon: UserIcon,
+              onClick: () => setModal({ mode: 'view', user }),
+            },
+            {
+              label: 'Edit Details',
+              icon: PencilSquareIcon,
+              onClick: () => setModal({ mode: 'edit', user }),
+            },
+            {
+              label: 'Manage Permissions',
+              icon: ShieldCheckIcon,
+              onClick: () => setPermissionsUser(user),
+              divider: true,
+            },
+            {
+              label: user.isBanned ? 'Unban User' : 'Ban User',
+              icon: NoSymbolIcon,
+              onClick: () => setBanConfirmUser(user),
+            },
+            {
+              label: 'Delete User',
+              icon: TrashIcon,
+              variant: 'danger',
+              onClick: () => setDeleteConfirmUser(user),
+            },
+          ]}
+        />
+      ),
+    },
+    {
       id: 'member',
       header: 'Member',
       render: (user) => (
@@ -142,44 +182,6 @@ export default function TeamManagementSection() {
           day: 'numeric',
           year: 'numeric',
         }),
-    },
-    {
-      id: 'actions',
-      header: '',
-      align: 'right',
-      render: (user) => (
-        <DropdownMenu
-          items={[
-            {
-              label: 'View Profile',
-              icon: UserIcon,
-              onClick: () => setModal({ mode: 'view', user }),
-            },
-            {
-              label: 'Edit Details',
-              icon: PencilSquareIcon,
-              onClick: () => setModal({ mode: 'edit', user }),
-            },
-            {
-              label: 'Manage Permissions',
-              icon: ShieldCheckIcon,
-              onClick: () => setPermissionsUser(user),
-              divider: true,
-            },
-            {
-              label: user.isBanned ? 'Unban User' : 'Ban User',
-              icon: NoSymbolIcon,
-              onClick: () => setBanConfirmUser(user),
-            },
-            {
-              label: 'Delete User',
-              icon: TrashIcon,
-              variant: 'danger',
-              onClick: () => setDeleteConfirmUser(user),
-            },
-          ]}
-        />
-      ),
     },
   ];
 
